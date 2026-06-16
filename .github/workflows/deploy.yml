@@ -4,16 +4,21 @@ on:
   push:
     branches: [main]
 
+# Añadimos la variable global para aceptar el cambio a Node 24 de hoy
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # Forzamos el uso de las últimas versiones estables
       - uses: actions/checkout@v4
-
+      
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '24' # Mantenemos tu proyecto en Node 24
           cache: 'npm'
 
       - name: Instalar dependencias
@@ -22,6 +27,7 @@ jobs:
       - name: Compilar proyecto
         run: npm run build
 
+      # Actualizado a la última versión para evitar conflictos con Node 24
       - name: Desplegar a GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
