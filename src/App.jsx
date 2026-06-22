@@ -738,6 +738,7 @@ export default function App() {
   const [viewIssue,setViewIssue]=useState(null);
   const [showCicloForm,setShowCicloForm]=useState(false);
   const [editCiclo,setEditCiclo]=useState(null);
+  const [expandedCiclos,setExpandedCiclos]=useState({});
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [storageWarn,setStorageWarn]=useState(false);
   const dragIndex=useRef(null);
@@ -1275,7 +1276,11 @@ export default function App() {
                     <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Ciclos de Prueba</h2>
                     <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>{ciclos.length} ciclos · Trazabilidad completa por TC</p>
                   </div>
-                  <Btn onClick={()=>{setEditCiclo(null);setShowCicloForm(true);}}>+ Nuevo Ciclo</Btn>
+                  <div style={{display:"flex",gap:8}}>
+                    <Btn small variant="ghost" onClick={()=>setExpandedCiclos(ciclos.reduce((a,c)=>({...a,[c.id]:true}),{}))}>↕ Expandir todos</Btn>
+                    <Btn small variant="ghost" onClick={()=>setExpandedCiclos({})}>↕ Colapsar todos</Btn>
+                    <Btn onClick={()=>{setEditCiclo(null);setShowCicloForm(true);}}>+ Nuevo Ciclo</Btn>
+                  </div>
                 </div>
 
                 {ciclos.length===0&&(
@@ -1287,6 +1292,7 @@ export default function App() {
                 )}
 
                 {ciclos.map(ciclo=>{
+                  const isExpanded=expandedCiclos[ciclo.id]!==false; // default expanded
                   const ejecs=ciclo.ejecuciones||[];
                   const aprobados=ejecs.filter(e=>e.estado==="Aprobado").length;
                   const fallidos=ejecs.filter(e=>e.estado==="Fallido").length;
@@ -1322,9 +1328,16 @@ export default function App() {
                           )}
                           <button onClick={()=>{setEditCiclo(ciclo);setShowCicloForm(true);}} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:6,color:"#fff",padding:"5px 10px",cursor:"pointer",fontSize:12}}>✏️ Editar</button>
                           <button onClick={()=>setConfirmDelete({type:"ciclo",id:ciclo.id})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:6,color:"#fff",padding:"5px 8px",cursor:"pointer",fontSize:12}}>🗑️</button>
+                          <button
+                            onClick={()=>setExpandedCiclos(prev=>({...prev,[ciclo.id]:!isExpanded}))}
+                            style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:6,color:"#fff",padding:"5px 12px",cursor:"pointer",fontSize:13,fontWeight:700,minWidth:36}}>
+                            {isExpanded?"▲ Ocultar":"▼ Ver TCs"}
+                          </button>
                         </div>
                       </div>
 
+                      {/* Stats chips + table — colapsable */}
+                      {isExpanded&&(<>
                       {/* Stats chips */}
                       <div style={{padding:"10px 20px",display:"flex",gap:8,flexWrap:"wrap",borderBottom:`1px solid ${DM.cardBorder}`,alignItems:"center"}}>
                         <span style={{fontSize:12,color:DM.sub}}><strong style={{color:DM.text}}>{ejecs.length}</strong> TCs</span>
@@ -1393,6 +1406,7 @@ export default function App() {
                           Sin TCs asignados. Usa el selector de arriba para agregar casos a este ciclo.
                         </div>
                       )}
+                      </>)}
                     </div>
                   );
                 })}
