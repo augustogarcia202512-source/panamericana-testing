@@ -22,6 +22,8 @@ const severityConfig = { "Critical":"#C0392B","High":"#E74C3C","Medium":"#F39C12
 const COLORS = ["#C0392B","#2980B9","#16A085","#8E44AD","#D35400","#2C3E50","#27AE60","#F39C12"];
 const EMPTY_TC = { area:"",proceso:"",escenario:"",descripcion:"",pasos:"",resultado:"",fechaAprobacion:"",fechaEjecucion:"",estado:"No ejecutado",asignadoA:"",attachments:[],historial:[],comentarios:[] };
 const EMPTY_ISSUE = { testId:"",escenario:"",formulario:"",observacion:"",modulo:"",estado:"Open",severidad:"Medium",prioridad:"Medium",fechaCreacion:"",attachments:[] };
+const EMPTY_CICLO = { nombre:"",modulo:"",fechaInicio:"",fechaFin:"",descripcion:"",ejecuciones:[] };
+// ejecucion: { tcId, estado, fechaEjecucion, nota }
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 const seedProjects = [{
@@ -36,6 +38,18 @@ const seedProjects = [{
   issues:[
     { id:1,testId:"TC-01",escenario:"Distribución de ajustes de comprobantes",formulario:"Distribución de ajustes",observacion:"Con productos no inventariados, está tomando la moneda de parámetros incorrecta. La columna NIT no se visualiza de manera consistente.",modulo:"Compras a pagos",estado:"Closed",severidad:"Medium",prioridad:"High",fechaCreacion:"05/05/2026",attachments:[] },
     { id:2,testId:"TC-04",escenario:"Registro comprobantes de Cuentas por pagar",formulario:"NP0575 Comprobantes",observacion:"Error al seleccionar comprobante: 'Invalid column name NP0575'.",modulo:"Compras a pagos",estado:"Open",severidad:"High",prioridad:"Critical",fechaCreacion:"06/05/2026",attachments:[] },
+  ],
+  ciclos:[
+    { id:"ciclo-1", nombre:"Ciclo 1", modulo:"Compras", fechaInicio:"2026-05-01", fechaFin:"2026-05-21", descripcion:"Primera ejecución módulo Compras",
+      ejecuciones:[
+        {tcId:"TC-01",estado:"Aprobado",fechaEjecucion:"21/05/2026",nota:""},
+        {tcId:"TC-02",estado:"Aprobado",fechaEjecucion:"21/05/2026",nota:""},
+        {tcId:"TC-04",estado:"Fallido",fechaEjecucion:"21/05/2026",nota:"Error en generación de pago"},
+      ]},
+    { id:"ciclo-2", nombre:"Ciclo 2", modulo:"Compras", fechaInicio:"2026-05-22", fechaFin:"2026-05-30", descripcion:"Re-ejecución casos fallidos",
+      ejecuciones:[
+        {tcId:"TC-04",estado:"No ejecutado",fechaEjecucion:"",nota:""},
+      ]},
   ],
 }];
 
@@ -79,7 +93,7 @@ function Btn({children,onClick,variant="primary",small,danger,disabled,style:ext
 function Field({label,children}) {
   return <div style={{display:"flex",flexDirection:"column",gap:5}}><label style={{fontSize:11,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</label>{children}</div>;
 }
-const inputStyle={border:"1px solid #e0e0e0",borderRadius:8,padding:"10px 13px",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit",background:"#fff",fontWeight:500};
+const inputStyle={border:"1px solid #e0e0e0",borderRadius:8,padding:"9px 12px",fontSize:13,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit",background:"#fff"};
 const inputStyleDark={...inputStyle,background:"#2C2C2E",border:"1px solid #444",color:"#eee"};
 
 function Modal({children,onClose,wide,preventOutsideClose}) {
@@ -96,8 +110,8 @@ function ModalHeader({title,sub,onClose}) {
   return (
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22}}>
       <div>
-        <h3 style={{margin:0,fontSize:20,fontWeight:800,color:"var(--text-primary,#1a1a1a)",letterSpacing:"-0.3px"}}>{title}</h3>
-        {sub&&<p style={{margin:"6px 0 0",fontSize:13,color:"#999",fontWeight:500}}>{sub}</p>}
+        <h3 style={{margin:0,fontSize:18,fontWeight:800,color:"var(--text-primary,#1a1a1a)"}}>{title}</h3>
+        {sub&&<p style={{margin:"3px 0 0",fontSize:12,color:"#aaa"}}>{sub}</p>}
       </div>
       <button onClick={onClose} style={{background:"#f0f0f0",border:"none",borderRadius:8,padding:"5px 11px",cursor:"pointer",fontSize:17}}>✕</button>
     </div>
@@ -307,7 +321,7 @@ function exportDashboardPDF(proj, stats, issueStats, execPct) {
 <html><head><meta charset="utf-8">
 <title>Dashboard – ${name}</title>
 <style>
-  body{font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;margin:0;padding:32px;color:#222;background:#fff;line-height:1.6}
+  body{font-family:Georgia,serif;margin:0;padding:32px;color:#222;background:#fff}
   .header{background:#C0392B;color:#fff;padding:20px 28px;border-radius:10px;margin-bottom:24px}
   .brand{font-weight:900;font-size:11px;letter-spacing:.07em;background:#fff;color:#C0392B;padding:3px 10px;border-radius:4px;display:inline-block;margin-bottom:8px}
   .title{font-size:22px;font-weight:800;margin:0}
@@ -408,130 +422,6 @@ function exportDashboardPDF(proj, stats, issueStats, execPct) {
   w.document.write(html);
   w.document.close();
 }
-function exportIssuesToPDF(proj, filteredIssues) {
-  const { name, description, createdAt } = proj;
-  const dateNow = today();
-  const issues = filteredIssues && filteredIssues.length > 0 ? filteredIssues : proj.issues;
-  
-  const issueRows = issues.map(i => {
-    const sc={"Open":"#E74C3C","Closed":"#27AE60","In Progress":"#F39C12","Blocked":"#8E44AD"}[i.estado]||"#888";
-    const sv={"Critical":"#C0392B","High":"#E74C3C","Medium":"#F39C12","Low":"#27AE60"}[i.severidad]||"#888";
-    return `<tr>
-      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-family:monospace;font-weight:bold;font-size:11px;color:#C0392B">#${i.id}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:11px;font-family:monospace">${i.testId}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:11px;font-weight:600">${i.escenario}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:10px">${i.formulario||"—"}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:10px">${i.modulo}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:10px;max-width:250px">${i.observacion.slice(0,100)}${i.observacion.length>100?"…":""}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0"><span style="background:${sc}20;color:${sc};border:1px solid ${sc}40;border-radius:10px;padding:2px 8px;font-size:10px;font-weight:bold">${i.estado}</span></td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0"><span style="color:${sv};font-size:10px;font-weight:bold">${i.severidad}</span></td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:10px">${i.prioridad||"—"}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:10px">${i.fechaCreacion}</td>
-    </tr>`;
-  }).join("");
-
-  const issuesByStatus = {
-    "Open": issues.filter(i => i.estado === "Open").length,
-    "Closed": issues.filter(i => i.estado === "Closed").length,
-    "In Progress": issues.filter(i => i.estado === "In Progress").length,
-    "Blocked": issues.filter(i => i.estado === "Blocked").length
-  };
-
-  const issuesBySeverity = {
-    "Critical": issues.filter(i => i.severidad === "Critical").length,
-    "High": issues.filter(i => i.severidad === "High").length,
-    "Medium": issues.filter(i => i.severidad === "Medium").length,
-    "Low": issues.filter(i => i.severidad === "Low").length
-  };
-
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<title>Issues – ${name}</title>
-<style>
-  body{font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;margin:0;padding:32px;color:#222;background:#fff;line-height:1.6}
-  .header{background:#C0392B;color:#fff;padding:20px 28px;border-radius:10px;margin-bottom:24px}
-  .brand{font-weight:900;font-size:11px;letter-spacing:.07em;background:#fff;color:#C0392B;padding:3px 10px;border-radius:4px;display:inline-block;margin-bottom:8px}
-  .title{font-size:22px;font-weight:800;margin:0}
-  .sub{font-size:12px;opacity:.8;margin:4px 0 0}
-  .section{margin-bottom:28px}
-  .section-title{font-size:14px;font-weight:800;color:#C0392B;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #FADBD8}
-  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-  .stat-box{border-radius:8px;padding:14px;background:#f9f9f9;border:1px solid #f0f0f0;text-align:center}
-  .stat-label{font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
-  .stat-value{font-size:28px;font-weight:800}
-  table{width:100%;border-collapse:collapse;font-size:12px}
-  th{background:#C0392B;color:#fff;padding:10px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
-  td{padding:8px 10px}
-  .footer{margin-top:32px;font-size:10px;color:#bbb;text-align:center;border-top:1px solid #f0f0f0;padding-top:12px}
-  @media print{body{padding:16px}}
-</style>
-</head><body>
-<div class="header">
-  <div class="brand">PANAMERICANA</div>
-  <div class="title">Issues – ${name}</div>
-  <div class="sub">${description} · Generado: ${dateNow}</div>
-</div>
-
-<div class="section">
-  <div class="section-title">📊 Resumen de Issues</div>
-  <div class="stats-grid">
-    <div class="stat-box" style="background:#E74C3C15;border:1px solid #E74C3C30">
-      <div class="stat-label">Open</div>
-      <div class="stat-value" style="color:#E74C3C">${issuesByStatus.Open}</div>
-    </div>
-    <div class="stat-box" style="background:#F39C1215;border:1px solid #F39C1230">
-      <div class="stat-label">In Progress</div>
-      <div class="stat-value" style="color:#F39C12">${issuesByStatus["In Progress"]}</div>
-    </div>
-    <div class="stat-box" style="background:#27AE6015;border:1px solid #27AE6030">
-      <div class="stat-label">Closed</div>
-      <div class="stat-value" style="color:#27AE60">${issuesByStatus.Closed}</div>
-    </div>
-    <div class="stat-box" style="background:#8E44AD15;border:1px solid #8E44AD30">
-      <div class="stat-label">Blocked</div>
-      <div class="stat-value" style="color:#8E44AD">${issuesByStatus.Blocked}</div>
-    </div>
-  </div>
-</div>
-
-<div class="section">
-  <div class="section-title">🔴 Severidad</div>
-  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
-    <div class="stat-box" style="background:#C0392B15;border:1px solid #C0392B30">
-      <div class="stat-label">Critical</div>
-      <div class="stat-value" style="color:#C0392B">${issuesBySeverity.Critical}</div>
-    </div>
-    <div class="stat-box" style="background:#E74C3C15;border:1px solid #E74C3C30">
-      <div class="stat-label">High</div>
-      <div class="stat-value" style="color:#E74C3C">${issuesBySeverity.High}</div>
-    </div>
-    <div class="stat-box" style="background:#F39C1215;border:1px solid #F39C1230">
-      <div class="stat-label">Medium</div>
-      <div class="stat-value" style="color:#F39C12">${issuesBySeverity.Medium}</div>
-    </div>
-    <div class="stat-box" style="background:#27AE6015;border:1px solid #27AE6030">
-      <div class="stat-label">Low</div>
-      <div class="stat-value" style="color:#27AE60">${issuesBySeverity.Low}</div>
-    </div>
-  </div>
-</div>
-
-<div class="section">
-  <div class="section-title">🐛 Listado de Issues (${issues.length})</div>
-  <table>
-    <thead><tr><th>ID</th><th>TC</th><th>Escenario</th><th>Formulario</th><th>Módulo</th><th>Observación</th><th>Estado</th><th>Severidad</th><th>Prioridad</th><th>Fecha Creación</th></tr></thead>
-    <tbody>${issueRows}</tbody>
-  </table>
-</div>
-
-<div class="footer">Gestión de Issues · ${name} · ${dateNow} · Creado: ${createdAt||"—"}</div>
-<script>window.onload=()=>window.print();</script>
-</body></html>`;
-
-  const w = window.open("","_blank");
-  w.document.write(html);
-  w.document.close();
-}
 function parseCSVImport(text, existingTests) {
   const lines = text.split("\n").filter(l=>l.trim());
   if(lines.length<2) return [];
@@ -556,6 +446,34 @@ function parseCSVImport(text, existingTests) {
     });
   }
   return imported;
+}
+
+// ─── CICLO FORM MODAL ────────────────────────────────────────────────────────
+function CicloFormModal({initial,cicloId,modulosList,onSave,onClose,darkMode}) {
+  const [form,setForm]=useState(initial||{...EMPTY_CICLO});
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const IS=darkMode?inputStyleDark:inputStyle;
+  return (
+    <Modal onClose={onClose} preventOutsideClose>
+      <ModalHeader title={initial?`Editar ${cicloId}`:"Nuevo Ciclo de Prueba"} sub="Define el ciclo y su módulo" onClose={onClose}/>
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <Field label="Nombre del Ciclo"><input style={IS} value={form.nombre} onChange={e=>set("nombre",e.target.value)} placeholder="Ej: Ciclo 1, Ciclo 2 Re-prueba..."/></Field>
+        <Field label="Módulo">
+          <input style={IS} value={form.modulo} onChange={e=>set("modulo",e.target.value)} placeholder="Ej: Compras, Activos Fijos..." list="modulos-list"/>
+          <datalist id="modulos-list">{modulosList.map(m=><option key={m} value={m}/>)}</datalist>
+        </Field>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Field label="Fecha Inicio"><input style={IS} type="date" value={form.fechaInicio} onChange={e=>set("fechaInicio",e.target.value)}/></Field>
+          <Field label="Fecha Fin"><input style={IS} type="date" value={form.fechaFin} onChange={e=>set("fechaFin",e.target.value)}/></Field>
+        </div>
+        <Field label="Descripción (opcional)"><textarea style={{...IS,minHeight:60,resize:"vertical"}} value={form.descripcion} onChange={e=>set("descripcion",e.target.value)} placeholder="Objetivo del ciclo, contexto..."/></Field>
+      </div>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:20}}>
+        <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
+        <Btn onClick={()=>{if(!form.nombre.trim()||!form.modulo.trim())return alert("Nombre y módulo son requeridos");onSave(form);}}>💾 Guardar</Btn>
+      </div>
+    </Modal>
+  );
 }
 
 // ─── FORM MODALS ──────────────────────────────────────────────────────────────
@@ -783,7 +701,21 @@ function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [projects,setProjects]=useState(()=>{try{const s=localStorage.getItem("pana_projects");return s?JSON.parse(s):seedProjects;}catch{return seedProjects;}});
+  const [projects,setProjects]=useState(()=>{
+    try{
+      const s=localStorage.getItem("pana_projects");
+      if(!s) return seedProjects;
+      const parsed=JSON.parse(s);
+      // Migración: asegurar que todos los ciclos tengan ejecuciones
+      return parsed.map(p=>({
+        ...p,
+        ciclos:(p.ciclos||[]).map(c=>({
+          ...c,
+          ejecuciones:c.ejecuciones||[]
+        }))
+      }));
+    }catch{return seedProjects;}
+  });
   const [activeProjectId,setActiveProjectId]=useState(()=>{try{return localStorage.getItem("pana_active_project")||seedProjects[0].id;}catch{return seedProjects[0].id;}});
   const [tab,setTab]=useState("dashboard");
   const [filterEstado,setFilterEstado]=useState("Todos");
@@ -804,6 +736,8 @@ export default function App() {
   const [showIssueForm,setShowIssueForm]=useState(false);
   const [editIssue,setEditIssue]=useState(null);
   const [viewIssue,setViewIssue]=useState(null);
+  const [showCicloForm,setShowCicloForm]=useState(false);
+  const [editCiclo,setEditCiclo]=useState(null);
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [storageWarn,setStorageWarn]=useState(false);
   const dragIndex=useRef(null);
@@ -893,8 +827,6 @@ export default function App() {
       const arr=[...p.tests];const[m]=arr.splice(from,1);arr.splice(to,0,m);return{...p,tests:arr};
     }));
   }
-
-  // Issue reorder
   function reorderIssues(from,to){
     setProjects(ps=>ps.map(p=>{
       if(p.id!==activeProjectId)return p;
@@ -913,6 +845,69 @@ export default function App() {
   }
   function deleteIssue(id){setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,issues:p.issues.filter(i=>i.id!==id)}));setViewIssue(null);setConfirmDelete(null);}
 
+  // Ciclo CRUD
+  function saveCiclo(form){
+    setProjects(ps=>ps.map(p=>{
+      if(p.id!==activeProjectId)return p;
+      const ciclos=p.ciclos||[];
+      if(editCiclo){return{...p,ciclos:ciclos.map(c=>c.id===editCiclo.id?{...c,...form}:c)};}
+      else{const newId=`ciclo-${Date.now()}`;return{...p,ciclos:[...ciclos,{id:newId,ejecuciones:[],...form}]};}
+    }));
+    setShowCicloForm(false);setEditCiclo(null);
+  }
+  function deleteCiclo(id){
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,ciclos:(p.ciclos||[]).filter(c=>c.id!==id)}));
+    setConfirmDelete(null);
+  }
+  // Agregar TC a ciclo
+  function addTcToCiclo(cicloId, tcId){
+    setProjects(ps=>ps.map(p=>{
+      if(p.id!==activeProjectId)return p;
+      return{...p,ciclos:(p.ciclos||[]).map(c=>{
+        if(c.id!==cicloId)return c;
+        const ejecs=c.ejecuciones||[];
+        if(ejecs.find(e=>e.tcId===tcId))return c;
+        return{...c,ejecuciones:[...ejecs,{tcId,estado:"No ejecutado",fechaEjecucion:"",nota:""}]};
+      })};
+    }));
+  }
+  // Remover TC de ciclo
+  function removeTcFromCiclo(cicloId, tcId){
+    setProjects(ps=>ps.map(p=>{
+      if(p.id!==activeProjectId)return p;
+      return{...p,ciclos:(p.ciclos||[]).map(c=>c.id!==cicloId?c:{...c,ejecuciones:(c.ejecuciones||[]).filter(e=>e.tcId!==tcId)})};
+    }));
+  }
+  // Actualizar estado de ejecución en ciclo
+  function updateEjecucionEstado(cicloId, tcId, estado, nota=""){
+    setProjects(ps=>ps.map(p=>{
+      if(p.id!==activeProjectId)return p;
+      return{...p,ciclos:(p.ciclos||[]).map(c=>{
+        if(c.id!==cicloId)return c;
+        return{...c,ejecuciones:(c.ejecuciones||[]).map(e=>e.tcId===tcId?{...e,estado,fechaEjecucion:estado!=="No ejecutado"?today():e.fechaEjecucion,nota}:e)};
+      })};
+    }));
+  }
+  // Promover fallidos a nuevo ciclo
+  function promoverFallidos(cicloId){
+    const ciclo=(proj.ciclos||[]).find(c=>c.id===cicloId);
+    if(!ciclo)return;
+    const ejecs=ciclo.ejecuciones||[];
+    const fallidos=ejecs.filter(e=>e.estado==="Fallido");
+    if(!fallidos.length){alert("No hay casos fallidos en este ciclo.");return;}
+    const num=(proj.ciclos||[]).length+1;
+    const newCiclo={
+      id:`ciclo-${Date.now()}`,
+      nombre:`Ciclo ${num}`,
+      modulo:ciclo.modulo,
+      fechaInicio:"",fechaFin:"",
+      descripcion:`Re-ejecución de ${fallidos.length} caso(s) fallidos del ${ciclo.nombre}`,
+      ejecuciones:fallidos.map(e=>({tcId:e.tcId,estado:"No ejecutado",fechaEjecucion:"",nota:`Promovido desde ${ciclo.nombre}`}))
+    };
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,ciclos:[...(p.ciclos||[]),newCiclo]}));
+    alert(`✅ Ciclo ${num} creado con ${fallidos.length} caso(s) fallidos del ${ciclo.nombre}.`);
+  }
+
   // Import CSV
   function handleImportCSV(e){
     const file=e.target.files[0];if(!file)return;
@@ -928,9 +923,9 @@ export default function App() {
   }
 
   if(!proj) return (
-    <div style={{fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif',minHeight:"100vh",background:DM.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
+    <div style={{fontFamily:"Georgia,serif",minHeight:"100vh",background:DM.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
       <div style={{fontSize:48}}>📂</div>
-      <p style={{color:"#888",fontSize:16}}>No hay proyectos. Crea uno para comenzar.</p>
+      <p style={{color:"#888"}}>No hay proyectos. Crea uno para comenzar.</p>
       <Btn onClick={()=>setShowProjForm(true)}>+ Nuevo Proyecto</Btn>
       {showProjForm&&<ProjectFormModal onSave={saveProject} onClose={()=>setShowProjForm(false)}/>}
     </div>
@@ -950,9 +945,7 @@ export default function App() {
   },[tests]);
 
   const asignadosList=useMemo(()=>{const s=new Set(tests.map(t=>t.asignadoA).filter(Boolean));return["Todos",...s];},[tests]);
-
   const procesosList=useMemo(()=>{const s=new Set(tests.map(t=>t.proceso).filter(Boolean));return["Todos",...s];},[tests]);
-
   const modulosList=useMemo(()=>{const s=new Set(issues.map(i=>i.modulo).filter(Boolean));return["Todos",...s];},[issues]);
 
   function parseDate(str){if(!str)return null;const[d,m,y]=str.split("/");return new Date(`${y}-${m}-${d}`);}
@@ -991,10 +984,10 @@ export default function App() {
     });
     return modules;
   },[tests]);
-  const tabs=[{id:"dashboard",label:"📊 Dashboard"},{id:"tests",label:"🧪 Casos de Prueba"},{id:"issues",label:"🐛 Issues"}];
+  const tabs=[{id:"dashboard",label:"📊 Dashboard"},{id:"tests",label:"🧪 Casos de Prueba"},{id:"ciclos",label:"🔄 Ciclos"},{id:"issues",label:"🐛 Issues"}];
 
   return (
-    <div style={{fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif',background:DM.bg,minHeight:"100vh",color:DM.text}}>
+    <div style={{fontFamily:"Georgia,serif",background:DM.bg,minHeight:"100vh",color:DM.text}}>
       <input ref={importRef} type="file" accept=".csv" style={{display:"none"}} onChange={handleImportCSV}/>
 
       {storageWarn&&(
@@ -1010,7 +1003,7 @@ export default function App() {
           <div style={{width:220,display:"flex",flexDirection:"column",height:"100%"}}>
           <div style={{padding:"18px 16px 10px",borderBottom:"1px solid #333",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div>
-              <div style={{background:BRAND,color:"#fff",fontWeight:900,fontSize:11,padding:"4px 10px",borderRadius:5,letterSpacing:"0.07em",display:"inline-block",marginBottom:8}}>CESAR RODRIGUEZ</div>
+              <div style={{background:BRAND,color:"#fff",fontWeight:900,fontSize:11,padding:"4px 10px",borderRadius:5,letterSpacing:"0.07em",display:"inline-block",marginBottom:8}}>PANAMERICANA</div>
               <div style={{fontSize:12,color:"#888"}}>Gestión de Pruebas</div>
             </div>
           </div>
@@ -1070,8 +1063,8 @@ export default function App() {
               <div style={{display:"flex",flexDirection:"column",gap:22}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                   <div>
-                    <h2 style={{margin:0,fontSize:24,fontWeight:800,color:DM.text,letterSpacing:"-0.5px"}}>Control del Día</h2>
-                    <p style={{margin:"6px 0 0",color:DM.sub,fontSize:13,fontWeight:500}}>Resumen general · {proj.name}</p>
+                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Control del Día</h2>
+                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>Resumen general · {proj.name}</p>
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:7,alignItems:"flex-end"}}>
                     <div style={{display:"flex",gap:8}}>
@@ -1080,10 +1073,7 @@ export default function App() {
                       <Btn small variant="ghost" onClick={()=>exportToCSV(proj)}>⬇ TCs CSV</Btn>
                       <Btn small variant="ghost" onClick={()=>exportIssuesToCSV(proj)}>⬇ Issues CSV</Btn>
                     </div>
-                    <div style={{display:"flex",gap:8}}>
-                      <Btn small onClick={()=>exportDashboardPDF(proj,stats,issueStats,execPct)} style={{background:"#2980B9",color:"#fff",width:"100%"}}>📄 Dashboard PDF</Btn>
-                      <Btn small onClick={()=>exportIssuesToPDF(proj,proj.issues)} style={{background:"#8E44AD",color:"#fff",width:"100%"}}>📄 Issues PDF</Btn>
-                    </div>
+                    <Btn small onClick={()=>exportDashboardPDF(proj,stats,issueStats,execPct)} style={{background:"#2980B9",color:"#fff",width:"100%"}}>📄 Descargar PDF Dashboard</Btn>
                   </div>
                 </div>
 
@@ -1094,7 +1084,7 @@ export default function App() {
 
                 {/* stat chips */}
                 <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                  {[{label:"Total",value:tests.length,color:DM.text},{label:"Aprobado",value:stats["Aprobado"],color:"#27AE60"},{label:"En Progreso",value:stats["En Progreso"],color:"#F39C12"},{label:"Fallido",value:stats["Fallido"],color:"#E74C3C"},{label:"No ejecutado",value:stats["No ejecutado"],color:"#95A5A6"},{label:"No aplica",value:stats["No aplica"],color:"#BDC3C7"},{label:"Bloqueante",value:stats["Bloqueante"],color:"#8E44AD"}].map(s=>(
+                  {[{label:"Total",value:tests.length,color:"#222"},{label:"Aprobado",value:stats["Aprobado"],color:"#27AE60"},{label:"En Progreso",value:stats["En Progreso"],color:"#F39C12"},{label:"Fallido",value:stats["Fallido"],color:"#E74C3C"},{label:"No ejecutado",value:stats["No ejecutado"],color:"#95A5A6"},{label:"No aplica",value:stats["No aplica"],color:"#BDC3C7"},{label:"Bloqueante",value:stats["Bloqueante"],color:"#8E44AD"}].map(s=>(
                     <div key={s.label} style={{background:DM.card,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 8px #0000000a",border:`1px solid ${DM.cardBorder}`,minWidth:90}}>
                       <div style={{fontSize:10,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{s.label}</div>
                       <div style={{fontSize:28,fontWeight:800,color:s.color,lineHeight:1.1}}>{s.value}</div>
@@ -1192,8 +1182,8 @@ export default function App() {
               <div style={{display:"flex",flexDirection:"column",gap:18}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                   <div>
-                    <h2 style={{margin:0,fontSize:24,fontWeight:800,color:DM.text,letterSpacing:"-0.5px"}}>Casos de Prueba</h2>
-                    <p style={{margin:"6px 0 0",color:DM.sub,fontSize:13,fontWeight:500}}>{filteredTests.length} casos {filterProceso!=="Todos"?`· ${filterProceso}`:""}· ⠿ arrastra para reordenar · clic para ver</p>
+                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Casos de Prueba</h2>
+                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>{filteredTests.length} casos · ⠿ arrastra para reordenar · clic para ver</p>
                   </div>
                   <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                     <Btn small onClick={()=>{setEditTc(null);setShowTcForm(true);}}>+ Nuevo TC</Btn>
@@ -1214,7 +1204,7 @@ export default function App() {
                   <select value={filterProceso} onChange={e=>setFilterProceso(e.target.value)} style={{...inputStyle,width:150,padding:"7px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
                     {procesosList.map(p=><option key={p} value={p}>{p==="Todos"?"Todos los procesos":p}</option>)}
                   </select>
-                  {filterProceso!=="Todos"&&<button onClick={()=>setFilterProceso("Todos")} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#aaa"}}>✕ Limpiar</button>}
+                  {filterProceso!=="Todos"&&<button onClick={()=>setFilterProceso("Todos")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#aaa"}}>✕ Proceso</button>}
                   <div style={{display:"flex",alignItems:"center",gap:5}}>
                     <span style={{fontSize:11,color:DM.sub}}>Ejec. desde</span>
                     <input type="date" value={filterFechaDesde} onChange={e=>setFilterFechaDesde(e.target.value)} style={{...inputStyle,width:130,padding:"7px 10px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}/>
@@ -1275,15 +1265,188 @@ export default function App() {
               </div>
             )}
 
+            {/* ── CICLOS ── */}
+            {tab==="ciclos"&&(()=>{
+              const ciclos=proj.ciclos||[];
+              return(
+              <div style={{display:"flex",flexDirection:"column",gap:20}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+                  <div>
+                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Ciclos de Prueba</h2>
+                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>{ciclos.length} ciclos · Trazabilidad completa por TC</p>
+                  </div>
+                  <Btn onClick={()=>{setEditCiclo(null);setShowCicloForm(true);}}>+ Nuevo Ciclo</Btn>
+                </div>
+
+                {ciclos.length===0&&(
+                  <div style={{background:DM.card,borderRadius:12,padding:48,textAlign:"center",border:`1px solid ${DM.cardBorder}`}}>
+                    <div style={{fontSize:40,marginBottom:12}}>🔄</div>
+                    <div style={{fontSize:14,color:"#888",marginBottom:16}}>No hay ciclos creados aún</div>
+                    <Btn onClick={()=>{setEditCiclo(null);setShowCicloForm(true);}}>+ Crear primer ciclo</Btn>
+                  </div>
+                )}
+
+                {ciclos.map(ciclo=>{
+                  const ejecs=ciclo.ejecuciones||[];
+                  const aprobados=ejecs.filter(e=>e.estado==="Aprobado").length;
+                  const fallidos=ejecs.filter(e=>e.estado==="Fallido").length;
+                  const enProgreso=ejecs.filter(e=>e.estado==="En Progreso").length;
+                  const noEjec=ejecs.filter(e=>e.estado==="No ejecutado").length;
+                  const noAplica=ejecs.filter(e=>e.estado==="No aplica").length;
+                  const bloqueante=ejecs.filter(e=>e.estado==="Bloqueante").length;
+                  const execPctC=ejecs.length?Math.round(((aprobados+noAplica)/ejecs.length)*100):0;
+                  const semC=execPctC>=70?"#27AE60":execPctC>=40?"#F39C12":"#E74C3C";
+                  // TCs disponibles para agregar (que no estén ya en este ciclo)
+                  const tcsDisponibles=tests.filter(t=>!ejecs.find(e=>e.tcId===t.id));
+
+                  return(
+                    <div key={ciclo.id} style={{background:DM.card,borderRadius:14,border:`1px solid ${DM.cardBorder}`,overflow:"hidden",boxShadow:"0 2px 12px #0000000a"}}>
+                      {/* Header */}
+                      <div style={{background:proj.color,padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                          <div style={{background:"rgba(255,255,255,0.2)",borderRadius:8,padding:"4px 12px",fontSize:13,fontWeight:800,color:"#fff"}}>{ciclo.nombre}</div>
+                          <span style={{fontSize:12,color:"rgba(255,255,255,0.85)"}}>📦 {ciclo.modulo}</span>
+                          {ciclo.fechaInicio&&<span style={{fontSize:11,color:"rgba(255,255,255,0.7)"}}>📅 {ciclo.fechaInicio} → {ciclo.fechaFin||"En curso"}</span>}
+                          {ciclo.descripcion&&<span style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontStyle:"italic"}}>"{ciclo.descripcion}"</span>}
+                        </div>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <div style={{width:80,height:5,background:"rgba(255,255,255,0.2)",borderRadius:3}}>
+                            <div style={{width:`${execPctC}%`,height:"100%",background:"#fff",borderRadius:3}}/>
+                          </div>
+                          <span style={{fontSize:13,fontWeight:800,color:"#fff"}}>{execPctC}%</span>
+                          {fallidos>0&&(
+                            <button onClick={()=>promoverFallidos(ciclo.id)}
+                              style={{background:"#E74C3C",border:"none",borderRadius:7,color:"#fff",padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                              ⬆ Promover {fallidos} fallido(s) →
+                            </button>
+                          )}
+                          <button onClick={()=>{setEditCiclo(ciclo);setShowCicloForm(true);}} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:6,color:"#fff",padding:"5px 10px",cursor:"pointer",fontSize:12}}>✏️ Editar</button>
+                          <button onClick={()=>setConfirmDelete({type:"ciclo",id:ciclo.id})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:6,color:"#fff",padding:"5px 8px",cursor:"pointer",fontSize:12}}>🗑️</button>
+                        </div>
+                      </div>
+
+                      {/* Stats chips */}
+                      <div style={{padding:"10px 20px",display:"flex",gap:8,flexWrap:"wrap",borderBottom:`1px solid ${DM.cardBorder}`,alignItems:"center"}}>
+                        <span style={{fontSize:12,color:DM.sub}}><strong style={{color:DM.text}}>{ejecs.length}</strong> TCs</span>
+                        {[{l:"Aprobado",v:aprobados,c:"#27AE60"},{l:"En Progreso",v:enProgreso,c:"#F39C12"},{l:"Fallido",v:fallidos,c:"#E74C3C"},{l:"No ejecutado",v:noEjec,c:"#95A5A6"},{l:"No aplica",v:noAplica,c:"#BDC3C7"},{l:"Bloqueante",v:bloqueante,c:"#8E44AD"}].filter(s=>s.v>0).map(s=>(
+                          <div key={s.l} style={{display:"flex",alignItems:"center",gap:4,background:s.c+"15",border:`1px solid ${s.c}30`,borderRadius:7,padding:"3px 9px"}}>
+                            <div style={{width:6,height:6,borderRadius:"50%",background:s.c}}/><span style={{fontSize:11,color:s.c,fontWeight:700}}>{s.v} {s.l}</span>
+                          </div>
+                        ))}
+                        {/* Agregar TC al ciclo */}
+                        {tcsDisponibles.length>0&&(
+                          <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
+                            <select id={`add-tc-${ciclo.id}`} style={{...inputStyle,width:160,padding:"4px 8px",fontSize:11,background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #ddd"}}>
+                              <option value="">+ Agregar TC...</option>
+                              {tcsDisponibles.map(t=><option key={t.id} value={t.id}>{t.id} · {t.escenario.slice(0,25)}</option>)}
+                            </select>
+                            <button onClick={()=>{
+                              const sel=document.getElementById(`add-tc-${ciclo.id}`);
+                              if(sel.value){addTcToCiclo(ciclo.id,sel.value);sel.value="";}
+                            }} style={{background:proj.color,border:"none",borderRadius:6,color:"#fff",padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>Agregar</button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* TCs table */}
+                      {ejecs.length>0?(
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                          <thead>
+                            <tr style={{background:darkMode?"#1a1a1a":"#f8f8f8"}}>
+                              {["TC","Escenario","Módulo","Responsable","Fecha Ejec.","Estado en este ciclo","Nota",""].map(h=>(
+                                <th key={h} style={{padding:"8px 14px",textAlign:"left",fontSize:10,fontWeight:700,color:DM.sub,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ejecs.map((ejec)=>{
+                              const tc=tests.find(t=>t.id===ejec.tcId);
+                              if(!tc)return null;
+                              const sc=statusConfig[ejec.estado]||statusConfig["No ejecutado"];
+                              return(
+                                <tr key={ejec.tcId} style={{borderTop:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
+                                  onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
+                                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                  <td style={{padding:"8px 14px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap"}}>{tc.id}</td>
+                                  <td style={{padding:"8px 14px",fontWeight:600,color:DM.text,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tc.escenario}</td>
+                                  <td style={{padding:"8px 14px",color:DM.sub,fontSize:11}}>{tc.proceso}</td>
+                                  <td style={{padding:"8px 14px",color:DM.sub,fontSize:11}}>{tc.asignadoA||"—"}</td>
+                                  <td style={{padding:"8px 14px",color:DM.sub,fontFamily:"monospace",fontSize:11,whiteSpace:"nowrap"}}>{ejec.fechaEjecucion||"—"}</td>
+                                  <td style={{padding:"8px 14px"}}>
+                                    <select value={ejec.estado} onChange={e=>updateEjecucionEstado(ciclo.id,tc.id,e.target.value)}
+                                      style={{border:`1px solid ${sc.color}50`,borderRadius:10,padding:"3px 8px",fontSize:11,fontWeight:700,color:sc.color,background:sc.bg,cursor:"pointer",outline:"none"}}>
+                                      {Object.keys(statusConfig).map(k=><option key={k} value={k}>{k}</option>)}
+                                    </select>
+                                  </td>
+                                  <td style={{padding:"8px 14px",color:DM.sub,fontSize:11,fontStyle:"italic"}}>{ejec.nota||""}</td>
+                                  <td style={{padding:"8px 14px"}}>
+                                    <button onClick={()=>removeTcFromCiclo(ciclo.id,tc.id)} title="Quitar del ciclo"
+                                      style={{background:"none",border:"none",cursor:"pointer",color:"#E74C3C",fontSize:14,padding:"2px 4px"}}>✕</button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      ):(
+                        <div style={{padding:"24px",fontSize:12,color:"#888",textAlign:"center"}}>
+                          Sin TCs asignados. Usa el selector de arriba para agregar casos a este ciclo.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Trazabilidad cruzada */}
+                {ciclos.length>1&&(
+                  <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                    <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:16}}>📋 Trazabilidad por TC</div>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                        <thead>
+                          <tr style={{background:darkMode?"#1a1a1a":"#f8f8f8"}}>
+                            <th style={{padding:"8px 14px",textAlign:"left",fontSize:10,fontWeight:700,color:DM.sub,textTransform:"uppercase"}}>TC</th>
+                            <th style={{padding:"8px 14px",textAlign:"left",fontSize:10,fontWeight:700,color:DM.sub,textTransform:"uppercase"}}>Escenario</th>
+                            {ciclos.map(c=>(
+                              <th key={c.id} style={{padding:"8px 14px",textAlign:"center",fontSize:10,fontWeight:700,color:proj.color,textTransform:"uppercase",whiteSpace:"nowrap"}}>{c.nombre}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tests.filter(t=>ciclos.some(c=>(c.ejecuciones||[]).find(e=>e.tcId===t.id))).map(tc=>(
+                            <tr key={tc.id} style={{borderTop:`1px solid ${DM.cardBorder}`}}>
+                              <td style={{padding:"8px 14px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap"}}>{tc.id}</td>
+                              <td style={{padding:"8px 14px",color:DM.text,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tc.escenario}</td>
+                              {ciclos.map(c=>{
+                                const ejec=(c.ejecuciones||[]).find(e=>e.tcId===tc.id);
+                                if(!ejec)return<td key={c.id} style={{padding:"8px 14px",textAlign:"center",color:"#ccc"}}>—</td>;
+                                const sc=statusConfig[ejec.estado]||statusConfig["No ejecutado"];
+                                return(
+                                  <td key={c.id} style={{padding:"8px 14px",textAlign:"center"}}>
+                                    <span style={{background:sc.bg,color:sc.color,border:`1px solid ${sc.color}30`,borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>{ejec.estado}</span>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+              );
+            })()}
+
             {/* ── ISSUES ── */}
             {tab==="issues"&&(
               <div style={{display:"flex",flexDirection:"column",gap:18}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                   <div>
-                    <h2 style={{margin:0,fontSize:24,fontWeight:800,color:DM.text,letterSpacing:"-0.5px"}}>Issue List</h2>
-                    <p style={{margin:"6px 0 0",color:DM.sub,fontSize:13,fontWeight:500}}>{filteredIssues.length} issues {filterModulo!=="Todos"?`· ${filterModulo}`:""}· ⠿ arrastra para reordenar</p>
+                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Issue List</h2>
+                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>{filteredIssues.length} issues registrados</p>
                   </div>
-                  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     {[{l:"Open",v:issueStats.open,c:"#E74C3C"},{l:"In Progress",v:issueStats.inProg,c:"#F39C12"},{l:"Closed",v:issueStats.closed,c:"#27AE60"}].map(s=>(
                       <div key={s.l} style={{background:s.c+"15",border:`1px solid ${s.c}30`,borderRadius:7,padding:"4px 10px",fontSize:11,display:"flex",gap:5}}>
                         <span style={{color:s.c,fontWeight:800}}>{s.v}</span><span style={{color:"#666"}}>{s.l}</span>
@@ -1296,10 +1459,9 @@ export default function App() {
                     <select value={filterModulo} onChange={e=>setFilterModulo(e.target.value)} style={{...inputStyle,width:150,padding:"7px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
                       {modulosList.map(m=><option key={m} value={m}>{m==="Todos"?"Todos los módulos":m}</option>)}
                     </select>
-                    {filterModulo!=="Todos"&&<button onClick={()=>setFilterModulo("Todos")} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#aaa"}}>✕ Limpiar</button>}
+                    {filterModulo!=="Todos"&&<button onClick={()=>setFilterModulo("Todos")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#aaa"}}>✕ Módulo</button>}
                     <Btn onClick={()=>{setEditIssue(null);setShowIssueForm(true);}}>+ Nuevo Issue</Btn>
-                    <Btn variant="ghost" small onClick={()=>exportIssuesToCSV(proj)}>⬇ CSV</Btn>
-                    <Btn variant="ghost" small onClick={()=>exportIssuesToPDF(proj,filteredIssues)}>📄 PDF</Btn>
+                    <Btn variant="ghost" small onClick={()=>exportIssuesToCSV(proj)}>⬇ Exportar</Btn>
                   </div>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:9}}>
@@ -1309,16 +1471,17 @@ export default function App() {
                     const sev=severityConfig[issue.severidad]||"#888";
                     const realIndex=proj.issues.findIndex(x=>x.id===issue.id);
                     return (
-                      <div key={issue.id} draggable
+                      <div key={issue.id}
+                        draggable
                         onDragStart={()=>{dragIssueIndex.current=realIndex;}}
                         onDragOver={e=>{e.preventDefault();dragOverIssueIndex.current=realIndex;}}
                         onDrop={()=>{if(dragIssueIndex.current!==null&&dragIssueIndex.current!==dragOverIssueIndex.current)reorderIssues(dragIssueIndex.current,dragOverIssueIndex.current);dragIssueIndex.current=null;dragOverIssueIndex.current=null;}}
                         onClick={()=>setViewIssue(issue)}
                         style={{background:DM.card,borderRadius:11,padding:"14px 18px",border:`1px solid ${DM.cardBorder}`,cursor:"grab",borderLeft:`4px solid ${sev}`,boxShadow:"0 1px 6px #00000008",transition:"box-shadow 0.15s, transform 0.15s"}}
-                        onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 18px #00000015";e.currentTarget.style.transform="translateX(4px)";}}
+                        onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 18px #00000015";e.currentTarget.style.transform="translateX(3px)";}}
                         onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 6px #00000008";e.currentTarget.style.transform="translateX(0)";}}>
                         <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}>
-                          <span style={{fontSize:18,color:BRAND,cursor:"grab",paddingTop:2,userSelect:"none",fontWeight:700,opacity:0.8,transition:"opacity 0.2s"}} title="Arrastra para reordenar">⠿</span>
+                          <span style={{fontSize:16,color:"#ccc",cursor:"grab",paddingTop:2,userSelect:"none",flexShrink:0}} title="Arrastra para reordenar">⠿</span>
                           <div style={{flex:1}}>
                             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
                               <span style={{fontFamily:"monospace",fontSize:11,fontWeight:700,color:BRAND,background:BRAND_LIGHT,padding:"1px 7px",borderRadius:4}}>#{issue.id} · {issue.testId}</span>
@@ -1326,7 +1489,7 @@ export default function App() {
                             </div>
                             <div style={{fontSize:12,color:"#555",lineHeight:1.55,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{issue.observacion}</div>
                           </div>
-                          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0,pointerEvents:"none"}}>
+                          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0}}>
                             <Badge label={issue.estado} color={sc.color} bg={sc.bg}/>
                             <span style={{fontSize:10,fontWeight:700,color:sev,background:sev+"15",padding:"2px 8px",borderRadius:6}}>{issue.severidad}</span>
                             {(issue.attachments||[]).length>0&&<span style={{fontSize:11,color:"#aaa"}}>📎{issue.attachments.length}</span>}
@@ -1348,6 +1511,7 @@ export default function App() {
       </div>
 
       {/* ── MODALS ── */}
+      {showCicloForm&&<CicloFormModal initial={editCiclo} cicloId={editCiclo?.nombre} modulosList={[...new Set(tests.map(t=>t.proceso).filter(Boolean))]} onSave={saveCiclo} onClose={()=>{setShowCicloForm(false);setEditCiclo(null);}} darkMode={darkMode}/>}
       {showProjForm&&<ProjectFormModal initial={editProj} onSave={saveProject} onClose={()=>{setShowProjForm(false);setEditProj(null);}}/>}
       {showTcForm&&<TcFormModal initial={editTc} tcId={editTc?.id} onSave={saveTC} onClose={()=>{setShowTcForm(false);setEditTc(null);}} darkMode={darkMode}/>}
       {viewTc&&!showTcForm&&(
@@ -1370,12 +1534,14 @@ export default function App() {
             {confirmDelete.type==="project"&&`¿Eliminar el proyecto "${proj.name}" y todos sus datos?`}
             {confirmDelete.type==="tc"&&`¿Eliminar el caso de prueba ${confirmDelete.id}?`}
             {confirmDelete.type==="issue"&&`¿Eliminar el issue #${confirmDelete.id}?`}
+            {confirmDelete.type==="ciclo"&&`¿Eliminar este ciclo? Los TCs asignados quedarán sin ciclo.`}
           </p>
           <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
             <Btn variant="ghost" onClick={()=>setConfirmDelete(null)}>Cancelar</Btn>
             <Btn danger onClick={()=>{
               if(confirmDelete.type==="project")deleteProject(confirmDelete.id);
               else if(confirmDelete.type==="tc")deleteTC(confirmDelete.id);
+              else if(confirmDelete.type==="ciclo")deleteCiclo(confirmDelete.id);
               else deleteIssue(confirmDelete.id);
             }}>Sí, eliminar</Btn>
           </div>
