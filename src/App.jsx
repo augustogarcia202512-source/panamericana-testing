@@ -1085,7 +1085,7 @@ export default function App() {
 
                 {/* stat chips */}
                 <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                  {[{label:"Total",value:tests.length,color:"#222"},{label:"Aprobado",value:stats["Aprobado"],color:"#27AE60"},{label:"En Progreso",value:stats["En Progreso"],color:"#F39C12"},{label:"Fallido",value:stats["Fallido"],color:"#E74C3C"},{label:"No ejecutado",value:stats["No ejecutado"],color:"#95A5A6"},{label:"No aplica",value:stats["No aplica"],color:"#BDC3C7"},{label:"Bloqueante",value:stats["Bloqueante"],color:"#8E44AD"}].map(s=>(
+                  {[{label:"Total",value:tests.length,color:DM.text},{label:"Aprobado",value:stats["Aprobado"],color:"#27AE60"},{label:"En Progreso",value:stats["En Progreso"],color:"#F39C12"},{label:"Fallido",value:stats["Fallido"],color:"#E74C3C"},{label:"No ejecutado",value:stats["No ejecutado"],color:"#95A5A6"},{label:"No aplica",value:stats["No aplica"],color:"#BDC3C7"},{label:"Bloqueante",value:stats["Bloqueante"],color:"#8E44AD"}].map(s=>(
                     <div key={s.label} style={{background:DM.card,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 8px #0000000a",border:`1px solid ${DM.cardBorder}`,minWidth:90}}>
                       <div style={{fontSize:10,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{s.label}</div>
                       <div style={{fontSize:28,fontWeight:800,color:s.color,lineHeight:1.1}}>{s.value}</div>
@@ -1138,7 +1138,6 @@ export default function App() {
                         const semC=modExecPct>=70?"#27AE60":modExecPct>=40?"#F39C12":"#E74C3C";
                         return(
                           <div key={mod} style={{border:`1px solid ${DM.cardBorder}`,borderRadius:10,overflow:"hidden"}}>
-                            {/* Module header */}
                             <div style={{background:DM.sidebar,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                               <div style={{display:"flex",alignItems:"center",gap:10}}>
                                 <div style={{width:10,height:10,borderRadius:"50%",background:semC,boxShadow:`0 0 6px ${semC}80`}}/>
@@ -1173,6 +1172,89 @@ export default function App() {
                         );
                       })}
                     </div>
+                  </div>
+                )}
+
+                {/* Estadísticas por Ciclo */}
+                {(proj.ciclos||[]).length>0&&(
+                  <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                    <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:16}}>🔄 Estadísticas por Ciclo</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                      {(proj.ciclos||[]).map(ciclo=>{
+                        const ejecs=ciclo.ejecuciones||[];
+                        const ap=ejecs.filter(e=>e.estado==="Aprobado").length;
+                        const fa=ejecs.filter(e=>e.estado==="Fallido").length;
+                        const ep=ejecs.filter(e=>e.estado==="En Progreso").length;
+                        const ne=ejecs.filter(e=>e.estado==="No ejecutado").length;
+                        const na=ejecs.filter(e=>e.estado==="No aplica").length;
+                        const bl=ejecs.filter(e=>e.estado==="Bloqueante").length;
+                        const cp=ejecs.length?Math.round(((ap+na)/ejecs.length)*100):0;
+                        const cc=cp>=70?"#27AE60":cp>=40?"#F39C12":"#E74C3C";
+                        return(
+                          <div key={ciclo.id} style={{border:`1px solid ${DM.cardBorder}`,borderRadius:10,overflow:"hidden"}}>
+                            {/* Ciclo header */}
+                            <div style={{background:proj.color,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                                <span style={{fontSize:13,fontWeight:800,color:"#fff"}}>{ciclo.nombre}</span>
+                                <span style={{fontSize:11,color:"rgba(255,255,255,0.75)"}}>📦 {ciclo.modulo}</span>
+                                {ciclo.fechaInicio&&<span style={{fontSize:10,color:"rgba(255,255,255,0.6)"}}>📅 {ciclo.fechaInicio}{ciclo.fechaFin?` → ${ciclo.fechaFin}`:""}</span>}
+                                <span style={{fontSize:10,background:"rgba(255,255,255,0.2)",color:"#fff",padding:"2px 7px",borderRadius:8,fontWeight:700}}>{ejecs.length} TCs</span>
+                              </div>
+                              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                <div style={{width:100,height:5,background:"rgba(255,255,255,0.2)",borderRadius:3}}>
+                                  <div style={{width:`${cp}%`,height:"100%",background:"#fff",borderRadius:3,transition:"width 0.6s"}}/>
+                                </div>
+                                <span style={{fontSize:13,fontWeight:800,color:"#fff"}}>{cp}%</span>
+                              </div>
+                            </div>
+                            {/* Ciclo stats */}
+                            {ejecs.length>0?(
+                              <div style={{padding:"12px 16px"}}>
+                                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                                  {[
+                                    {label:"Aprobado",value:ap,color:"#27AE60"},
+                                    {label:"En Progreso",value:ep,color:"#F39C12"},
+                                    {label:"Fallido",value:fa,color:"#E74C3C"},
+                                    {label:"No ejecutado",value:ne,color:"#95A5A6"},
+                                    {label:"No aplica",value:na,color:"#BDC3C7"},
+                                    {label:"Bloqueante",value:bl,color:"#8E44AD"},
+                                  ].filter(s=>s.value>0).map(s=>(
+                                    <div key={s.label} style={{display:"flex",alignItems:"center",gap:5,background:s.color+"15",border:`1px solid ${s.color}30`,borderRadius:8,padding:"5px 10px"}}>
+                                      <div style={{width:7,height:7,borderRadius:"50%",background:s.color}}/>
+                                      <span style={{fontSize:11,color:DM.sub}}>{s.label}</span>
+                                      <span style={{fontSize:14,fontWeight:800,color:s.color}}>{s.value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {/* Mini barra por estado */}
+                                <div style={{display:"flex",height:8,borderRadius:4,overflow:"hidden",gap:1}}>
+                                  {[
+                                    {value:ap,color:"#27AE60"},
+                                    {value:ep,color:"#F39C12"},
+                                    {value:fa,color:"#E74C3C"},
+                                    {value:ne,color:"#95A5A6"},
+                                    {value:na,color:"#BDC3C7"},
+                                    {value:bl,color:"#8E44AD"},
+                                  ].filter(s=>s.value>0).map((s,i)=>(
+                                    <div key={i} style={{flex:s.value,background:s.color,transition:"flex 0.6s"}}/>
+                                  ))}
+                                </div>
+                                {fa>0&&(
+                                  <div style={{marginTop:8,fontSize:11,color:"#E74C3C",fontWeight:600}}>
+                                    ⚠️ {fa} caso(s) fallido(s) — considera promoverlos al siguiente ciclo
+                                  </div>
+                                )}
+                              </div>
+                            ):(
+                              <div style={{padding:"12px 16px",fontSize:12,color:"#aaa"}}>Sin TCs asignados aún</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <button onClick={()=>setTab("ciclos")} style={{marginTop:14,background:"none",border:`1px solid ${DM.cardBorder}`,borderRadius:8,color:DM.sub,padding:"7px 16px",cursor:"pointer",fontSize:12,width:"100%"}}>
+                      Ver detalle completo en pestaña Ciclos →
+                    </button>
                   </div>
                 )}
               </div>
