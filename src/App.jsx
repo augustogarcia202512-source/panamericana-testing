@@ -341,7 +341,7 @@ function exportDashboardPDF(proj, stats, issueStats, execPct) {
 </style>
 </head><body>
 <div class="header">
-  <div class="brand">PANAMERICANA</div>
+  <div class="brand">CESAR RODRIGUEZ</div>
   <div class="title">${name}</div>
   <div class="sub">${description} · Generado: ${dateNow}</div>
 </div>
