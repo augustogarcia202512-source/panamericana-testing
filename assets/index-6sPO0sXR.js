@@ -69,7 +69,7 @@ Error generating stack: `+e.message+`
 </style>
 </head><body>
 <div class="header">
-  <div class="brand">PANAMERICANA</div>
+  <div class="brand">CESAR RODRIGUEZ</div>
   <div class="title">${i}</div>
   <div class="sub">${a} · Generado: ${l}</div>
 </div>
