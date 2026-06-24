@@ -341,7 +341,7 @@ function exportDashboardPDF(proj, stats, issueStats, execPct) {
 </style>
 </head><body>
 <div class="header">
-  <div class="brand">CESAR RODRIGUEZ</div>
+  <div class="brand">PANAMERICANA</div>
   <div class="title">${name}</div>
   <div class="sub">${description} · Generado: ${dateNow}</div>
 </div>
@@ -422,6 +422,203 @@ function exportDashboardPDF(proj, stats, issueStats, execPct) {
   w.document.write(html);
   w.document.close();
 }
+// ─── JIRA INTEGRATION MODAL ──────────────────────────────────────────────────
+function JiraModal({onImport,onClose,existingTests,darkMode}) {
+  const [config,setConfig]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem("pana_jira_config")||"{}");} catch{return {};}
+  });
+  const [step,setStep]=useState("config"); // config | search | results
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const [jql,setJql]=useState("issuetype in (Story, Task) ORDER BY created DESC");
+  const [issues,setIssues]=useState([]);
+  const [selected,setSelected]=useState({});
+  const [area,setArea]=useState("");
+  const [proceso,setProceso]=useState("");
+  const IS=darkMode?inputStyleDark:inputStyle;
+
+  function saveConfig(){
+    if(!config.url||!config.email||!config.token) return setError("Todos los campos son requeridos");
+    // Normalize URL
+    let url=config.url.trim().replace(/\/$/,"");
+    if(!url.startsWith("http")) url="https://"+url;
+    const updated={...config,url};
+    setConfig(updated);
+    localStorage.setItem("pana_jira_config",JSON.stringify(updated));
+    setError("");
+    setStep("search");
+  }
+
+  async function searchJira(){
+    setLoading(true);setError("");setIssues([]);
+    try{
+      const {url,email,token}=config;
+      const encoded=btoa(`${email}:${token}`);
+      const params=new URLSearchParams({jql,maxResults:50,fields:"summary,description,issuetype,status,assignee,priority,created"});
+      const res=await fetch(`${url}/rest/api/3/search?${params}`,{
+        headers:{"Authorization":`Basic ${encoded}`,"Accept":"application/json","Content-Type":"application/json"},
+      });
+      if(!res.ok){
+        const err=await res.json().catch(()=>({}));
+        throw new Error(err.errorMessages?.[0]||`Error ${res.status}: ${res.statusText}`);
+      }
+      const data=await res.json();
+      setIssues(data.issues||[]);
+      setStep("results");
+      if(!data.issues?.length) setError("No se encontraron issues con ese filtro.");
+    }catch(e){
+      setError(`Error al conectar con Jira: ${e.message}. Verifica tus credenciales y que el CORS esté habilitado en tu instancia.`);
+    }finally{setLoading(false);}
+  }
+
+  function toggleSelect(key){setSelected(prev=>({...prev,[key]:!prev[key]}));}
+  function selectAll(){const s={};issues.forEach(i=>s[i.key]=true);setSelected(s);}
+  function clearAll(){setSelected({});}
+
+  function doImport(){
+    const toImport=issues.filter(i=>selected[i.key]);
+    if(!toImport.length) return alert("Selecciona al menos una historia.");
+    const tcs=toImport.map(i=>{
+      const desc=i.fields.description?.content?.map(b=>b.content?.map(c=>c.text||"").join("")||"").join("\n")||"";
+      return{
+        area: area||i.fields.issuetype?.name||"",
+        proceso: proceso||"",
+        escenario: i.fields.summary||"",
+        descripcion: `[${i.key}] ${i.fields.summary}`,
+        pasos: `1. Verificar: ${i.fields.summary}\n2. Validar criterios de aceptación\n3. Registrar resultado`,
+        resultado: `La historia ${i.key} cumple con los criterios de aceptación definidos`,
+        fechaAprobacion:"",fechaEjecucion:"",
+        estado:"No ejecutado",
+        asignadoA: i.fields.assignee?.displayName||"",
+        attachments:[],
+        historial:[{fecha:today(),de:"—",a:"No ejecutado",nota:`Importado desde Jira: ${i.key}`}],
+        comentarios:[],
+        jiraKey: i.key,
+        jiraUrl: `${config.url}/browse/${i.key}`,
+      };
+    });
+    onImport(tcs);
+  }
+
+  const selectedCount=Object.values(selected).filter(Boolean).length;
+
+  return(
+    <Modal onClose={onClose} wide preventOutsideClose>
+      <ModalHeader title="Importar desde Jira" sub="Jira Cloud — trae historias de usuario como casos de prueba" onClose={onClose}/>
+
+      {/* Steps indicator */}
+      <div style={{display:"flex",gap:0,marginBottom:24,borderRadius:8,overflow:"hidden",border:`1px solid ${darkMode?"#333":"#e0e0e0"}`}}>
+        {[{id:"config",label:"1. Configuración"},{id:"search",label:"2. Buscar"},{id:"results",label:"3. Seleccionar"}].map((s,i)=>(
+          <div key={s.id} style={{flex:1,padding:"8px 12px",background:step===s.id?BRAND:darkMode?"#1C1C1E":"#f8f8f8",color:step===s.id?"#fff":darkMode?"#666":"#aaa",fontSize:12,fontWeight:step===s.id?700:400,textAlign:"center",cursor:s.id!=="config"&&step==="config"?"not-allowed":"pointer",transition:"all 0.2s"}}
+            onClick={()=>s.id==="config"?setStep("config"):s.id==="search"&&step==="results"?setStep("search"):null}>
+            {s.label}
+          </div>
+        ))}
+      </div>
+
+      {error&&<div style={{background:"#FDEDEC",border:"1px solid #E74C3C30",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#E74C3C",marginBottom:16}}>{error}</div>}
+
+      {/* STEP 1: Config */}
+      {step==="config"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{background:darkMode?"#1C1C1E":"#EAF4FB",borderRadius:8,padding:"12px 16px",fontSize:12,color:darkMode?"#aaa":"#2980B9",lineHeight:1.7}}>
+            <strong>Cómo obtener el API Token:</strong><br/>
+            1. Ve a <strong>id.atlassian.com/manage-profile/security/api-tokens</strong><br/>
+            2. Clic en "Create API token" → copia el token generado
+          </div>
+          <Field label="URL de tu Jira (ej: https://tuempresa.atlassian.net)">
+            <input style={IS} value={config.url||""} onChange={e=>setConfig(c=>({...c,url:e.target.value}))} placeholder="https://tuempresa.atlassian.net"/>
+          </Field>
+          <Field label="Tu email de Jira">
+            <input style={IS} value={config.email||""} onChange={e=>setConfig(c=>({...c,email:e.target.value}))} placeholder="tu@email.com" type="email"/>
+          </Field>
+          <Field label="API Token">
+            <input style={IS} value={config.token||""} onChange={e=>setConfig(c=>({...c,token:e.target.value}))} placeholder="Tu API token de Jira" type="password"/>
+          </Field>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:8}}>
+            <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
+            <Btn onClick={saveConfig}>Siguiente →</Btn>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2: Search */}
+      {step==="search"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{display:"flex",gap:8,alignItems:"center",background:darkMode?"#1C1C1E":"#EAFAF1",borderRadius:8,padding:"10px 14px"}}>
+            <span style={{fontSize:18}}>✅</span>
+            <div style={{fontSize:12,color:darkMode?"#aaa":"#27AE60"}}>Conectado a <strong>{config.url}</strong></div>
+            <button onClick={()=>setStep("config")} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#888"}}>Cambiar</button>
+          </div>
+          <Field label="Filtro JQL">
+            <textarea style={{...IS,minHeight:70,resize:"vertical",fontFamily:"monospace",fontSize:12}} value={jql} onChange={e=>setJql(e.target.value)}/>
+          </Field>
+          <div style={{fontSize:11,color:darkMode?"#888":"#aaa",lineHeight:1.7}}>
+            Ejemplos de JQL:<br/>
+            <code style={{background:darkMode?"#2C2C2E":"#f5f5f5",padding:"1px 6px",borderRadius:4}}>project = "MiProyecto" AND issuetype = Story</code><br/>
+            <code style={{background:darkMode?"#2C2C2E":"#f5f5f5",padding:"1px 6px",borderRadius:4}}>sprint in openSprints() AND issuetype in (Story, Task)</code><br/>
+            <code style={{background:darkMode?"#2C2C2E":"#f5f5f5",padding:"1px 6px",borderRadius:4}}>assignee = currentUser() AND status != Done</code>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <Field label="Área (se aplicará a todos los TCs importados)">
+              <input style={IS} value={area} onChange={e=>setArea(e.target.value)} placeholder="Ej: Compras a pago"/>
+            </Field>
+            <Field label="Proceso / Módulo">
+              <input style={IS} value={proceso} onChange={e=>setProceso(e.target.value)} placeholder="Ej: Logística"/>
+            </Field>
+          </div>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+            <Btn variant="ghost" onClick={()=>setStep("config")}>← Atrás</Btn>
+            <Btn onClick={searchJira} disabled={loading}>{loading?"Buscando...":"🔍 Buscar en Jira"}</Btn>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3: Results */}
+      {step==="results"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:13,color:darkMode?"#aaa":"#555"}}>{issues.length} historias encontradas · {selectedCount} seleccionadas</span>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={selectAll} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:BRAND,fontWeight:700}}>Seleccionar todas</button>
+              <button onClick={clearAll} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#aaa"}}>Limpiar</button>
+            </div>
+          </div>
+          <div style={{maxHeight:340,overflowY:"auto",display:"flex",flexDirection:"column",gap:7,paddingRight:4}}>
+            {issues.map(issue=>{
+              const isSel=!!selected[issue.key];
+              const alreadyImported=existingTests.some(t=>t.jiraKey===issue.key);
+              return(
+                <div key={issue.key}
+                  onClick={()=>!alreadyImported&&toggleSelect(issue.key)}
+                  style={{display:"flex",alignItems:"flex-start",gap:12,padding:"10px 14px",border:`2px solid ${isSel?BRAND:darkMode?"#333":"#e8e8e8"}`,borderRadius:10,cursor:alreadyImported?"not-allowed":"pointer",background:isSel?BRAND_LIGHT:darkMode?"#1C1C1E":"#fff",opacity:alreadyImported?0.5:1,transition:"all 0.15s"}}>
+                  <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${isSel?BRAND:"#ccc"}`,background:isSel?BRAND:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",marginTop:2}}>
+                    {isSel&&<span style={{color:"#fff",fontSize:12,fontWeight:900}}>✓</span>}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
+                      <span style={{fontFamily:"monospace",fontSize:11,fontWeight:700,color:BRAND,background:BRAND_LIGHT,padding:"1px 7px",borderRadius:4}}>{issue.key}</span>
+                      <span style={{fontSize:10,background:darkMode?"#2C2C2E":"#f5f5f5",color:darkMode?"#888":"#999",padding:"1px 7px",borderRadius:4}}>{issue.fields.issuetype?.name}</span>
+                      <span style={{fontSize:10,color:darkMode?"#666":"#bbb"}}>{issue.fields.status?.name}</span>
+                      {alreadyImported&&<span style={{fontSize:10,color:"#27AE60",fontWeight:700}}>✓ Ya importado</span>}
+                    </div>
+                    <div style={{fontSize:13,fontWeight:600,color:darkMode?"#eee":"#333",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{issue.fields.summary}</div>
+                    {issue.fields.assignee&&<div style={{fontSize:11,color:darkMode?"#666":"#aaa",marginTop:2}}>👤 {issue.fields.assignee.displayName}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
+            <Btn variant="ghost" onClick={()=>setStep("search")}>← Nueva búsqueda</Btn>
+            <Btn onClick={doImport} disabled={!selectedCount}>⬇ Importar {selectedCount} historia(s) como TCs</Btn>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 function parseCSVImport(text, existingTests) {
   const lines = text.split("\n").filter(l=>l.trim());
   if(lines.length<2) return [];
@@ -477,18 +674,19 @@ function CicloFormModal({initial,cicloId,modulosList,onSave,onClose,darkMode}) {
 }
 
 // ─── FORM MODALS ──────────────────────────────────────────────────────────────
-function ProjectFormModal({initial,onSave,onClose}) {
+function ProjectFormModal({initial,onSave,onClose,darkMode}) {
   const [form,setForm]=useState(initial||{name:"",description:"",color:COLORS[0]});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const IS=darkMode?inputStyleDark:inputStyle;
   return (
     <Modal onClose={onClose} preventOutsideClose>
       <ModalHeader title={initial?"Editar Proyecto":"Nuevo Proyecto"} onClose={onClose}/>
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
-        <Field label="Nombre del Proyecto"><input style={inputStyle} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Ej: SAP – Módulo Ventas"/></Field>
-        <Field label="Descripción"><input style={inputStyle} value={form.description} onChange={e=>set("description",e.target.value)} placeholder="Descripción breve"/></Field>
+        <Field label="Nombre del Proyecto"><input style={IS} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Ej: SAP – Módulo Ventas"/></Field>
+        <Field label="Descripción"><input style={IS} value={form.description} onChange={e=>set("description",e.target.value)} placeholder="Descripción breve"/></Field>
         <Field label="Color">
           <div style={{display:"flex",gap:10}}>
-            {COLORS.map(c=><div key={c} onClick={()=>set("color",c)} style={{width:28,height:28,borderRadius:6,background:c,cursor:"pointer",border:form.color===c?"3px solid #222":"3px solid transparent",transition:"border 0.15s"}}/>)}
+            {COLORS.map(c=><div key={c} onClick={()=>set("color",c)} style={{width:28,height:28,borderRadius:6,background:c,cursor:"pointer",border:form.color===c?"3px solid #fff":"3px solid transparent",transition:"border 0.15s"}}/>)}
           </div>
         </Field>
       </div>
@@ -739,6 +937,7 @@ export default function App() {
   const [showCicloForm,setShowCicloForm]=useState(false);
   const [editCiclo,setEditCiclo]=useState(null);
   const [expandedCiclos,setExpandedCiclos]=useState({});
+  const [showJira,setShowJira]=useState(false);
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [storageWarn,setStorageWarn]=useState(false);
   const dragIndex=useRef(null);
@@ -910,6 +1109,12 @@ export default function App() {
   }
 
   // Import CSV
+  function handleJiraImport(tcs){
+    const newTcs=tcs.map(tc=>({...tc,id:nextTcId([...proj.tests,...tcs.slice(0,tcs.indexOf(tc))])}));
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,tests:[...p.tests,...newTcs]}));
+    setShowJira(false);
+    alert(`✅ Se importaron ${newTcs.length} historia(s) de Jira como casos de prueba.`);
+  }
   function handleImportCSV(e){
     const file=e.target.files[0];if(!file)return;
     const reader=new FileReader();
@@ -1004,7 +1209,7 @@ export default function App() {
           <div style={{width:220,display:"flex",flexDirection:"column",height:"100%"}}>
           <div style={{padding:"18px 16px 10px",borderBottom:"1px solid #333",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div>
-              <div style={{background:BRAND,color:"#fff",fontWeight:900,fontSize:11,padding:"4px 10px",borderRadius:5,letterSpacing:"0.07em",display:"inline-block",marginBottom:8}}>CESAR RODRIGUEZ</div>
+              <div style={{background:BRAND,color:"#fff",fontWeight:900,fontSize:11,padding:"4px 10px",borderRadius:5,letterSpacing:"0.07em",display:"inline-block",marginBottom:8}}>PANAMERICANA</div>
               <div style={{fontSize:12,color:"#888"}}>Gestión de Pruebas</div>
             </div>
           </div>
@@ -1270,6 +1475,7 @@ export default function App() {
                   </div>
                   <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                     <Btn small onClick={()=>{setEditTc(null);setShowTcForm(true);}}>+ Nuevo TC</Btn>
+                    <Btn small variant="ghost" onClick={()=>setShowJira(true)} style={{background:"#0052CC",color:"#fff"}}>🔗 Importar de Jira</Btn>
                     <Btn small variant="ghost" onClick={()=>importRef.current.click()}>⬆ Importar CSV</Btn>
                     <Btn small variant="ghost" onClick={()=>exportToCSV(proj)}>⬇ Exportar CSV</Btn>
                   </div>
@@ -1607,8 +1813,9 @@ export default function App() {
       </div>
 
       {/* ── MODALS ── */}
+      {showJira&&<JiraModal onImport={handleJiraImport} onClose={()=>setShowJira(false)} existingTests={tests} darkMode={darkMode}/>}
       {showCicloForm&&<CicloFormModal initial={editCiclo} cicloId={editCiclo?.nombre} modulosList={[...new Set(tests.map(t=>t.proceso).filter(Boolean))]} onSave={saveCiclo} onClose={()=>{setShowCicloForm(false);setEditCiclo(null);}} darkMode={darkMode}/>}
-      {showProjForm&&<ProjectFormModal initial={editProj} onSave={saveProject} onClose={()=>{setShowProjForm(false);setEditProj(null);}}/>}
+      {showProjForm&&<ProjectFormModal initial={editProj} onSave={saveProject} onClose={()=>{setShowProjForm(false);setEditProj(null);}} darkMode={darkMode}/>}
       {showTcForm&&<TcFormModal initial={editTc} tcId={editTc?.id} onSave={saveTC} onClose={()=>{setShowTcForm(false);setEditTc(null);}} darkMode={darkMode}/>}
       {viewTc&&!showTcForm&&(
         <TcDetailModal tc={viewTc} onClose={()=>setViewTc(null)}
