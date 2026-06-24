@@ -1209,7 +1209,7 @@ export default function App() {
           <div style={{width:220,display:"flex",flexDirection:"column",height:"100%"}}>
           <div style={{padding:"18px 16px 10px",borderBottom:"1px solid #333",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div>
-              <div style={{background:BRAND,color:"#fff",fontWeight:900,fontSize:11,padding:"4px 10px",borderRadius:5,letterSpacing:"0.07em",display:"inline-block",marginBottom:8}}>PANAMERICANA</div>
+              <div style={{background:BRAND,color:"#fff",fontWeight:900,fontSize:11,padding:"4px 10px",borderRadius:5,letterSpacing:"0.07em",display:"inline-block",marginBottom:8}}>CESAR RODRIGUEZ</div>
               <div style={{fontSize:12,color:"#888"}}>Gestión de Pruebas</div>
             </div>
           </div>
