@@ -115,7 +115,7 @@ function Modal({children,onClose,wide,preventOutsideClose}) {
   return (
     <div style={{position:"fixed",inset:0,background:"#00000055",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
       onClick={preventOutsideClose ? undefined : onClose}>
-      <div style={{background:"var(--modal-bg,#fff)",borderRadius:16,padding:28,width:"100%",maxWidth:wide?780:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 80px #00000030"}} onClick={e=>e.stopPropagation()}>
+      <div style={{background:"linear-gradient(135deg, #ffffff 0%, #f9fbff 100%)",borderRadius:16,padding:"32px 34px",width:"100%",maxWidth:wide?920:620,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 24px 80px #00000030",border:"1px solid #e8f0ff"}} onClick={e=>e.stopPropagation()}>
         {children}
       </div>
     </div>
@@ -123,12 +123,15 @@ function Modal({children,onClose,wide,preventOutsideClose}) {
 }
 function ModalHeader({title,sub,onClose}) {
   return (
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22}}>
-      <div>
-        <h3 style={{margin:0,fontSize:18,fontWeight:800,color:"var(--text-primary,#1a1a1a)"}}>{title}</h3>
-        {sub&&<p style={{margin:"3px 0 0",fontSize:12,color:"#aaa"}}>{sub}</p>}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22,padding:"14px 16px",borderRadius:14,background:"linear-gradient(90deg, rgba(192,57,43,0.10) 0%, rgba(192,57,43,0.03) 100%)",border:"1px solid rgba(192,57,43,0.14)",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.7)"}}>
+      <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+        <div style={{width:10,height:40,borderRadius:999,background:"linear-gradient(180deg, #C0392B 0%, #E74C3C 100%)",boxShadow:"0 0 0 4px rgba(192,57,43,0.12)"}}/>
+        <div>
+          <h3 style={{margin:0,fontSize:18,fontWeight:800,color:"var(--text-primary,#1a1a1a)"}}>{title}</h3>
+          {sub&&<p style={{margin:"4px 0 0",fontSize:12,color:"#6b7280",fontWeight:600}}>{sub}</p>}
+        </div>
       </div>
-      <button onClick={onClose} style={{background:"#f0f0f0",border:"none",borderRadius:8,padding:"5px 11px",cursor:"pointer",fontSize:17}}>✕</button>
+      <button onClick={onClose} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:10,padding:"6px 11px",cursor:"pointer",fontSize:16,color:"#6b7280",boxShadow:"0 2px 6px rgba(0,0,0,0.04)"}}>✕</button>
     </div>
   );
 }
@@ -265,26 +268,42 @@ function Semaforo({pct}) {
 }
 
 // ─── EXPORT XLSX ──────────────────────────────────────────────────────────────
-function exportToCSV(proj) {
+function exportToCSV(proj, tests = proj.tests) {
   const headers = ["ID","Área","Proceso","Escenario","Descripción","Pasos","Resultado Esperado","Asignado A","Fecha Aprobación","Fecha Ejecución","Estado"];
-  const rows = proj.tests.map(t=>[t.id,t.area,t.proceso,t.escenario,t.descripcion,t.pasos?.replace(/\n/g," | "),t.resultado,t.asignadoA||"",t.fechaAprobacion,t.fechaEjecucion,t.estado]);
+  const rows = tests.map(t=>[t.id,t.area,t.proceso,t.escenario,t.descripcion,t.pasos?.replace(/\n/g," | "),t.resultado,t.asignadoA||"",t.fechaAprobacion,t.fechaEjecucion,t.estado]);
   const csv = [headers,...rows].map(r=>r.map(c=>`"${(c||"").toString().replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${proj.name}_TCs.csv`;a.click();
 }
-function exportIssuesToCSV(proj) {
+function exportIssuesToCSV(proj, issuesList = proj.issues) {
   const headers = ["ID","TC","Escenario","Formulario","Módulo","Observación","Estado","Severidad","Prioridad","Fecha Creación"];
-  const rows = proj.issues.map(i=>[i.id,i.testId,i.escenario,i.formulario,i.modulo,i.observacion,i.estado,i.severidad,i.prioridad,i.fechaCreacion]);
+  const rows = issuesList.map(i=>[i.id,i.testId,i.escenario,i.formulario,i.modulo,i.observacion,i.estado,i.severidad,i.prioridad,i.fechaCreacion]);
   const csv = [headers,...rows].map(r=>r.map(c=>`"${(c||"").toString().replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${proj.name}_Issues.csv`;a.click();
 }
 
 // ─── EXPORT DASHBOARD PDF ────────────────────────────────────────────────────
-function exportDashboardPDF(proj, stats, issueStats, execPct) {
-  const { name, description, createdAt, tests, issues } = proj;
+function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
+  const { name, description, createdAt } = proj;
   const dateNow = today();
+  const stats = {
+    "Aprobado": tests.filter(t=>t.estado==="Aprobado").length,
+    "En Progreso": tests.filter(t=>t.estado==="En Progreso").length,
+    "Fallido": tests.filter(t=>t.estado==="Fallido").length,
+    "No ejecutado": tests.filter(t=>t.estado==="No ejecutado").length,
+    "No aplica": tests.filter(t=>t.estado==="No aplica").length,
+    "Bloqueante": tests.filter(t=>t.estado==="Bloqueante").length,
+  };
+  const issueStats = {
+    open: issues.filter(i=>i.estado==="Open").length,
+    inProg: issues.filter(i=>i.estado==="In Progress").length,
+    closed: issues.filter(i=>i.estado==="Closed").length,
+    blocked: issues.filter(i=>i.estado==="Blocked").length,
+    total: issues.length,
+  };
   const pct = n => tests.length ? Math.round((n / tests.length) * 100) : 0;
+  const execPct = pct(stats["Aprobado"] + stats["No aplica"]);
 
   // Build bar SVG
   const bars = [
@@ -714,7 +733,7 @@ function ProjectFormModal({initial,onSave,onClose,darkMode}) {
 }
 
 function TcFormModal({initial,tcId,onSave,onClose,darkMode}) {
-  const [form,setForm]=useState(initial||{...EMPTY_TC});
+  const [form,setForm]=useState({ ...EMPTY_TC, ...(initial||{}) });
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const IS=darkMode?inputStyleDark:inputStyle;
   return (
@@ -723,18 +742,18 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode}) {
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <Field label="Área"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} placeholder="Compras a pago"/></Field>
         <Field label="Proceso"><input style={IS} value={form.proceso} onChange={e=>set("proceso",e.target.value)} placeholder="Logística"/></Field>
-        <Field label="Escenario"><input style={IS} value={form.escenario} onChange={e=>set("escenario",e.target.value)} placeholder="Recepción de mercancía"/></Field>
+        <Field label="Escenario"><textarea style={{...IS,minHeight:48,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.escenario} onChange={e=>set("escenario",e.target.value)} placeholder="Recepción de mercancía"/></Field>
         <Field label="Asignado a"><input style={IS} value={form.asignadoA||""} onChange={e=>set("asignadoA",e.target.value)} placeholder="Nombre del responsable"/></Field>
         <Field label="Estado">
           <select style={IS} value={form.estado} onChange={e=>set("estado",e.target.value)}>
             {Object.keys(statusConfig).map(k=><option key={k} value={k}>{k}</option>)}
           </select>
         </Field>
-        <Field label="Fecha Aprobación"><input style={IS} value={form.fechaAprobacion} onChange={e=>set("fechaAprobacion",e.target.value)} placeholder="DD/MM/YYYY"/></Field>
-        <Field label="Fecha Ejecución"><input style={IS} value={form.fechaEjecucion} onChange={e=>set("fechaEjecucion",e.target.value)} placeholder="DD/MM/YYYY"/></Field>
+        <Field label="Fecha Aprobación"><input type="date" style={IS} value={toInputDate(form.fechaAprobacion)} onChange={e=>set("fechaAprobacion",toDisplayDate(e.target.value))}/></Field>
+        <Field label="Fecha Ejecución"><input type="date" style={IS} value={toInputDate(form.fechaEjecucion)} onChange={e=>set("fechaEjecucion",toDisplayDate(e.target.value))}/></Field>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:14}}>
-        <Field label="Descripción"><input style={IS} value={form.descripcion} onChange={e=>set("descripcion",e.target.value)} placeholder="Descripción del escenario"/></Field>
+        <Field label="Descripción"><textarea style={{...IS,minHeight:70,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.descripcion} onChange={e=>set("descripcion",e.target.value)} placeholder="Descripción del escenario"/></Field>
         <Field label="Pasos"><textarea style={{...IS,minHeight:90,resize:"vertical"}} value={form.pasos} onChange={e=>set("pasos",e.target.value)} placeholder="1. Paso uno&#10;2. Paso dos"/></Field>
         <Field label="Resultado Esperado"><textarea style={{...IS,minHeight:60,resize:"vertical"}} value={form.resultado} onChange={e=>set("resultado",e.target.value)} placeholder="El sistema debe..."/></Field>
         <Field label="Adjuntos (imágenes, Word, PDF)"><AttachmentZone attachments={form.attachments||[]} onChange={v=>set("attachments",v)}/></Field>
@@ -756,38 +775,38 @@ function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
       <ModalHeader title={initial?`Editar Issue #${issueId}`:"Nuevo Issue"} sub="Registra la novedad encontrada" onClose={onClose}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <Field label="Caso de Prueba">
-          <select style={IS} value={form.testId} onChange={e=>set("testId",e.target.value)}>
+          <select style={{...IS,minHeight:44}} value={form.testId} onChange={e=>set("testId",e.target.value)}>
             <option value="">-- Seleccionar --</option>
             {testIds.map(id=><option key={id} value={id}>{id}</option>)}
           </select>
         </Field>
-        <Field label="Módulo"><input style={IS} value={form.modulo} onChange={e=>set("modulo",e.target.value)} placeholder="Compras a pagos"/></Field>
-        <Field label="Escenario"><input style={IS} value={form.escenario} onChange={e=>set("escenario",e.target.value)} placeholder="Nombre del escenario"/></Field>
-        <Field label="Formulario"><input style={IS} value={form.formulario} onChange={e=>set("formulario",e.target.value)} placeholder="Nombre del formulario"/></Field>
+        <Field label="Módulo"><input style={{...IS,minHeight:44}} value={form.modulo} onChange={e=>set("modulo",e.target.value)} placeholder="Compras a pagos"/></Field>
+        <Field label="Escenario"><textarea style={{...IS,minHeight:120,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.escenario} onChange={e=>set("escenario",e.target.value)} placeholder="Nombre del escenario"/></Field>
+        <Field label="Formulario"><textarea style={{...IS,minHeight:90,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.formulario} onChange={e=>set("formulario",e.target.value)} placeholder="Nombre del formulario"/></Field>
         <Field label="Estado">
-          <select style={IS} value={form.estado} onChange={e=>set("estado",e.target.value)}>
+          <select style={{...IS,minHeight:44}} value={form.estado} onChange={e=>set("estado",e.target.value)}>
             {Object.keys(issueStatusConfig).map(k=><option key={k} value={k}>{k}</option>)}
           </select>
         </Field>
         <Field label="Severidad">
-          <select style={IS} value={form.severidad} onChange={e=>set("severidad",e.target.value)}>
+          <select style={{...IS,minHeight:44}} value={form.severidad} onChange={e=>set("severidad",e.target.value)}>
             {Object.keys(severityConfig).map(k=><option key={k} value={k}>{k}</option>)}
           </select>
         </Field>
         <Field label="Prioridad">
-          <select style={IS} value={form.prioridad} onChange={e=>set("prioridad",e.target.value)}>
+          <select style={{...IS,minHeight:44}} value={form.prioridad} onChange={e=>set("prioridad",e.target.value)}>
             {["Critical","High","Medium","Low"].map(k=><option key={k} value={k}>{k}</option>)}
           </select>
         </Field>
         <Field label="Fecha Creación">
-          <input type="date" style={IS} value={toInputDate(form.fechaCreacion)} onChange={e=>set("fechaCreacion",toDisplayDate(e.target.value))}/>
+          <input type="date" style={{...IS,minHeight:44}} value={toInputDate(form.fechaCreacion)} onChange={e=>set("fechaCreacion",toDisplayDate(e.target.value))}/>
         </Field>
         <Field label="Fecha Solución">
-          <input type="date" style={IS} value={toInputDate(form.fechaSolucion)} onChange={e=>set("fechaSolucion",toDisplayDate(e.target.value))}/>
+          <input type="date" style={{...IS,minHeight:44}} value={toInputDate(form.fechaSolucion)} onChange={e=>set("fechaSolucion",toDisplayDate(e.target.value))}/>
         </Field>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:14}}>
-        <Field label="Observación"><textarea style={{...IS,minHeight:90,resize:"vertical"}} value={form.observacion} onChange={e=>set("observacion",e.target.value)} placeholder="Describe la novedad..."/></Field>
+        <Field label="Observación"><textarea style={{...IS,minHeight:220,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.observacion} onChange={e=>set("observacion",e.target.value)} placeholder="Describe la novedad..."/></Field>
         <Field label="Adjuntos – imágenes, Word, PDF"><AttachmentZone attachments={form.attachments||[]} onChange={v=>set("attachments",v)}/></Field>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:8}}>
@@ -881,16 +900,10 @@ function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
   const sev=severityConfig[issue.severidad]||"#888";
   return (
     <Modal onClose={onClose} wide>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
-        <div>
-          <div style={{fontFamily:"monospace",fontSize:12,color:BRAND,fontWeight:700,marginBottom:4}}>Issue #{issue.id} · {issue.testId}</div>
-          <h3 style={{margin:0,fontSize:17,fontWeight:800,color:"#1a1a1a"}}>{issue.escenario}</h3>
-        </div>
-        <div style={{display:"flex",gap:8}}>
-          <Btn small onClick={onEdit}>✏️ Editar</Btn>
-          <Btn small danger onClick={onDelete}>🗑️</Btn>
-          <button onClick={onClose} style={{background:"#f0f0f0",border:"none",borderRadius:8,padding:"5px 11px",cursor:"pointer",fontSize:17}}>✕</button>
-        </div>
+      <ModalHeader title={issue.escenario} sub={`Issue #${issue.id} · ${issue.testId}`} onClose={onClose}/>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:8,flexWrap:"wrap",marginBottom:20}}>
+        <Btn small onClick={onEdit}>✏️ Editar</Btn>
+        <Btn small danger onClick={onDelete}>🗑️</Btn>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:11,marginBottom:14}}>
         {[ ["Módulo",issue.modulo],["Formulario",issue.formulario],["Fecha Creación",issue.fechaCreacion || "—"], ["Fecha Solución",issue.fechaSolucion || "—"] ].map(([l,v])=>(
@@ -1149,7 +1162,7 @@ export default function App() {
   }
 
   if(!proj) return (
-    <div style={{fontFamily:"Georgia,serif",minHeight:"100vh",background:DM.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
+    <div style={{fontFamily:"'Poppins', 'Segoe UI', Arial, sans-serif",minHeight:"100vh",background:DM.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
       <div style={{fontSize:48}}>📂</div>
       <p style={{color:"#888"}}>No hay proyectos. Crea uno para comenzar.</p>
       <Btn onClick={()=>setShowProjForm(true)}>+ Nuevo Proyecto</Btn>
@@ -1161,7 +1174,7 @@ export default function App() {
   const issues=proj.issues;
 
   const stats=useMemo(()=>{const c={};Object.keys(statusConfig).forEach(k=>c[k]=0);tests.forEach(t=>{if(c[t.estado]!==undefined)c[t.estado]++;});return c;},[tests]);
-  const issueStats=useMemo(()=>({open:issues.filter(i=>i.estado==="Open").length,closed:issues.filter(i=>i.estado==="Closed").length,inProg:issues.filter(i=>i.estado==="In Progress").length,blocked:issues.filter(i=>i.estado==="Blocked").length}),[issues]);
+  const issueStats=useMemo(()=>({open:issues.filter(i=>i.estado==="Open").length,closed:issues.filter(i=>i.estado==="Closed").length,inProg:issues.filter(i=>i.estado==="In Progress").length,blocked:issues.filter(i=>i.estado==="Blocked").length,total:issues.length}),[issues]);
 
   // timeline data: count aprobados por fecha
   const timelineData=useMemo(()=>{
@@ -1213,7 +1226,7 @@ export default function App() {
   const tabs=[{id:"dashboard",label:"📊 Dashboard"},{id:"tests",label:"🧪 Casos de Prueba"},{id:"ciclos",label:"🔄 Ciclos"},{id:"issues",label:"🐛 Issues"}];
 
   return (
-    <div style={{fontFamily:"Georgia,serif",background:DM.bg,minHeight:"100vh",color:DM.text}}>
+    <div style={{fontFamily:"'Poppins', 'Segoe UI', Arial, sans-serif",background:DM.bg,minHeight:"100vh",color:DM.text,letterSpacing:"0.2px"}}>
       <input ref={importRef} type="file" accept=".csv" style={{display:"none"}} onChange={handleImportCSV}/>
 
       {storageWarn&&(
@@ -1296,10 +1309,10 @@ export default function App() {
                     <div style={{display:"flex",gap:8}}>
                       <Btn small onClick={()=>{setEditTc(null);setShowTcForm(true);}}>+ TC</Btn>
                       <Btn small variant="ghost" onClick={()=>{setEditIssue(null);setShowIssueForm(true);}}>+ Issue</Btn>
-                      <Btn small variant="ghost" onClick={()=>exportToCSV(proj)}>⬇ TCs CSV</Btn>
-                      <Btn small variant="ghost" onClick={()=>exportIssuesToCSV(proj)}>⬇ Issues CSV</Btn>
+                      <Btn small variant="ghost" onClick={()=>exportToCSV(proj, filteredTests)}>⬇ TCs CSV</Btn>
+                      <Btn small variant="ghost" onClick={()=>exportIssuesToCSV(proj, filteredIssues)}>⬇ Issues CSV</Btn>
                     </div>
-                    <Btn small onClick={()=>exportDashboardPDF(proj,stats,issueStats,execPct)} style={{background:"#2980B9",color:"#fff",width:"100%"}}>📄 Descargar PDF Dashboard</Btn>
+                    <Btn small onClick={()=>exportDashboardPDF(proj, filteredTests, filteredIssues)} style={{background:"#2980B9",color:"#fff",width:"100%"}}>📄 Descargar PDF Dashboard</Btn>
                   </div>
                 </div>
 
@@ -1344,6 +1357,10 @@ export default function App() {
                 {/* issues summary */}
                 <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                   <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:14}}>Resumen de Issues</div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,background:"#f4f4f4",border:"1px solid #e0e0e0",borderRadius:8,padding:"8px 16px",marginBottom:12}}>
+                    <span style={{fontSize:12,color:"#555"}}>Total</span>
+                    <span style={{fontSize:20,fontWeight:800,color:BRAND}}>{issueStats.total}</span>
+                  </div>
                   <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
                     {[{label:"Open",v:issueStats.open,c:"#E74C3C"},{label:"In Progress",v:issueStats.inProg,c:"#F39C12"},{label:"Closed",v:issueStats.closed,c:"#27AE60"},{label:"Blocked",v:issueStats.blocked,c:"#8E44AD"}].map(s=>(
                       <div key={s.label} style={{display:"flex",alignItems:"center",gap:8,background:s.c+"10",border:`1px solid ${s.c}30`,borderRadius:8,padding:"8px 16px"}}>
@@ -1497,7 +1514,7 @@ export default function App() {
                     <Btn small onClick={()=>{setEditTc(null);setShowTcForm(true);}}>+ Nuevo TC</Btn>
                     <Btn small variant="ghost" onClick={()=>setShowJira(true)} style={{background:"#0052CC",color:"#fff"}}>🔗 Importar de Jira</Btn>
                     <Btn small variant="ghost" onClick={()=>importRef.current.click()}>⬆ Importar CSV</Btn>
-                    <Btn small variant="ghost" onClick={()=>exportToCSV(proj)}>⬇ Exportar CSV</Btn>
+                    <Btn small variant="ghost" onClick={()=>exportToCSV(proj, filteredTests)}>⬇ Exportar CSV</Btn>
                   </div>
                 </div>
                 {/* Filtros */}
@@ -1527,7 +1544,7 @@ export default function App() {
                     <thead>
                       <tr style={{background:proj.color,color:"#fff"}}>
                         <th style={{padding:"11px 8px",width:24}}></th>
-                        {["ID","Área","Proceso","Escenario","Descripción","Responsable","Aprob.","Ejec.","Estado","Adj."].map(h=>(
+                        {["ID","Área","Módulo","Escenario","Descripción","Responsable","Aprob.","Ejec.","Estado","Adj."].map(h=>(
                           <th key={h} style={{padding:"11px 13px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                         ))}
                       </tr>
@@ -1550,7 +1567,7 @@ export default function App() {
                             <td style={{padding:"9px 13px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap"}}>{t.id}</td>
                             <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap"}}>{t.area}</td>
                             <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap"}}>{t.proceso}</td>
-                            <td style={{padding:"9px 13px",fontWeight:600,color:DM.text}}>{t.escenario}</td>
+                            <td style={{padding:"9px 13px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:220,maxWidth:320,letterSpacing:"0.1px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>{t.escenario}</td>
                             <td style={{padding:"9px 13px",color:"#888",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.descripcion}</td>
                             <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap",fontSize:12}}>{t.asignadoA||"—"}</td>
                             <td style={{padding:"9px 13px",color:"#999",fontFamily:"monospace",fontSize:11,whiteSpace:"nowrap"}}>{t.fechaAprobacion||"—"}</td>
@@ -1689,7 +1706,7 @@ export default function App() {
                                   onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
                                   onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                                   <td style={{padding:"8px 14px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap"}}>{tc.id}</td>
-                                  <td style={{padding:"8px 14px",fontWeight:600,color:DM.text,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tc.escenario}</td>
+                                  <td style={{padding:"8px 14px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:220,maxWidth:320,letterSpacing:"0.08px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>{tc.escenario}</td>
                                   <td style={{padding:"8px 14px",color:DM.sub,fontSize:11}}>{tc.proceso}</td>
                                   <td style={{padding:"8px 14px",color:DM.sub,fontSize:11}}>{tc.asignadoA||"—"}</td>
                                   <td style={{padding:"8px 14px",color:DM.sub,fontFamily:"monospace",fontSize:11,whiteSpace:"nowrap"}}>{ejec.fechaEjecucion||"—"}</td>
@@ -1738,7 +1755,7 @@ export default function App() {
                           {tests.filter(t=>ciclos.some(c=>(c.ejecuciones||[]).find(e=>e.tcId===t.id))).map(tc=>(
                             <tr key={tc.id} style={{borderTop:`1px solid ${DM.cardBorder}`}}>
                               <td style={{padding:"8px 14px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap"}}>{tc.id}</td>
-                              <td style={{padding:"8px 14px",color:DM.text,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tc.escenario}</td>
+                              <td style={{padding:"8px 14px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:220,maxWidth:320,letterSpacing:"0.08px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>{tc.escenario}</td>
                               {ciclos.map(c=>{
                                 const ejec=(c.ejecuciones||[]).find(e=>e.tcId===tc.id);
                                 if(!ejec)return<td key={c.id} style={{padding:"8px 14px",textAlign:"center",color:"#ccc"}}>—</td>;
@@ -1783,7 +1800,7 @@ export default function App() {
                     </select>
                     {filterModulo!=="Todos"&&<button onClick={()=>setFilterModulo("Todos")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#aaa"}}>✕ Módulo</button>}
                     <Btn onClick={()=>{setEditIssue(null);setShowIssueForm(true);}}>+ Nuevo Issue</Btn>
-                    <Btn variant="ghost" small onClick={()=>exportIssuesToCSV(proj)}>⬇ Exportar</Btn>
+                    <Btn variant="ghost" small onClick={()=>exportIssuesToCSV(proj, filteredIssues)}>⬇ Exportar</Btn>
                   </div>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:9}}>
@@ -1807,7 +1824,7 @@ export default function App() {
                           <div style={{flex:1}}>
                             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
                               <span style={{fontFamily:"monospace",fontSize:11,fontWeight:700,color:BRAND,background:BRAND_LIGHT,padding:"1px 7px",borderRadius:4}}>#{issue.id} · {issue.testId}</span>
-                              <span style={{fontSize:12,color:"#666"}}>{issue.escenario}</span>
+                              <span style={{fontSize:12,color:darkMode?"#f4f7fb":"#555",display:"block",whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,fontWeight:600,background:darkMode?"#202b3b":"#f7faff",padding:"4px 8px",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>{issue.escenario}</span>
                             </div>
                             <div style={{fontSize:12,color:"#555",lineHeight:1.55,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{issue.observacion}</div>
                           </div>
