@@ -21,7 +21,7 @@ const issueStatusConfig = {
 const severityConfig = { "Critical":"#C0392B","High":"#E74C3C","Medium":"#F39C12","Low":"#27AE60" };
 const COLORS = ["#C0392B","#2980B9","#16A085","#8E44AD","#D35400","#2C3E50","#27AE60","#F39C12"];
 const EMPTY_TC = { area:"",proceso:"",escenario:"",descripcion:"",pasos:"",resultado:"",fechaAprobacion:"",fechaEjecucion:"",estado:"No ejecutado",asignadoA:"",attachments:[],historial:[],comentarios:[] };
-const EMPTY_ISSUE = { testId:"",escenario:"",formulario:"",observacion:"",modulo:"",estado:"Open",severidad:"Medium",prioridad:"Medium",fechaCreacion:"",attachments:[] };
+const EMPTY_ISSUE = { testId:"",escenario:"",formulario:"",observacion:"",modulo:"",estado:"Open",severidad:"Medium",prioridad:"Medium",fechaCreacion:"",fechaSolucion:"",attachments:[] };
 const EMPTY_CICLO = { nombre:"",modulo:"",fechaInicio:"",fechaFin:"",descripcion:"",ejecuciones:[] };
 // ejecucion: { tcId, estado, fechaEjecucion, nota }
 
@@ -62,6 +62,21 @@ function nextTcId(tests) {
 function today() {
   const d = new Date();
   return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+}
+function toInputDate(value) {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const [d,m,y] = String(value).split("/");
+  if (d && m && y) return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  return "";
+}
+function toDisplayDate(value) {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y,m,d] = value.split("-");
+    return `${d}/${m}/${y}`;
+  }
+  return value;
 }
 function readFileAsDataURL(file) {
   return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
@@ -733,7 +748,7 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode}) {
 }
 
 function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
-  const [form,setForm]=useState(initial||{...EMPTY_ISSUE,fechaCreacion:today()});
+  const [form,setForm]=useState({ ...EMPTY_ISSUE, ...(initial||{}), fechaCreacion: initial?.fechaCreacion || today(), fechaSolucion: initial?.fechaSolucion || "" });
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const IS=darkMode?inputStyleDark:inputStyle;
   return (
@@ -764,7 +779,12 @@ function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
             {["Critical","High","Medium","Low"].map(k=><option key={k} value={k}>{k}</option>)}
           </select>
         </Field>
-        <Field label="Fecha Creación"><input style={IS} value={form.fechaCreacion} onChange={e=>set("fechaCreacion",e.target.value)} placeholder="DD/MM/YYYY"/></Field>
+        <Field label="Fecha Creación">
+          <input type="date" style={IS} value={toInputDate(form.fechaCreacion)} onChange={e=>set("fechaCreacion",toDisplayDate(e.target.value))}/>
+        </Field>
+        <Field label="Fecha Solución">
+          <input type="date" style={IS} value={toInputDate(form.fechaSolucion)} onChange={e=>set("fechaSolucion",toDisplayDate(e.target.value))}/>
+        </Field>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:14}}>
         <Field label="Observación"><textarea style={{...IS,minHeight:90,resize:"vertical"}} value={form.observacion} onChange={e=>set("observacion",e.target.value)} placeholder="Describe la novedad..."/></Field>
@@ -873,7 +893,7 @@ function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
         </div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:11,marginBottom:14}}>
-        {[["Módulo",issue.modulo],["Formulario",issue.formulario],["Fecha Creación",issue.fechaCreacion]].map(([l,v])=>(
+        {[ ["Módulo",issue.modulo],["Formulario",issue.formulario],["Fecha Creación",issue.fechaCreacion || "—"], ["Fecha Solución",issue.fechaSolucion || "—"] ].map(([l,v])=>(
           <div key={l} style={{background:"#f8f8f8",borderRadius:8,padding:"9px 12px"}}>
             <div style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:3}}>{l}</div>
             <div style={{fontSize:12,color:"#333",fontWeight:600}}>{v}</div>
@@ -1797,10 +1817,11 @@ export default function App() {
                             {(issue.attachments||[]).length>0&&<span style={{fontSize:11,color:"#aaa"}}>📎{issue.attachments.length}</span>}
                           </div>
                         </div>
-                        <div style={{marginTop:8,display:"flex",gap:6}}>
+                        <div style={{marginTop:8,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
                           <span style={{fontSize:10,color:"#999",background:"#f5f5f5",padding:"2px 7px",borderRadius:5}}>📦 {issue.modulo}</span>
                           {issue.prioridad&&<span style={{fontSize:10,color:"#999",background:"#f5f5f5",padding:"2px 7px",borderRadius:5}}>🔺 {issue.prioridad}</span>}
-                          <span style={{fontSize:10,color:"#bbb",marginLeft:"auto"}}>{issue.fechaCreacion}</span>
+                          <span style={{fontSize:10,color:"#bbb"}}>🗓️ Creación: {issue.fechaCreacion || "—"}</span>
+                          {issue.fechaSolucion&&<span style={{fontSize:10,color:"#bbb"}}>✅ Solución: {issue.fechaSolucion}</span>}
                         </div>
                       </div>
                     );
