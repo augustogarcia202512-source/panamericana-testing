@@ -1614,17 +1614,18 @@ export default function App() {
                   </div>
                 </div>
                 <div style={{background:DM.card,borderRadius:12,overflow:"hidden",border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                  <div style={{overflowX:"auto"}}>
+                    <table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:12}}>
                     <thead>
                       <tr style={{background:proj.color,color:"#fff"}}>
-                        <th style={{padding:"11px 8px",width:24}}></th>
-                        {["ID","Área","Módulo","Escenario","Descripción","Responsable","Aprob.","Ejec.","Estado","Adj.","Observación"].map(h=>(
-                          <th key={h} style={{padding:"11px 13px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                        <th style={{padding:"9px 6px",width:20}}></th>
+                        {["ID","Área","Módulo","Escenario","Descripción","Responsable","Estado","Adj.","Observación"].map(h=>(
+                          <th key={h} style={{padding:"9px 10px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:"0.05em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTests.length===0&&(<tr><td colSpan={12} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin resultados.</td></tr>)}
+                      {filteredTests.length===0&&(<tr><td colSpan={10} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin resultados.</td></tr>)}
                       {filteredTests.map((t,i)=>{
                         const sc=statusConfig[t.estado]||statusConfig["No ejecutado"];
                         const realIndex=proj.tests.findIndex(x=>x.id===t.id);
@@ -1637,33 +1638,32 @@ export default function App() {
                             style={{background:i%2===0?DM.tableRow0:DM.tableRow1,cursor:"pointer",borderBottom:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
                             onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
                             onMouseLeave={e=>e.currentTarget.style.background=i%2===0?DM.tableRow0:DM.tableRow1}>
-                            <td style={{padding:"9px 8px",textAlign:"center",color:"#ccc",cursor:"grab",fontSize:16}} onClick={e=>e.stopPropagation()} title="Arrastrar">⠿</td>
-                            <td style={{padding:"9px 13px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap"}}>{t.id}</td>
-                            <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap"}}>{t.area}</td>
-                            <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap"}}>{t.proceso}</td>
-                            <td style={{padding:"9px 13px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:220,maxWidth:320,letterSpacing:"0.1px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>{t.escenario}</td>
-                            <td style={{padding:"9px 13px",color:"#888",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.descripcion}</td>
-                            <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap",fontSize:12}}>{t.asignadoA||"—"}</td>
-                            <td style={{padding:"9px 13px",color:"#999",fontFamily:"monospace",fontSize:11,whiteSpace:"nowrap"}}>{t.fechaAprobacion||"—"}</td>
-                            <td style={{padding:"9px 13px",color:"#999",fontFamily:"monospace",fontSize:11,whiteSpace:"nowrap"}}>{t.fechaEjecucion||"—"}</td>
-                            <td style={{padding:"9px 13px"}} onClick={e=>e.stopPropagation()}>
+                            <td style={{padding:"8px 6px",textAlign:"center",color:"#ccc",cursor:"grab",fontSize:14}} onClick={e=>e.stopPropagation()} title="Arrastrar">⠿</td>
+                            <td style={{padding:"8px 10px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",fontSize:11}}>{t.id}</td>
+                            <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.area}</td>
+                            <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.proceso}</td>
+                            <td style={{padding:"8px 10px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:160,maxWidth:200,letterSpacing:"0.05px",background:darkMode?"#202b3b":"#f7faff",borderRadius:6,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff",fontSize:11}}>{t.escenario}</td>
+                            <td style={{padding:"8px 10px",color:"#888",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10}}>{t.descripcion}</td>
+                            <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:10}}>{t.asignadoA||"—"}</td>
+                            <td style={{padding:"8px 10px"}} onClick={e=>e.stopPropagation()}>
                               <select value={t.estado} onChange={e=>updateTCStatus(t.id,e.target.value)}
-                                style={{border:`1px solid ${sc.color}50`,borderRadius:12,padding:"3px 8px",fontSize:11,fontWeight:700,color:sc.color,background:sc.bg,cursor:"pointer",outline:"none"}}>
+                                style={{border:`1px solid ${sc.color}50`,borderRadius:10,padding:"2px 6px",fontSize:9,fontWeight:700,color:sc.color,background:sc.bg,cursor:"pointer",outline:"none"}}>
                                 {Object.keys(statusConfig).map(k=><option key={k} value={k}>{k}</option>)}
                               </select>
                             </td>
-                            <td style={{padding:"9px 13px",textAlign:"center"}}>
-                              {(t.attachments||[]).length>0&&<span style={{fontSize:12}} title={`${t.attachments.length} adjunto(s)`}>📎{t.attachments.length}</span>}
-                              {(t.comentarios||[]).length>0&&<span style={{fontSize:12,marginLeft:4}} title={`${t.comentarios.length} comentario(s)`}>💬{t.comentarios.length}</span>}
+                            <td style={{padding:"8px 10px",textAlign:"center",fontSize:11}}>
+                              {(t.attachments||[]).length>0&&<span style={{fontSize:11}} title={`${t.attachments.length} adjunto(s)`}>📎{t.attachments.length}</span>}
+                              {(t.comentarios||[]).length>0&&<span style={{fontSize:11,marginLeft:3}} title={`${t.comentarios.length} comentario(s)`}>💬{t.comentarios.length}</span>}
                             </td>
-                            <td style={{padding:"9px 13px"}} onClick={e=>e.stopPropagation()}>
-                              <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTc(t);}}>📝 Observación</Btn>
+                            <td style={{padding:"8px 10px",textAlign:"center",whiteSpace:"nowrap"}} onClick={e=>e.stopPropagation()}>
+                              <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTc(t);}} style={{padding:"4px 8px",fontSize:11}}>📝</Btn>
                             </td>
                           </tr>
                         );
                       })}
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
