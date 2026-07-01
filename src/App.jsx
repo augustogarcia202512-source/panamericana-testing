@@ -276,7 +276,7 @@ function exportToCSV(proj, tests = proj.tests) {
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${proj.name}_TCs.csv`;a.click();
 }
 function exportIssuesToCSV(proj, issuesList = proj.issues) {
-  const headers = ["ID","TC","Escenario","Formulario","Módulo","Observación","Estado","Severidad","Prioridad","Fecha Creación"];
+  const headers = ["ID","TC","Escenario","Descripción de la novedad","Módulo","Observación","Estado","Severidad","Prioridad","Fecha Creación"];
   const rows = issuesList.map(i=>[i.id,i.testId,i.escenario,i.formulario,i.modulo,i.observacion,i.estado,i.severidad,i.prioridad,i.fechaCreacion]);
   const csv = [headers,...rows].map(r=>r.map(c=>`"${(c||"").toString().replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
@@ -836,7 +836,7 @@ function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
         </Field>
         <Field label="Módulo"><input style={{...IS,minHeight:44}} value={form.modulo} onChange={e=>set("modulo",e.target.value)} placeholder="Compras a pagos"/></Field>
         <Field label="Escenario"><textarea style={{...IS,minHeight:120,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.escenario} onChange={e=>set("escenario",e.target.value)} placeholder="Nombre del escenario"/></Field>
-        <Field label="Formulario"><textarea style={{...IS,minHeight:90,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.formulario} onChange={e=>set("formulario",e.target.value)} placeholder="Nombre del formulario"/></Field>
+        <Field label="Descripción de la novedad"><textarea style={{...IS,minHeight:90,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.formulario} onChange={e=>set("formulario",e.target.value)} placeholder="Descripción de la novedad"/></Field>
         <Field label="Estado">
           <select style={{...IS,minHeight:44}} value={form.estado} onChange={e=>set("estado",e.target.value)}>
             {Object.keys(issueStatusConfig).map(k=><option key={k} value={k}>{k}</option>)}
@@ -866,6 +866,25 @@ function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
       <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:8}}>
         <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
         <Btn onClick={()=>{if(!form.observacion.trim())return alert("La observación es requerida");onSave(form);}}>💾 Guardar</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+function ObservationModal({tc,initialText,onClose,onSave,darkMode}) {
+  const [text,setText]=useState(initialText||"");
+  const IS=darkMode?inputStyleDark:inputStyle;
+  return (
+    <Modal onClose={onClose} preventOutsideClose>
+      <ModalHeader title={`Observación ${tc.id}`} sub={tc.escenario} onClose={onClose}/>
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <Field label="Escribe tu observación">
+          <textarea style={{...IS,minHeight:180,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={text} onChange={e=>setText(e.target.value)} placeholder="Ingresa la observación aquí..."/>
+        </Field>
+        <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+          <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
+          <Btn disabled={!text.trim()} onClick={()=>onSave(text.trim())}>Guardar</Btn>
+        </div>
       </div>
     </Modal>
   );
@@ -960,7 +979,7 @@ function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
         <Btn small danger onClick={onDelete}>🗑️</Btn>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:11,marginBottom:14}}>
-        {[ ["Módulo",issue.modulo],["Formulario",issue.formulario],["Fecha Creación",issue.fechaCreacion || "—"], ["Fecha Solución",issue.fechaSolucion || "—"] ].map(([l,v])=>(
+        {[ ["Módulo",issue.modulo],["Descripción de la novedad",issue.formulario],["Fecha Creación",issue.fechaCreacion || "—"], ["Fecha Solución",issue.fechaSolucion || "—"] ].map(([l,v])=>(
           <div key={l} style={{background:"#f8f8f8",borderRadius:8,padding:"9px 12px"}}>
             <div style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:3}}>{l}</div>
             <div style={{fontSize:12,color:"#333",fontWeight:600}}>{v}</div>
@@ -1018,6 +1037,7 @@ export default function App() {
   const [showTcForm,setShowTcForm]=useState(false);
   const [editTc,setEditTc]=useState(null);
   const [viewTc,setViewTc]=useState(null);
+  const [observationTc,setObservationTc]=useState(null);
   const [showIssueForm,setShowIssueForm]=useState(false);
   const [editIssue,setEditIssue]=useState(null);
   const [viewIssue,setViewIssue]=useState(null);
@@ -1598,13 +1618,13 @@ export default function App() {
                     <thead>
                       <tr style={{background:proj.color,color:"#fff"}}>
                         <th style={{padding:"11px 8px",width:24}}></th>
-                        {["ID","Área","Módulo","Escenario","Descripción","Responsable","Aprob.","Ejec.","Estado","Adj."].map(h=>(
+                        {["ID","Área","Módulo","Escenario","Descripción","Responsable","Aprob.","Ejec.","Estado","Adj.","Observación"].map(h=>(
                           <th key={h} style={{padding:"11px 13px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTests.length===0&&(<tr><td colSpan={11} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin resultados.</td></tr>)}
+                      {filteredTests.length===0&&(<tr><td colSpan={12} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin resultados.</td></tr>)}
                       {filteredTests.map((t,i)=>{
                         const sc=statusConfig[t.estado]||statusConfig["No ejecutado"];
                         const realIndex=proj.tests.findIndex(x=>x.id===t.id);
@@ -1635,6 +1655,9 @@ export default function App() {
                             <td style={{padding:"9px 13px",textAlign:"center"}}>
                               {(t.attachments||[]).length>0&&<span style={{fontSize:12}} title={`${t.attachments.length} adjunto(s)`}>📎{t.attachments.length}</span>}
                               {(t.comentarios||[]).length>0&&<span style={{fontSize:12,marginLeft:4}} title={`${t.comentarios.length} comentario(s)`}>💬{t.comentarios.length}</span>}
+                            </td>
+                            <td style={{padding:"9px 13px"}} onClick={e=>e.stopPropagation()}>
+                              <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTc(t);}}>📝 Observación</Btn>
                             </td>
                           </tr>
                         );
@@ -1862,13 +1885,13 @@ export default function App() {
                     <thead>
                       <tr style={{background:proj.color,color:"#fff"}}>
                         <th style={{padding:"11px 8px",width:24}}></th>
-                        {['TC','Escenario','Módulo','Observación'].map(h=>(
+                        {['TC','Escenario','Descripción de la novedad','Módulo','Observación'].map(h=>(
                           <th key={h} style={{padding:"11px 13px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredIssues.length===0&&(<tr><td colSpan={5} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin issues registrados.</td></tr>)}
+                      {filteredIssues.length===0&&(<tr><td colSpan={6} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin issues registrados.</td></tr>)}
                       {filteredIssues.map((issue,i)=>{
                         const realIndex=proj.issues.findIndex(x=>x.id===issue.id);
                         return (
@@ -1882,6 +1905,7 @@ export default function App() {
                             <td style={{padding:"9px 8px",textAlign:"center",color:"#ccc",cursor:"grab",fontSize:16}} onClick={e=>e.stopPropagation()} title="Arrastrar">⠿</td>
                             <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap",fontSize:12,letterSpacing:"0.02em"}}>{issue.testId||"—"}</td>
                             <td style={{padding:"9px 13px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:240,maxWidth:420,letterSpacing:"0.1px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>{issue.escenario}</td>
+                            <td style={{padding:"9px 13px",color:DM.sub,maxWidth:220,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4}}>{issue.formulario||"—"}</td>
                             <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap"}}>{issue.modulo||"—"}</td>
                             <td style={{padding:"9px 13px",whiteSpace:"nowrap"}}>
                               <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setViewIssue(issue);}}>Ver observación</Btn>
@@ -1903,6 +1927,9 @@ export default function App() {
       {showCicloForm&&<CicloFormModal initial={editCiclo} cicloId={editCiclo?.nombre} modulosList={[...new Set(tests.map(t=>t.proceso).filter(Boolean))]} onSave={saveCiclo} onClose={()=>{setShowCicloForm(false);setEditCiclo(null);}} darkMode={darkMode}/>}
       {showProjForm&&<ProjectFormModal initial={editProj} onSave={saveProject} onClose={()=>{setShowProjForm(false);setEditProj(null);}} darkMode={darkMode}/>}
       {showTcForm&&<TcFormModal initial={editTc} tcId={editTc?.id} onSave={saveTC} onClose={()=>{setShowTcForm(false);setEditTc(null);}} darkMode={darkMode}/>}
+      {observationTc&&<ObservationModal tc={observationTc} initialText="" darkMode={darkMode}
+        onClose={()=>setObservationTc(null)}
+        onSave={(text)=>{addComment(observationTc.id,text);setObservationTc(null);}} />}
       {viewTc&&!showTcForm&&(
         <TcDetailModal tc={viewTc} onClose={()=>setViewTc(null)}
           onEdit={()=>{setEditTc(viewTc);setViewTc(null);setShowTcForm(true);}}
