@@ -1857,46 +1857,40 @@ export default function App() {
                     <Btn variant="ghost" small onClick={()=>exportIssuesToCSV(proj, filteredIssues)}>⬇ Exportar</Btn>
                   </div>
                 </div>
-                <div style={{display:"flex",flexDirection:"column",gap:9}}>
-                  {filteredIssues.length===0&&(<div style={{background:DM.card,borderRadius:12,padding:40,textAlign:"center",color:"#bbb",fontSize:13,border:`1px solid ${DM.cardBorder}`}}>Sin issues registrados.</div>)}
-                  {filteredIssues.map((issue,i)=>{
-                    const sc=issueStatusConfig[issue.estado]||issueStatusConfig["Open"];
-                    const sev=severityConfig[issue.severidad]||"#888";
-                    const realIndex=proj.issues.findIndex(x=>x.id===issue.id);
-                    return (
-                      <div key={issue.id}
-                        draggable
-                        onDragStart={()=>{dragIssueIndex.current=realIndex;}}
-                        onDragOver={e=>{e.preventDefault();dragOverIssueIndex.current=realIndex;}}
-                        onDrop={()=>{if(dragIssueIndex.current!==null&&dragIssueIndex.current!==dragOverIssueIndex.current)reorderIssues(dragIssueIndex.current,dragOverIssueIndex.current);dragIssueIndex.current=null;dragOverIssueIndex.current=null;}}
-                        onClick={()=>setViewIssue(issue)}
-                        style={{background:DM.card,borderRadius:11,padding:"14px 18px",border:`1px solid ${DM.cardBorder}`,cursor:"grab",borderLeft:`4px solid ${sev}`,boxShadow:"0 1px 6px #00000008",transition:"box-shadow 0.15s, transform 0.15s"}}
-                        onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 18px #00000015";e.currentTarget.style.transform="translateX(3px)";}}
-                        onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 6px #00000008";e.currentTarget.style.transform="translateX(0)";}}>
-                        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}>
-                          <span style={{fontSize:16,color:"#ccc",cursor:"grab",paddingTop:2,userSelect:"none",flexShrink:0}} title="Arrastra para reordenar">⠿</span>
-                          <div style={{flex:1}}>
-                            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                              <span style={{fontFamily:"monospace",fontSize:11,fontWeight:700,color:BRAND,background:BRAND_LIGHT,padding:"1px 7px",borderRadius:4}}>#{issue.id} · {issue.testId}</span>
-                              <span style={{fontSize:12,color:darkMode?"#f4f7fb":"#555",display:"block",whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,fontWeight:600,background:darkMode?"#202b3b":"#f7faff",padding:"4px 8px",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>{issue.escenario}</span>
-                            </div>
-                            <div style={{fontSize:12,color:"#555",lineHeight:1.55,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{issue.observacion}</div>
-                          </div>
-                          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0}}>
-                            <Badge label={issue.estado} color={sc.color} bg={sc.bg}/>
-                            <span style={{fontSize:10,fontWeight:700,color:sev,background:sev+"15",padding:"2px 8px",borderRadius:6}}>{issue.severidad}</span>
-                            {(issue.attachments||[]).length>0&&<span style={{fontSize:11,color:"#aaa"}}>📎{issue.attachments.length}</span>}
-                          </div>
-                        </div>
-                        <div style={{marginTop:8,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-                          <span style={{fontSize:10,color:"#999",background:"#f5f5f5",padding:"2px 7px",borderRadius:5}}>📦 {issue.modulo}</span>
-                          {issue.prioridad&&<span style={{fontSize:10,color:"#999",background:"#f5f5f5",padding:"2px 7px",borderRadius:5}}>🔺 {issue.prioridad}</span>}
-                          <span style={{fontSize:10,color:"#bbb"}}>🗓️ Creación: {issue.fechaCreacion || "—"}</span>
-                          {issue.fechaSolucion&&<span style={{fontSize:10,color:"#bbb"}}>✅ Solución: {issue.fechaSolucion}</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div style={{background:DM.card,borderRadius:12,overflow:"hidden",border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                    <thead>
+                      <tr style={{background:proj.color,color:"#fff"}}>
+                        <th style={{padding:"11px 8px",width:24}}></th>
+                        {['TC','Escenario','Módulo','Observación'].map(h=>(
+                          <th key={h} style={{padding:"11px 13px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredIssues.length===0&&(<tr><td colSpan={5} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin issues registrados.</td></tr>)}
+                      {filteredIssues.map((issue,i)=>{
+                        const realIndex=proj.issues.findIndex(x=>x.id===issue.id);
+                        return (
+                          <tr key={issue.id} draggable
+                            onDragStart={()=>{dragIssueIndex.current=realIndex;}}
+                            onDragOver={e=>{e.preventDefault();dragOverIssueIndex.current=realIndex;}}
+                            onDrop={()=>{if(dragIssueIndex.current!==null&&dragIssueIndex.current!==dragOverIssueIndex.current)reorderIssues(dragIssueIndex.current,dragOverIssueIndex.current);dragIssueIndex.current=null;dragOverIssueIndex.current=null;}}
+                            style={{background:i%2===0?DM.tableRow0:DM.tableRow1,cursor:"default",borderBottom:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
+                            onMouseEnter={e=>{e.currentTarget.style.background=DM.tableHover;}}
+                            onMouseLeave={e=>{e.currentTarget.style.background=i%2===0?DM.tableRow0:DM.tableRow1;}}>
+                            <td style={{padding:"9px 8px",textAlign:"center",color:"#ccc",cursor:"grab",fontSize:16}} onClick={e=>e.stopPropagation()} title="Arrastrar">⠿</td>
+                            <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap",fontSize:12,letterSpacing:"0.02em"}}>{issue.testId||"—"}</td>
+                            <td style={{padding:"9px 13px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:240,maxWidth:420,letterSpacing:"0.1px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>{issue.escenario}</td>
+                            <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap"}}>{issue.modulo||"—"}</td>
+                            <td style={{padding:"9px 13px",whiteSpace:"nowrap"}}>
+                              <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setViewIssue(issue);}}>Ver observación</Btn>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
