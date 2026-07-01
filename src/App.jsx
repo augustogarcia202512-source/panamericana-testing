@@ -325,17 +325,58 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
 
   const semColor = execPct>=70?"#27AE60":execPct>=40?"#F39C12":"#E74C3C";
   const semLabel = execPct>=70?"En buen ritmo":execPct>=40?"Progreso moderado":"Requiere atención";
+  const escapeHtml = v => String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;");
+
+  const timelineData = Object.entries(
+    tests.filter(t=>t.fechaEjecucion).reduce((acc,t)=>{acc[t.fechaEjecucion]=(acc[t.fechaEjecucion]||0)+1;return acc;}, {})
+  )
+    .sort((a,b)=>a[0].localeCompare(b[0]))
+    .map(([label,value])=>({label,value}));
+  const timelineW = 520;
+  const timelineH = 140;
+  const timelinePad = 24;
+  const timelineMax = Math.max(...timelineData.map(d=>d.value), 1);
+  const timelinePoints = timelineData.map((d,i)=>({
+    x: timelinePad + (i / Math.max(timelineData.length - 1, 1)) * (timelineW - timelinePad * 2),
+    y: timelineH - timelinePad - ((d.value / timelineMax) * (timelineH - timelinePad * 2))
+  }));
+  const timelinePath = timelinePoints.map((p,i)=>`${i===0?"M":"L"}${p.x} ${p.y}`).join(" ");
+  const timelineSvg = timelineData.length>=2 ? `<svg width="520" height="140" viewBox="0 0 ${timelineW} ${timelineH}">
+    <line x1="${timelinePad}" y1="${timelineH-timelinePad}" x2="${timelineW-timelinePad}" y2="${timelineH-timelinePad}" stroke="#ddd" />
+    <path d="${timelinePath}" fill="none" stroke="#C0392B" stroke-width="2.5" />
+    ${timelinePoints.map((p,i)=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#C0392B" /><text x="${p.x}" y="${timelineH-8}" text-anchor="middle" font-size="9" fill="#888">${escapeHtml(timelineData[i].label)}</text><text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="9" fill="#C0392B" font-weight="700">${timelineData[i].value}</text>`).join("")}
+  </svg>` : `<div style="color:#888;font-size:12px">Sin datos de línea de tiempo para mostrar.</div>`;
+
+  const cycleRows = (proj.ciclos||[]).map(c => {
+    const execs = (c.ejecuciones||[]).filter(e => tests.some(t => t.id === e.tcId));
+    const total = execs.length;
+    const aprobados = execs.filter(e=>e.estado==="Aprobado").length;
+    const fallidos = execs.filter(e=>e.estado==="Fallido").length;
+    const noEjec = execs.filter(e=>e.estado==="No ejecutado").length;
+    const avance = total ? Math.round((aprobados / total) * 100) : 0;
+    return `<tr>
+      <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:700">${escapeHtml(c.nombre||"Sin nombre")}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${escapeHtml(c.modulo||"—")}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${escapeHtml(c.fechaInicio||"—")}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${escapeHtml(c.fechaFin||"—")}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${total}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#27AE60;font-weight:700">${aprobados}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#E74C3C;font-weight:700">${fallidos}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#95A5A6;font-weight:700">${noEjec}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;font-weight:800;color:${avance>=70?"#27AE60":avance>=40?"#F39C12":"#E74C3C"}">${avance}%</td>
+    </tr>`;
+  }).join("");
 
   // TC table rows
   const tcRows = tests.map(t => {
     const sc = {"Aprobado":"#27AE60","En Progreso":"#F39C12","Fallido":"#E74C3C","No ejecutado":"#95A5A6","No aplica":"#BDC3C7","Bloqueante":"#8E44AD"}[t.estado]||"#888";
     return `<tr>
-      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-family:monospace;font-weight:bold;color:#C0392B">${t.id}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">${t.area}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">${t.escenario}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">${t.asignadoA||"—"}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">${t.fechaEjecucion||"—"}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0"><span style="background:${sc}20;color:${sc};border:1px solid ${sc}40;border-radius:10px;padding:2px 8px;font-size:10px;font-weight:bold">${t.estado}</span></td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-family:monospace;font-weight:bold;color:#C0392B">${escapeHtml(t.id)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">${escapeHtml(t.area)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">${escapeHtml(t.escenario)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">${escapeHtml(t.asignadoA||"—")}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">${escapeHtml(t.fechaEjecucion||"—")}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0"><span style="background:${sc}20;color:${sc};border:1px solid ${sc}40;border-radius:10px;padding:2px 8px;font-size:10px;font-weight:bold">${escapeHtml(t.estado)}</span></td>
     </tr>`;
   }).join("");
 
@@ -343,11 +384,11 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
     const sc={"Open":"#E74C3C","Closed":"#27AE60","In Progress":"#F39C12","Blocked":"#8E44AD"}[i.estado]||"#888";
     const sv={"Critical":"#C0392B","High":"#E74C3C","Medium":"#F39C12","Low":"#27AE60"}[i.severidad]||"#888";
     return `<tr>
-      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-family:monospace;font-size:11px;color:#C0392B">#${i.id}·${i.testId}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">${i.escenario}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:10px;max-width:200px">${i.observacion.slice(0,80)}${i.observacion.length>80?"…":""}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0"><span style="background:${sc}20;color:${sc};border:1px solid ${sc}40;border-radius:10px;padding:2px 8px;font-size:10px;font-weight:bold">${i.estado}</span></td>
-      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0"><span style="color:${sv};font-size:10px;font-weight:bold">${i.severidad}</span></td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-family:monospace;font-size:11px;color:#C0392B">#${escapeHtml(i.id)}·${escapeHtml(i.testId)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">${escapeHtml(i.escenario)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:10px;max-width:200px">${escapeHtml(i.observacion.slice(0,80))}${i.observacion.length>80?"…":""}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0"><span style="background:${sc}20;color:${sc};border:1px solid ${sc}40;border-radius:10px;padding:2px 8px;font-size:10px;font-weight:bold">${escapeHtml(i.estado)}</span></td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0"><span style="color:${sv};font-size:10px;font-weight:bold">${escapeHtml(i.severidad)}</span></td>
     </tr>`;
   }).join("");
 
@@ -402,6 +443,11 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
 </div>
 
 <div class="section">
+  <div class="section-title">📈 Línea de tiempo</div>
+  ${timelineSvg}
+</div>
+
+<div class="section">
   <div class="section-title">🧪 Casos de Prueba (${tests.length})</div>
   <table>
     <thead><tr><th>ID</th><th>Área</th><th>Escenario</th><th>Responsable</th><th>Fecha Ejec.</th><th>Estado</th></tr></thead>
@@ -435,7 +481,7 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
 </div>
 
 <div class="section">
-  <div class="section-title">🐛 Issues (${issues.length})</div>
+  <div class="section-title">🐛 Resumen de Issues (${issues.length})</div>
   <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
     <span style="background:#E74C3C15;border:1px solid #E74C3C30;border-radius:8px;padding:5px 12px;font-size:12px"><strong style="color:#E74C3C">${issueStats.open}</strong> Open</span>
     <span style="background:#F39C1215;border:1px solid #F39C1230;border-radius:8px;padding:5px 12px;font-size:12px"><strong style="color:#F39C12">${issueStats.inProg}</strong> In Progress</span>
@@ -445,6 +491,14 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
   <table>
     <thead><tr><th>Ref.</th><th>Escenario</th><th>Observación</th><th>Estado</th><th>Severidad</th></tr></thead>
     <tbody>${issueRows}</tbody>
+  </table>
+</div>
+
+<div class="section">
+  <div class="section-title">🔄 Estadísticas por Ciclo</div>
+  <table>
+    <thead><tr><th>Ciclo</th><th>Módulo</th><th>Inicio</th><th>Fin</th><th>Total</th><th>Aprob.</th><th>Fall.</th><th>No ejec.</th><th>Avance</th></tr></thead>
+    <tbody>${cycleRows || '<tr><td colspan="9" style="padding:10px;border-bottom:1px solid #f0f0f0;color:#888">Sin ciclos para mostrar.</td></tr>'}</tbody>
   </table>
 </div>
 
@@ -1173,16 +1227,6 @@ export default function App() {
   const tests=proj.tests;
   const issues=proj.issues;
 
-  const stats=useMemo(()=>{const c={};Object.keys(statusConfig).forEach(k=>c[k]=0);tests.forEach(t=>{if(c[t.estado]!==undefined)c[t.estado]++;});return c;},[tests]);
-  const issueStats=useMemo(()=>({open:issues.filter(i=>i.estado==="Open").length,closed:issues.filter(i=>i.estado==="Closed").length,inProg:issues.filter(i=>i.estado==="In Progress").length,blocked:issues.filter(i=>i.estado==="Blocked").length,total:issues.length}),[issues]);
-
-  // timeline data: count aprobados por fecha
-  const timelineData=useMemo(()=>{
-    const map={};
-    tests.filter(t=>t.fechaEjecucion).forEach(t=>{map[t.fechaEjecucion]=(map[t.fechaEjecucion]||0)+1;});
-    return Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0])).map(([d,v])=>({label:d.slice(0,5),value:v}));
-  },[tests]);
-
   const asignadosList=useMemo(()=>{const s=new Set(tests.map(t=>t.asignadoA).filter(Boolean));return["Todos",...s];},[tests]);
   const procesosList=useMemo(()=>{const s=new Set(tests.map(t=>t.proceso).filter(Boolean));return["Todos",...s];},[tests]);
   const modulosList=useMemo(()=>{const s=new Set(issues.map(i=>i.modulo).filter(Boolean));return["Todos",...s];},[issues]);
@@ -1204,13 +1248,23 @@ export default function App() {
     const mM=filterModulo==="Todos"||i.modulo===filterModulo;
     return mE&&mM;
   }),[issues,filterIssueEstado,filterModulo]);
-  const pct=n=>tests.length?Math.round((n/tests.length)*100):0;
-  const execPct=pct(stats["Aprobado"]+stats["No aplica"]);
+
+  const filteredTestStats=useMemo(()=>{const c={};Object.keys(statusConfig).forEach(k=>c[k]=0);filteredTests.forEach(t=>{if(c[t.estado]!==undefined)c[t.estado]++;});return c;},[filteredTests]);
+  const filteredIssueStats=useMemo(()=>({open:filteredIssues.filter(i=>i.estado==="Open").length,closed:filteredIssues.filter(i=>i.estado==="Closed").length,inProg:filteredIssues.filter(i=>i.estado==="In Progress").length,blocked:filteredIssues.filter(i=>i.estado==="Blocked").length,total:filteredIssues.length}),[filteredIssues]);
+
+  const filteredTimelineData=useMemo(()=>{
+    const map={};
+    filteredTests.filter(t=>t.fechaEjecucion).forEach(t=>{map[t.fechaEjecucion]=(map[t.fechaEjecucion]||0)+1;});
+    return Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0])).map(([d,v])=>({label:d.slice(0,5),value:v}));
+  },[filteredTests]);
+
+  const pct=(n,total=filteredTests.length)=>total?Math.round((n/total)*100):0;
+  const execPct=pct(filteredTestStats["Aprobado"]+filteredTestStats["No aplica"]);
 
   // Stats per module (proceso field)
   const moduleStats=useMemo(()=>{
     const modules={};
-    tests.forEach(t=>{
+    filteredTests.forEach(t=>{
       const mod=t.proceso||"Sin módulo";
       if(!modules[mod]) modules[mod]={total:0,aprobado:0,enProgreso:0,fallido:0,noEjecutado:0,noAplica:0,bloqueante:0};
       modules[mod].total++;
@@ -1222,7 +1276,7 @@ export default function App() {
       else if(t.estado==="Bloqueante") modules[mod].bloqueante++;
     });
     return modules;
-  },[tests]);
+  },[filteredTests]);
   const tabs=[{id:"dashboard",label:"📊 Dashboard"},{id:"tests",label:"🧪 Casos de Prueba"},{id:"ciclos",label:"🔄 Ciclos"},{id:"issues",label:"🐛 Issues"}];
 
   return (
@@ -1323,11 +1377,11 @@ export default function App() {
 
                 {/* stat chips */}
                 <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                  {[{label:"Total",value:tests.length,color:DM.text},{label:"Aprobado",value:stats["Aprobado"],color:"#27AE60"},{label:"En Progreso",value:stats["En Progreso"],color:"#F39C12"},{label:"Fallido",value:stats["Fallido"],color:"#E74C3C"},{label:"No ejecutado",value:stats["No ejecutado"],color:"#95A5A6"},{label:"No aplica",value:stats["No aplica"],color:"#BDC3C7"},{label:"Bloqueante",value:stats["Bloqueante"],color:"#8E44AD"}].map(s=>(
+                  {[{label:"Total",value:filteredTests.length,color:DM.text},{label:"Aprobado",value:filteredTestStats["Aprobado"],color:"#27AE60"},{label:"En Progreso",value:filteredTestStats["En Progreso"],color:"#F39C12"},{label:"Fallido",value:filteredTestStats["Fallido"],color:"#E74C3C"},{label:"No ejecutado",value:filteredTestStats["No ejecutado"],color:"#95A5A6"},{label:"No aplica",value:filteredTestStats["No aplica"],color:"#BDC3C7"},{label:"Bloqueante",value:filteredTestStats["Bloqueante"],color:"#8E44AD"}].map(s=>( 
                     <div key={s.label} style={{background:DM.card,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 8px #0000000a",border:`1px solid ${DM.cardBorder}`,minWidth:90}}>
                       <div style={{fontSize:10,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{s.label}</div>
                       <div style={{fontSize:28,fontWeight:800,color:s.color,lineHeight:1.1}}>{s.value}</div>
-                      {tests.length>0&&s.label!=="Total"&&(<div style={{marginTop:4,height:3,background:"#f0f0f0",borderRadius:2}}><div style={{width:`${pct(s.value)}%`,height:"100%",background:s.color,borderRadius:2}}/></div>)}
+                      {filteredTests.length>0&&s.label!=="Total"&&(<div style={{marginTop:4,height:3,background:"#f0f0f0",borderRadius:2}}><div style={{width:`${pct(s.value)}%`,height:"100%",background:s.color,borderRadius:2}}/></div>)}
                     </div>
                   ))}
                 </div>
@@ -1335,11 +1389,11 @@ export default function App() {
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
                   <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                     <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:16}}>Distribución de Estados</div>
-                    <Donut data={[{label:"Aprobado",value:stats["Aprobado"],color:"#27AE60"},{label:"En Progreso",value:stats["En Progreso"],color:"#F39C12"},{label:"Fallido",value:stats["Fallido"],color:"#E74C3C"},{label:"No ejecutado",value:stats["No ejecutado"],color:"#bbb"},{label:"No aplica",value:stats["No aplica"],color:"#ddd"},{label:"Bloqueante",value:stats["Bloqueante"],color:"#8E44AD"}]}/>
+                    <Donut data={[{label:"Aprobado",value:filteredTestStats["Aprobado"],color:"#27AE60"},{label:"En Progreso",value:filteredTestStats["En Progreso"],color:"#F39C12"},{label:"Fallido",value:filteredTestStats["Fallido"],color:"#E74C3C"},{label:"No ejecutado",value:filteredTestStats["No ejecutado"],color:"#bbb"},{label:"No aplica",value:filteredTestStats["No aplica"],color:"#ddd"},{label:"Bloqueante",value:filteredTestStats["Bloqueante"],color:"#8E44AD"}]}/>
                   </div>
                   <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                     <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:16}}>Test Plan Evolution</div>
-                    {[{label:"Ejecutado (Aprobado + N/A)",value:pct(stats["Aprobado"]+stats["No aplica"]),color:"#27AE60"},{label:"En Progreso",value:pct(stats["En Progreso"]),color:"#F39C12"},{label:"No ejecutado",value:pct(stats["No ejecutado"]),color:"#95A5A6"},{label:"Fallido",value:pct(stats["Fallido"]),color:"#E74C3C"}].map((r,i)=>(
+                    {[{label:"Ejecutado (Aprobado + N/A)",value:pct(filteredTestStats["Aprobado"]+filteredTestStats["No aplica"]),color:"#27AE60"},{label:"En Progreso",value:pct(filteredTestStats["En Progreso"]),color:"#F39C12"},{label:"No ejecutado",value:pct(filteredTestStats["No ejecutado"]),color:"#95A5A6"},{label:"Fallido",value:pct(filteredTestStats["Fallido"]),color:"#E74C3C"}].map((r,i)=>(
                       <div key={i} style={{marginBottom:12}}>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:DM.sub}}>{r.label}</span><span style={{fontSize:11,fontWeight:700,color:r.color}}>{r.value}%</span></div>
                         <div style={{height:7,background:"#f0f0f0",borderRadius:4}}><div style={{width:`${r.value}%`,height:"100%",background:r.color,borderRadius:4,transition:"width 0.6s"}}/></div>
@@ -1351,7 +1405,7 @@ export default function App() {
                 {/* Línea de tiempo */}
                 <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                   <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:14}}>📈 Línea de Tiempo — TCs ejecutados por fecha</div>
-                  <LineChart data={timelineData} color={proj.color}/>
+                  <LineChart data={filteredTimelineData} color={proj.color}/>
                 </div>
 
                 {/* issues summary */}
@@ -1359,10 +1413,10 @@ export default function App() {
                   <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:14}}>Resumen de Issues</div>
                   <div style={{display:"flex",alignItems:"center",gap:8,background:"#f4f4f4",border:"1px solid #e0e0e0",borderRadius:8,padding:"8px 16px",marginBottom:12}}>
                     <span style={{fontSize:12,color:"#555"}}>Total</span>
-                    <span style={{fontSize:20,fontWeight:800,color:BRAND}}>{issueStats.total}</span>
+                    <span style={{fontSize:20,fontWeight:800,color:BRAND}}>{filteredIssueStats.total}</span>
                   </div>
                   <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                    {[{label:"Open",v:issueStats.open,c:"#E74C3C"},{label:"In Progress",v:issueStats.inProg,c:"#F39C12"},{label:"Closed",v:issueStats.closed,c:"#27AE60"},{label:"Blocked",v:issueStats.blocked,c:"#8E44AD"}].map(s=>(
+                    {[{label:"Open",v:filteredIssueStats.open,c:"#E74C3C"},{label:"In Progress",v:filteredIssueStats.inProg,c:"#F39C12"},{label:"Closed",v:filteredIssueStats.closed,c:"#27AE60"},{label:"Blocked",v:filteredIssueStats.blocked,c:"#8E44AD"}].map(s=>(
                       <div key={s.label} style={{display:"flex",alignItems:"center",gap:8,background:s.c+"10",border:`1px solid ${s.c}30`,borderRadius:8,padding:"8px 16px"}}>
                         <div style={{width:10,height:10,borderRadius:"50%",background:s.c}}/><span style={{fontSize:12,color:"#555"}}>{s.label}</span><span style={{fontSize:20,fontWeight:800,color:s.c}}>{s.v}</span>
                       </div>
@@ -1423,7 +1477,7 @@ export default function App() {
                     <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:16}}>🔄 Estadísticas por Ciclo</div>
                     <div style={{display:"flex",flexDirection:"column",gap:12}}>
                       {(proj.ciclos||[]).map(ciclo=>{
-                        const ejecs=ciclo.ejecuciones||[];
+                        const ejecs=(ciclo.ejecuciones||[]).filter(e=>filteredTests.some(t=>t.id===e.tcId));
                         const ap=ejecs.filter(e=>e.estado==="Aprobado").length;
                         const fa=ejecs.filter(e=>e.estado==="Fallido").length;
                         const ep=ejecs.filter(e=>e.estado==="En Progreso").length;
@@ -1786,7 +1840,7 @@ export default function App() {
                     <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>{filteredIssues.length} issues registrados</p>
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                    {[{l:"Open",v:issueStats.open,c:"#E74C3C"},{l:"In Progress",v:issueStats.inProg,c:"#F39C12"},{l:"Closed",v:issueStats.closed,c:"#27AE60"}].map(s=>(
+                    {[{l:"Open",v:filteredIssueStats.open,c:"#E74C3C"},{l:"In Progress",v:filteredIssueStats.inProg,c:"#F39C12"},{l:"Closed",v:filteredIssueStats.closed,c:"#27AE60"}].map(s=>(
                       <div key={s.l} style={{background:s.c+"15",border:`1px solid ${s.c}30`,borderRadius:7,padding:"4px 10px",fontSize:11,display:"flex",gap:5}}>
                         <span style={{color:s.c,fontWeight:800}}>{s.v}</span><span style={{color:"#666"}}>{s.l}</span>
                       </div>
