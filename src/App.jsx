@@ -96,6 +96,22 @@ function storageUsedMB() {
   } catch { return 0; }
 }
 
+function parseSteps(value="") {
+  const lines = String(value||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if (!lines.length) return [{id:1,status:"No ejecutado",text:""}];
+  return lines.map((line,index)=>{
+    const cleaned = line.replace(/^\s*\d+[.)]\s*/, "").trim();
+    const statusMatch = cleaned.match(/^\[(.+?)\]\s*(.*)$/);
+    const status = statusMatch && Object.keys(statusConfig).includes(statusMatch[1]) ? statusMatch[1] : "No ejecutado";
+    const text = statusMatch ? statusMatch[2].trim() : cleaned;
+    return { id:index+1, status, text };
+  });
+}
+
+function serializeSteps(steps) {
+  return steps.filter(s=>s.text.trim()).map((s,index)=>`${index+1}. ${s.status && s.status!=="No ejecutado" ? `[${s.status}] ` : ""}${s.text.trim()}`).join("\n");
+}
+
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────────
 function Badge({label,color,bg}) {
   return <span style={{display:"inline-flex",alignItems:"center",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700,color,background:bg,border:`1px solid ${color}30`,whiteSpace:"nowrap"}}>{label}</span>;
@@ -788,16 +804,17 @@ function ProjectFormModal({initial,onSave,onClose,darkMode}) {
 
 function TcFormModal({initial,tcId,onSave,onClose,darkMode}) {
   const [form,setForm]=useState({ ...EMPTY_TC, ...(initial||{}) });
+  const [steps,setSteps]=useState(()=>parseSteps(initial?.pasos||""));
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const IS=darkMode?inputStyleDark:inputStyle;
   return (
     <Modal onClose={onClose} wide preventOutsideClose>
       <ModalHeader title={initial?`Editar ${tcId}`:"Nuevo Caso de Prueba"} sub={initial?"Modifica y guarda":"Completa los datos del escenario"} onClose={onClose}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
-        <Field label="Área"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} placeholder="Compras a pago"/></Field>
-        <Field label="Proceso"><input style={IS} value={form.proceso} onChange={e=>set("proceso",e.target.value)} placeholder="Logística"/></Field>
-        <Field label="Escenario"><textarea style={{...IS,minHeight:48,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.escenario} onChange={e=>set("escenario",e.target.value)} placeholder="Recepción de mercancía"/></Field>
-        <Field label="Asignado a"><input style={IS} value={form.asignadoA||""} onChange={e=>set("asignadoA",e.target.value)} placeholder="Nombre del responsable"/></Field>
+        <Field label="Área"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} /></Field>
+        <Field label="Módulo"><input style={IS} value={form.proceso} onChange={e=>set("proceso",e.target.value)} /></Field>
+        <Field label="Escenario"><textarea style={{...IS,minHeight:48,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.escenario} onChange={e=>set("escenario",e.target.value)} /></Field>
+        <Field label="Asignado a"><input style={IS} value={form.asignadoA||""} onChange={e=>set("asignadoA",e.target.value)} /></Field>
         <Field label="Estado">
           <select style={IS} value={form.estado} onChange={e=>set("estado",e.target.value)}>
             {Object.keys(statusConfig).map(k=><option key={k} value={k}>{k}</option>)}
@@ -807,14 +824,30 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode}) {
         <Field label="Fecha Ejecución"><input type="date" style={IS} value={toInputDate(form.fechaEjecucion)} onChange={e=>set("fechaEjecucion",toDisplayDate(e.target.value))}/></Field>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:14}}>
-        <Field label="Descripción"><textarea style={{...IS,minHeight:70,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.descripcion} onChange={e=>set("descripcion",e.target.value)} placeholder="Descripción del escenario"/></Field>
-        <Field label="Pasos"><textarea style={{...IS,minHeight:90,resize:"vertical"}} value={form.pasos} onChange={e=>set("pasos",e.target.value)} placeholder="1. Paso uno&#10;2. Paso dos"/></Field>
-        <Field label="Resultado Esperado"><textarea style={{...IS,minHeight:60,resize:"vertical"}} value={form.resultado} onChange={e=>set("resultado",e.target.value)} placeholder="El sistema debe..."/></Field>
+        <Field label="Descripción"><textarea style={{...IS,minHeight:70,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.descripcion} onChange={e=>set("descripcion",e.target.value)} /></Field>
+        <Field label="Pasos">
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+              <div style={{fontSize:11,color:"#888"}}>Agrega cada paso con su estado y divídelo visualmente.</div>
+              <Btn small variant="ghost" onClick={()=>setSteps(s=>[...s,{id:Date.now(),status:"No ejecutado",text:""}])}>+ Paso</Btn>
+            </div>
+            {steps.map((step,index)=>(
+              <div key={step.id} style={{display:"grid",gridTemplateColumns:"110px 1fr auto",gap:8,alignItems:"center",background:darkMode?"#2A2A2D":"#fafafa",borderRadius:10,padding:10,border:`1px solid ${darkMode?"#444":"#eee"}`}}>
+                <select style={{...IS,minHeight:40}} value={step.status} onChange={e=>setSteps(s=>s.map((item,i)=>i===index?{...item,status:e.target.value}:item))}>
+                  {Object.keys(statusConfig).map(k=><option key={k} value={k}>{k}</option>)}
+                </select>
+                <input style={{...IS,minHeight:40}} value={step.text} onChange={e=>setSteps(s=>s.map((item,i)=>i===index?{...item,text:e.target.value}:item))} placeholder={`Paso ${index+1}`} />
+                <button onClick={()=>setSteps(s=>s.filter((_,i)=>i!==index))} style={{background:"#f3f3f3",border:"none",borderRadius:8,padding:"8px 10px",cursor:"pointer",fontSize:14}}>✕</button>
+              </div>
+            ))}
+          </div>
+        </Field>
+        <Field label="Resultado Esperado"><textarea style={{...IS,minHeight:60,resize:"vertical"}} value={form.resultado} onChange={e=>set("resultado",e.target.value)} /></Field>
         <Field label="Adjuntos (imágenes, Word, PDF)"><AttachmentZone attachments={form.attachments||[]} onChange={v=>set("attachments",v)}/></Field>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:8}}>
         <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
-        <Btn onClick={()=>{if(!form.escenario.trim())return alert("El escenario es requerido");onSave(form);}}>💾 Guardar</Btn>
+        <Btn onClick={()=>{if(!form.escenario.trim())return alert("El escenario es requerido");const pasos=serializeSteps(steps);set("pasos",pasos);onSave({...form,pasos});}}>💾 Guardar</Btn>
       </div>
     </Modal>
   );
@@ -894,6 +927,7 @@ function ObservationModal({tc,initialText,onClose,onSave,darkMode}) {
 function TcDetailModal({tc,onClose,onEdit,onDelete,onDuplicate,onAddComment}) {
   const sc=statusConfig[tc.estado]||statusConfig["No ejecutado"];
   const [comment,setComment]=useState("");
+  const parsedSteps=useMemo(()=>parseSteps(tc.pasos),[tc.pasos]);
   return (
     <Modal onClose={onClose} wide>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
@@ -922,7 +956,15 @@ function TcDetailModal({tc,onClose,onEdit,onDelete,onDuplicate,onAddComment}) {
       </div>
       <div style={{marginBottom:12}}>
         <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Pasos</div>
-        <div style={{background:"#f8f8f8",borderRadius:8,padding:14,fontSize:13,color:"#444",lineHeight:1.75,whiteSpace:"pre-line"}}>{tc.pasos}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {parsedSteps.map((step,index)=>(
+            <div key={`${step.status}-${index}`} style={{display:"flex",gap:10,alignItems:"flex-start",background:"#f8f8f8",borderRadius:8,padding:10,borderLeft:`4px solid ${statusConfig[step.status]?.color || BRAND}`}}>
+              <div style={{minWidth:120}}><Badge label={step.status} color={statusConfig[step.status]?.color || BRAND} bg={statusConfig[step.status]?.bg || BRAND_LIGHT}/></div>
+              <div style={{fontSize:13,color:"#444",lineHeight:1.6,flex:1}}>{step.text || "Sin detalle"}</div>
+            </div>
+          ))}
+          {!parsedSteps.length && <div style={{background:"#f8f8f8",borderRadius:8,padding:14,fontSize:13,color:"#444"}}>Sin pasos registrados.</div>}
+        </div>
       </div>
       <div style={{marginBottom:12}}>
         <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Resultado Esperado</div>
