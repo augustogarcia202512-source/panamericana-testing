@@ -811,9 +811,9 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode}) {
     <Modal onClose={onClose} wide preventOutsideClose>
       <ModalHeader title={initial?`Editar ${tcId}`:"Nuevo Caso de Prueba"} sub={initial?"Modifica y guarda":"Completa los datos del escenario"} onClose={onClose}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
-        <Field label="Área"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} /></Field>
-        <Field label="Módulo"><input style={IS} value={form.proceso} onChange={e=>set("proceso",e.target.value)} /></Field>
         <Field label="Escenario"><textarea style={{...IS,minHeight:48,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.escenario} onChange={e=>set("escenario",e.target.value)} /></Field>
+        <Field label="Módulo"><input style={IS} value={form.proceso} onChange={e=>set("proceso",e.target.value)} /></Field>
+        <Field label="Área"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} /></Field>
         <Field label="Asignado a"><input style={IS} value={form.asignadoA||""} onChange={e=>set("asignadoA",e.target.value)} /></Field>
         <Field label="Estado">
           <select style={IS} value={form.estado} onChange={e=>set("estado",e.target.value)}>
@@ -843,7 +843,7 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode}) {
           </div>
         </Field>
         <Field label="Resultado Esperado"><textarea style={{...IS,minHeight:60,resize:"vertical"}} value={form.resultado} onChange={e=>set("resultado",e.target.value)} /></Field>
-        <Field label="Adjuntos (imágenes, Word, PDF)"><AttachmentZone attachments={form.attachments||[]} onChange={v=>set("attachments",v)}/></Field>
+        <Field label="Adjuntos"><AttachmentZone attachments={form.attachments||[]} onChange={v=>set("attachments",v)}/></Field>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:8}}>
         <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
@@ -1644,9 +1644,9 @@ export default function App() {
                     {asignadosList.map(a=><option key={a} value={a}>{a==="Todos"?"Todos los responsables":a}</option>)}
                   </select>
                   <select value={filterProceso} onChange={e=>setFilterProceso(e.target.value)} style={{...inputStyle,width:150,padding:"7px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
-                    {procesosList.map(p=><option key={p} value={p}>{p==="Todos"?"Todos los procesos":p}</option>)}
+                    {procesosList.map(p=><option key={p} value={p}>{p==="Todos"?"Todos los módulos":p}</option>)}
                   </select>
-                  {filterProceso!=="Todos"&&<button onClick={()=>setFilterProceso("Todos")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#aaa"}}>✕ Proceso</button>}
+                  {filterProceso!=="Todos"&&<button onClick={()=>setFilterProceso("Todos")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#aaa"}}>✕ Módulo</button>}
                   <div style={{display:"flex",alignItems:"center",gap:5}}>
                     <span style={{fontSize:11,color:DM.sub}}>Ejec. desde</span>
                     <input type="date" value={filterFechaDesde} onChange={e=>setFilterFechaDesde(e.target.value)} style={{...inputStyle,width:130,padding:"7px 10px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}/>
@@ -1661,7 +1661,7 @@ export default function App() {
                     <thead>
                       <tr style={{background:proj.color,color:"#fff"}}>
                         <th style={{padding:"9px 6px",width:20}}></th>
-                        {["ID","Área","Módulo","Escenario","Descripción","Responsable","Estado","Adj.","Observación"].map(h=>(
+                        {["ID","Escenario","Módulo","Pasos","Descripción","Responsable","Estado","Adj.","Observación"].map(h=>(
                           <th key={h} style={{padding:"9px 10px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:"0.05em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                         ))}
                       </tr>
@@ -1671,6 +1671,7 @@ export default function App() {
                       {filteredTests.map((t,i)=>{
                         const sc=statusConfig[t.estado]||statusConfig["No ejecutado"];
                         const realIndex=proj.tests.findIndex(x=>x.id===t.id);
+                        const pasosPreview=parseSteps(t.pasos);
                         return (
                           <tr key={t.id} draggable
                             onDragStart={()=>{dragIndex.current=realIndex;}}
@@ -1682,10 +1683,10 @@ export default function App() {
                             onMouseLeave={e=>e.currentTarget.style.background=i%2===0?DM.tableRow0:DM.tableRow1}>
                             <td style={{padding:"8px 6px",textAlign:"center",color:"#ccc",cursor:"grab",fontSize:14}} onClick={e=>e.stopPropagation()} title="Arrastrar">⠿</td>
                             <td style={{padding:"8px 10px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",fontSize:11}}>{t.id}</td>
-                            <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.area}</td>
+                            <td style={{padding:"8px 10px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:180,maxWidth:240,letterSpacing:"0.05px",background:darkMode?"#202b3b":"#f7faff",borderRadius:6,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff",fontSize:11}}>{t.escenario}</td>
                             <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.proceso}</td>
-                            <td style={{padding:"8px 10px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:160,maxWidth:200,letterSpacing:"0.05px",background:darkMode?"#202b3b":"#f7faff",borderRadius:6,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff",fontSize:11}}>{t.escenario}</td>
-                            <td style={{padding:"8px 10px",color:"#888",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10}}>{t.descripcion}</td>
+                            <td style={{padding:"8px 10px",color:"#666",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"normal",lineHeight:1.35,fontSize:10}}>{pasosPreview.length?pasosPreview.slice(0,2).map((s,idx)=><div key={idx}>{`${idx+1}. ${s.text || "Sin detalle"}`}</div>):"—"}</td>
+                            <td style={{padding:"8px 10px",color:"#888",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10}}>{t.descripcion}</td>
                             <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:10}}>{t.asignadoA||"—"}</td>
                             <td style={{padding:"8px 10px"}} onClick={e=>e.stopPropagation()}>
                               <select value={t.estado} onChange={e=>updateTCStatus(t.id,e.target.value)}
