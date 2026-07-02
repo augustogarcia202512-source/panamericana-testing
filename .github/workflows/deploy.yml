@@ -4,7 +4,13 @@ on:
   push:
     branches: [main]
 
-env:
+# Permisos necesarios para el despliegue nativo de GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+environment:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
@@ -25,8 +31,13 @@ jobs:
       - name: Compilar proyecto
         run: npm run build
 
-      - name: Desplegar a GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Configurar Pages
+        uses: actions/configure-pages@v4
+
+      - name: Subir artefacto de producción
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          path: './dist'
+
+      - name: Desplegar a GitHub Pages
+        uses: actions/deploy-pages@v4
