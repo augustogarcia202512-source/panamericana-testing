@@ -10,12 +10,14 @@ permissions:
   pages: write
   id-token: write
 
-environment:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
       - uses: actions/checkout@v4
       
@@ -32,7 +34,7 @@ jobs:
         run: npm run build
 
       - name: Configurar Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Subir artefacto de producción
         uses: actions/upload-pages-artifact@v3
@@ -40,4 +42,5 @@ jobs:
           path: './dist'
 
       - name: Desplegar a GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
