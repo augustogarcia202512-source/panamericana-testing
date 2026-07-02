@@ -1657,7 +1657,7 @@ export default function App() {
                 </div>
                 <div style={{background:DM.card,borderRadius:12,overflow:"hidden",border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                   <div style={{overflowX:"auto"}}>
-                    <table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:12}}>
+                    <table style={{width:"100%",minWidth:1100,borderCollapse:"collapse",fontSize:12}}>
                     <thead>
                       <tr style={{background:proj.color,color:"#fff"}}>
                         <th style={{padding:"9px 6px",width:20}}></th>
@@ -1685,7 +1685,9 @@ export default function App() {
                             <td style={{padding:"8px 10px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",fontSize:11}}>{t.id}</td>
                             <td style={{padding:"8px 10px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:180,maxWidth:240,letterSpacing:"0.05px",background:darkMode?"#202b3b":"#f7faff",borderRadius:6,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff",fontSize:11}}>{t.escenario}</td>
                             <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.proceso}</td>
-                            <td style={{padding:"8px 10px",color:"#666",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"normal",lineHeight:1.35,fontSize:10}}>{pasosPreview.length?pasosPreview.slice(0,2).map((s,idx)=><div key={idx}>{`${idx+1}. ${s.text || "Sin detalle"}`}</div>):"—"}</td>
+                            <td style={{padding:"8px 10px",color:"#666",minWidth:260,maxWidth:320,whiteSpace:"normal",lineHeight:1.35,fontSize:10,verticalAlign:"top"}}>
+                              {pasosPreview.length ? pasosPreview.map((s,idx)=><div key={idx} style={{marginBottom:idx===pasosPreview.length-1?0:4}}>{`${idx+1}. ${s.text || "Sin detalle"}`}</div>) : "—"}
+                            </td>
                             <td style={{padding:"8px 10px",color:"#888",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10}}>{t.descripcion}</td>
                             <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:10}}>{t.asignadoA||"—"}</td>
                             <td style={{padding:"8px 10px"}} onClick={e=>e.stopPropagation()}>
