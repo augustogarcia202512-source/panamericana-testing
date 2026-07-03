@@ -1839,6 +1839,7 @@ export default function App() {
                                     <input type="checkbox" checked={checked} onChange={()=>toggleCycleTcSelection(ciclo.id,t.id)} />
                                     <span style={{lineHeight:1.25}}>
                                       <span style={{fontWeight:700,color:proj.color,display:"block"}}>{t.id}</span>
+                                      <span style={{fontSize:10,display:"inline-block",margin:"2px 0 4px",padding:"2px 8px",borderRadius:999,background:proj.color+"15",color:proj.color,fontWeight:700}}>{t.proceso || "Sin módulo"}</span>
                                       <span>{t.escenario.slice(0,28)}{t.escenario.length>28?"…":""}</span>
                                     </span>
                                   </label>
@@ -1870,8 +1871,11 @@ export default function App() {
                                   onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
                                   onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                                   <td style={{padding:"8px 14px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap"}}>{tc.id}</td>
-                                  <td style={{padding:"8px 14px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:220,maxWidth:320,letterSpacing:"0.08px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>{tc.escenario}</td>
-                                  <td style={{padding:"8px 14px",color:DM.sub,fontSize:11}}>{tc.proceso}</td>
+                                  <td style={{padding:"8px 14px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:220,maxWidth:320,letterSpacing:"0.08px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>
+                                    <div>{tc.escenario}</div>
+                                    <div style={{marginTop:4,display:"inline-flex",alignItems:"center",padding:"2px 8px",borderRadius:999,background:proj.color+"15",color:proj.color,fontSize:10,fontWeight:700}}>{tc.proceso || "Sin módulo"}</div>
+                                  </td>
+                                  <td style={{padding:"8px 14px",color:DM.sub,fontSize:11}}>{tc.proceso || "Sin módulo"}</td>
                                   <td style={{padding:"8px 14px",color:DM.sub,fontSize:11}}>{tc.asignadoA||"—"}</td>
                                   <td style={{padding:"8px 14px",color:DM.sub,fontFamily:"monospace",fontSize:11,whiteSpace:"nowrap"}}>{ejec.fechaEjecucion||"—"}</td>
                                   <td style={{padding:"8px 14px"}}>
