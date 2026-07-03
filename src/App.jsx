@@ -1913,6 +1913,7 @@ export default function App() {
                         <thead>
                           <tr style={{background:darkMode?"#1a1a1a":"#f8f8f8"}}>
                             <th style={{padding:"8px 14px",textAlign:"left",fontSize:10,fontWeight:700,color:DM.sub,textTransform:"uppercase"}}>TC</th>
+                            <th style={{padding:"8px 14px",textAlign:"left",fontSize:10,fontWeight:700,color:DM.sub,textTransform:"uppercase"}}>Módulo</th>
                             <th style={{padding:"8px 14px",textAlign:"left",fontSize:10,fontWeight:700,color:DM.sub,textTransform:"uppercase"}}>Escenario</th>
                             {ciclos.map(c=>(
                               <th key={c.id} style={{padding:"8px 14px",textAlign:"center",fontSize:10,fontWeight:700,color:proj.color,textTransform:"uppercase",whiteSpace:"nowrap"}}>{c.nombre}</th>
@@ -1923,6 +1924,7 @@ export default function App() {
                           {tests.filter(t=>ciclos.some(c=>(c.ejecuciones||[]).find(e=>e.tcId===t.id))).map(tc=>(
                             <tr key={tc.id} style={{borderTop:`1px solid ${DM.cardBorder}`}}>
                               <td style={{padding:"8px 14px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap"}}>{tc.id}</td>
+                              <td style={{padding:"8px 14px",fontSize:10,fontWeight:700,color:proj.color,whiteSpace:"nowrap"}}>{tc.proceso || "Sin módulo"}</td>
                               <td style={{padding:"8px 14px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:220,maxWidth:320,letterSpacing:"0.08px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>{tc.escenario}</td>
                               {ciclos.map(c=>{
                                 const ejec=(c.ejecuciones||[]).find(e=>e.tcId===tc.id);
