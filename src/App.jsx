@@ -1086,6 +1086,7 @@ export default function App() {
   const [showCicloForm,setShowCicloForm]=useState(false);
   const [editCiclo,setEditCiclo]=useState(null);
   const [expandedCiclos,setExpandedCiclos]=useState({});
+  const [bulkTcSelection,setBulkTcSelection]=useState({});
   const [showJira,setShowJira]=useState(false);
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [storageWarn,setStorageWarn]=useState(false);
@@ -1119,6 +1120,35 @@ export default function App() {
   };
 
   const proj=useMemo(()=>projects.find(p=>p.id===activeProjectId),[projects,activeProjectId]);
+
+  function toggleCycleTcSelection(cicloId, tcId){
+    setBulkTcSelection(prev=>{
+      const current=prev[cicloId]||[];
+      return {
+        ...prev,
+        [cicloId]: current.includes(tcId) ? current.filter(id=>id!==tcId) : [...current, tcId],
+      };
+    });
+  }
+  function selectAllCycleTcs(cicloId, tcIds){
+    setBulkTcSelection(prev=>({...prev,[cicloId]:tcIds}));
+  }
+  function clearCycleTcSelection(cicloId){
+    setBulkTcSelection(prev=>({...prev,[cicloId]:[]}));
+  }
+  function addSelectedTcsToCiclo(cicloId, tcIds){
+    if(!tcIds?.length) return;
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId? p : {
+      ...p,
+      ciclos:(p.ciclos||[]).map(c=>c.id!==cicloId? c : {
+        ...c,
+        ejecuciones:[...(c.ejecuciones||[]), ...tcIds
+          .filter(tcId=>(!(c.ejecuciones||[]).some(e=>e.tcId===tcId)))
+          .map(tcId=>({tcId,estado:"No ejecutado",fechaEjecucion:"",nota:"Agregado masivamente"}))]
+      })
+    }));
+    clearCycleTcSelection(cicloId);
+  }
 
   // project CRUD
   function saveProject(form){
@@ -1748,9 +1778,9 @@ export default function App() {
                   const noAplica=ejecs.filter(e=>e.estado==="No aplica").length;
                   const bloqueante=ejecs.filter(e=>e.estado==="Bloqueante").length;
                   const execPctC=ejecs.length?Math.round(((aprobados+noAplica)/ejecs.length)*100):0;
-                  const semC=execPctC>=70?"#27AE60":execPctC>=40?"#F39C12":"#E74C3C";
                   // TCs disponibles para agregar (que no estén ya en este ciclo)
                   const tcsDisponibles=tests.filter(t=>!ejecs.find(e=>e.tcId===t.id));
+                  const selectedForCycle=bulkTcSelection[ciclo.id]||[];
 
                   return(
                     <div key={ciclo.id} style={{background:DM.card,borderRadius:14,border:`1px solid ${DM.cardBorder}`,overflow:"hidden",boxShadow:"0 2px 12px #0000000a"}}>
@@ -1795,15 +1825,27 @@ export default function App() {
                         ))}
                         {/* Agregar TC al ciclo */}
                         {tcsDisponibles.length>0&&(
-                          <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
-                            <select id={`add-tc-${ciclo.id}`} style={{...inputStyle,width:160,padding:"4px 8px",fontSize:11,background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #ddd"}}>
-                              <option value="">+ Agregar TC...</option>
-                              {tcsDisponibles.map(t=><option key={t.id} value={t.id}>{t.id} · {t.escenario.slice(0,25)}</option>)}
-                            </select>
-                            <button onClick={()=>{
-                              const sel=document.getElementById(`add-tc-${ciclo.id}`);
-                              if(sel.value){addTcToCiclo(ciclo.id,sel.value);sel.value="";}
-                            }} style={{background:proj.color,border:"none",borderRadius:6,color:"#fff",padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>Agregar</button>
+                          <div style={{marginLeft:"auto",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8,minWidth:320,width:"100%",maxWidth:360}}>
+                            <div style={{display:"flex",gap:6,alignItems:"center",justifyContent:"flex-end",width:"100%"}}>
+                              <button onClick={()=>selectAllCycleTcs(ciclo.id,tcsDisponibles.map(t=>t.id))} style={{background:"#f4f4f4",border:"1px solid #e0e0e0",borderRadius:6,color:"#444",padding:"4px 8px",cursor:"pointer",fontSize:11,fontWeight:700}}>✓ Todos</button>
+                              <button onClick={()=>clearCycleTcSelection(ciclo.id)} style={{background:"#f4f4f4",border:"1px solid #e0e0e0",borderRadius:6,color:"#444",padding:"4px 8px",cursor:"pointer",fontSize:11,fontWeight:700}}>Limpiar</button>
+                              <button onClick={()=>addSelectedTcsToCiclo(ciclo.id,selectedForCycle)} disabled={!selectedForCycle.length} style={{background:proj.color,border:"none",borderRadius:6,color:"#fff",padding:"4px 10px",cursor:!selectedForCycle.length?"not-allowed":"pointer",fontSize:11,fontWeight:700,opacity:!selectedForCycle.length?0.6:1}}>Agregar seleccionados ({selectedForCycle.length})</button>
+                            </div>
+                            <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8,width:"100%",maxHeight:150,overflowY:"auto",padding:8,border:`1px solid ${DM.cardBorder}`,borderRadius:8,background:darkMode?"#171717":"#fafafa"}}>
+                              {tcsDisponibles.map(t=>{
+                                const checked=selectedForCycle.includes(t.id);
+                                return (
+                                  <label key={t.id} style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:11,color:DM.text,cursor:"pointer",padding:"2px 0"}}>
+                                    <input type="checkbox" checked={checked} onChange={()=>toggleCycleTcSelection(ciclo.id,t.id)} />
+                                    <span style={{lineHeight:1.25}}>
+                                      <span style={{fontWeight:700,color:proj.color,display:"block"}}>{t.id}</span>
+                                      <span>{t.escenario.slice(0,28)}{t.escenario.length>28?"…":""}</span>
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            <div style={{fontSize:10,color:DM.sub,alignSelf:"flex-start"}}>Marca los casos que aplican para este ciclo y agrégalos en bloque.</div>
                           </div>
                         )}
                       </div>
@@ -1850,7 +1892,7 @@ export default function App() {
                         </table>
                       ):(
                         <div style={{padding:"24px",fontSize:12,color:"#888",textAlign:"center"}}>
-                          Sin TCs asignados. Usa el selector de arriba para agregar casos a este ciclo.
+                          Sin TCs asignados. Marca los casos que aplican arriba y agrégalos en bloque a este ciclo.
                         </div>
                       )}
                       </>)}
