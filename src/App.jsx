@@ -1478,19 +1478,50 @@ export default function App() {
                   ))}
                 </div>
 
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))",gap:18}}>
                   <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                     <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:16}}>Distribución de Estados</div>
                     <Donut data={[{label:"Aprobado",value:filteredTestStats["Aprobado"],color:"#27AE60"},{label:"En Progreso",value:filteredTestStats["En Progreso"],color:"#F39C12"},{label:"Fallido",value:filteredTestStats["Fallido"],color:"#E74C3C"},{label:"No ejecutado",value:filteredTestStats["No ejecutado"],color:"#bbb"},{label:"No aplica",value:filteredTestStats["No aplica"],color:"#ddd"},{label:"Bloqueante",value:filteredTestStats["Bloqueante"],color:"#8E44AD"}]}/>
                   </div>
                   <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
-                    <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:16}}>Test Plan Evolution</div>
+                    <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:14}}>Test Plan Evolution general</div>
                     {[{label:"Ejecutado (Aprobado + N/A)",value:pct(filteredTestStats["Aprobado"]+filteredTestStats["No aplica"]),color:"#27AE60"},{label:"En Progreso",value:pct(filteredTestStats["En Progreso"]),color:"#F39C12"},{label:"No ejecutado",value:pct(filteredTestStats["No ejecutado"]),color:"#95A5A6"},{label:"Fallido",value:pct(filteredTestStats["Fallido"]),color:"#E74C3C"}].map((r,i)=>(
                       <div key={i} style={{marginBottom:12}}>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:DM.sub}}>{r.label}</span><span style={{fontSize:11,fontWeight:700,color:r.color}}>{r.value}%</span></div>
-                        <div style={{height:7,background:"#f0f0f0",borderRadius:4}}><div style={{width:`${r.value}%`,height:"100%",background:r.color,borderRadius:4,transition:"width 0.6s"}}/></div>
+                        <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}><div style={{width:`${r.value}%`,height:"100%",background:r.color,borderRadius:4,transition:"width 0.6s"}}/></div>
                       </div>
                     ))}
+                  </div>
+                  <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a",gridColumn:"1 / -1"}}>
+                    <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:14}}>Test Plan Evolution por módulo</div>
+                    {Object.keys(moduleStats).length===0 ? (
+                      <div style={{fontSize:12,color:DM.sub}}>No hay datos de módulos para mostrar.</div>
+                    ) : (
+                      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                        {Object.entries(moduleStats)
+                          .sort((a,b)=>(((b[1].aprobado+b[1].noAplica)/b[1].total)-((a[1].aprobado+a[1].noAplica)/a[1].total)))
+                          .map(([mod,m])=>{
+                            const modExecPct=m.total?Math.round(((m.aprobado+m.noAplica)/m.total)*100):0;
+                            const semC=modExecPct>=70?"#27AE60":modExecPct>=40?"#F39C12":"#E74C3C";
+                            return (
+                              <div key={mod}>
+                                <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                                  <span style={{fontSize:11,color:DM.sub}}>{mod}</span>
+                                  <span style={{fontSize:11,fontWeight:700,color:semC}}>{modExecPct}%</span>
+                                </div>
+                                <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                                  <div style={{width:`${modExecPct}%`,height:"100%",background:semC,borderRadius:4,transition:"width 0.6s"}}/>
+                                </div>
+                                <div style={{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:10,color:DM.sub,flexWrap:"wrap",gap:6}}>
+                                  <span>{m.aprobado} aprobados</span>
+                                  <span>{m.enProgreso} en progreso</span>
+                                  <span>{m.fallido} fallidos</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
                   </div>
                 </div>
 
