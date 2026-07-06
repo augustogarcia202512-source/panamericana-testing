@@ -1501,21 +1501,30 @@ export default function App() {
                         {Object.entries(moduleStats)
                           .sort((a,b)=>(((b[1].aprobado+b[1].noAplica)/b[1].total)-((a[1].aprobado+a[1].noAplica)/a[1].total)))
                           .map(([mod,m])=>{
-                            const modExecPct=m.total?Math.round(((m.aprobado+m.noAplica)/m.total)*100):0;
-                            const semC=modExecPct>=70?"#27AE60":modExecPct>=40?"#F39C12":"#E74C3C";
+                            const states=[
+                              {label:"Ejecutado",value:m.total?Math.round(((m.aprobado+m.noAplica)/m.total)*100):0,color:"#27AE60"},
+                              {label:"En progreso",value:m.total?Math.round((m.enProgreso/m.total)*100):0,color:"#F39C12"},
+                              {label:"No ejecutado",value:m.total?Math.round((m.noEjecutado/m.total)*100):0,color:"#95A5A6"},
+                              {label:"Fallido",value:m.total?Math.round((m.fallido/m.total)*100):0,color:"#E74C3C"},
+                            ];
                             return (
                               <div key={mod}>
-                                <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                                  <span style={{fontSize:11,color:DM.sub}}>{mod}</span>
-                                  <span style={{fontSize:11,fontWeight:700,color:semC}}>{modExecPct}%</span>
+                                <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                                  <span style={{fontSize:11,color:DM.sub,fontWeight:700}}>{mod}</span>
+                                  <span style={{fontSize:11,color:DM.sub}}>{m.total} casos</span>
                                 </div>
-                                <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
-                                  <div style={{width:`${modExecPct}%`,height:"100%",background:semC,borderRadius:4,transition:"width 0.6s"}}/>
-                                </div>
-                                <div style={{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:10,color:DM.sub,flexWrap:"wrap",gap:6}}>
-                                  <span>{m.aprobado} aprobados</span>
-                                  <span>{m.enProgreso} en progreso</span>
-                                  <span>{m.fallido} fallidos</span>
+                                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                                  {states.map(s=>(
+                                    <div key={s.label}>
+                                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                                        <span style={{fontSize:10,color:DM.sub}}>{s.label}</span>
+                                        <span style={{fontSize:10,fontWeight:700,color:s.color}}>{s.value}%</span>
+                                      </div>
+                                      <div style={{height:6,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                                        <div style={{width:`${s.value}%`,height:"100%",background:s.color,borderRadius:4,transition:"width 0.6s"}}/>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
                             );
