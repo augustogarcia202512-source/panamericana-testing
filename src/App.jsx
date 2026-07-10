@@ -211,6 +211,358 @@ function AttachmentViewer({attachments}) {
   );
 }
 
+function buildAiProposal(tc, prompt = "") {
+  if(!tc) return null;
+  const area = tc.area || tc.proceso || "General";
+  const baseNum = parseInt(String(tc.id).match(/(\d+)/)?.[1] || "0", 10) || 0;
+  const areaKey = String(area).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "").slice(0,3).toUpperCase() || "GEN";
+  const suggestedId = `TC-${String(baseNum + 1).padStart(2, "0")}-${areaKey}`;
+
+  const normalizeStep = (step) => String(step || '').replace(/^\s*\d+[.)\-]*\s*/, '').trim();
+  const rawSteps = String(tc.pasos || '').split(/\r?\n/).map(s => normalizeStep(s)).filter(Boolean);
+  const comments = (tc.comentarios||[]).map(c=>c.texto).slice(-3);
+  const historyNotes = (tc.historial||[]).slice(-3).map(h=>h.nota).filter(Boolean);
+  const attachments = (tc.attachments||[]).map(a=>a.name).slice(0,3);
+  const promptText = String(prompt || '').toLowerCase();
+  const scenarioText = [tc.escenario, tc.descripcion, area, tc.proceso, promptText].filter(Boolean).join(' ').toLowerCase();
+
+  const templates = [
+    {
+      keywords: ['login', 'usuario', 'contraseña', 'ingresar al sistema', 'acceder'],
+      steps: [
+        'Abrir la pantalla de acceso e ingresar credenciales válidas.',
+        'Verificar que el acceso sea exitoso y que se muestre la pantalla principal.',
+        'Comprobar que no se muestren errores de autenticación.'
+      ],
+      result: 'El usuario logra acceder correctamente y se muestra la pantalla inicial sin errores.'
+    },
+    {
+      keywords: ['orden de compra', 'generar la orden de compra', 'generar orden de compra', 'pedido de compra', 'compra de materiales'],
+      steps: [
+        'Abrir el módulo de órdenes de compra y comenzar la generación de una nueva orden.',
+        'Ingresar el proveedor, los artículos, las cantidades y los precios correctos.',
+        'Revisar el resumen de la orden antes de confirmar para verificar los datos en pantalla.',
+        'Generar la orden y comprobar que el número de orden se crea y los totales son correctos.'
+      ],
+      result: 'La orden de compra se genera con los datos correctos, el proveedor y los totales son coherentes, y se crea un número de orden válido.'
+    }
+  ];
+
+  function matchesKeyword(text, keyword) {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
+  }
+
+  function inferStepsFromTitle(title) {
+    const text = String(title || '').trim();
+    const normalized = text.toLowerCase();
+    const titleLabel = text || 'el caso de prueba';
+
+    const actionGroups = [
+      {
+        verbs: ['verificar', 'comprobar', 'validar', 'confirmar'],
+        steps: [
+          `Abrir el módulo o pantalla relacionada con ${titleLabel}.`,
+          'Revisar la información o datos mostrados en pantalla.',
+          'Verificar que los valores sean correctos y consistentes con los criterios de negocio.',
+          'Confirmar que no haya errores ni discrepancias en los datos.'
+        ],
+        result: `Los datos relacionados con ${titleLabel} son correctos, coherentes y se muestran sin errores.`
+      },
+      {
+        verbs: ['crear', 'generar', 'registrar', 'guardar', 'agregar'],
+        steps: [
+          `Abrir el módulo o formulario de ${titleLabel}.`,
+          'Completar los campos obligatorios con datos válidos.',
+          'Enviar la información y guardar el registro.',
+          'Verificar que el elemento se haya creado correctamente y sea visible en el sistema.'
+        ],
+        result: `El proceso de ${titleLabel} concluye correctamente y el registro queda creado sin errores.`
+      },
+      {
+        verbs: ['editar', 'modificar', 'actualizar', 'cambiar'],
+        steps: [
+          `Seleccionar el elemento o registro de ${titleLabel}.`,
+          'Modificar los valores necesarios en el formulario.',
+          'Guardar los cambios.',
+          'Verificar que los cambios se reflejen correctamente en la interfaz.'
+        ],
+        result: `Los cambios relacionados con ${titleLabel} se guardan correctamente y se muestran sin inconsistencias.`
+      },
+      {
+        verbs: ['eliminar', 'borrar', 'anular', 'cancelar'],
+        steps: [
+          `Seleccionar el elemento o registro vinculado a ${titleLabel}.`,
+          'Iniciar la acción de eliminación y confirmarla.',
+          'Verificar que el registro desaparezca o cambie de estado según corresponda.',
+          'Confirmar que no se generen errores durante la operación.'
+        ],
+        result: `El proceso de ${titleLabel} se completa correctamente y el registro queda eliminado o anulado según lo esperado.`
+      },
+      {
+        verbs: ['consultar', 'buscar', 'filtrar', 'listar', 'ver'],
+        steps: [
+          `Acceder al módulo o informe relacionado con ${titleLabel}.`,
+          'Ingresar criterios de búsqueda o filtros adecuados.',
+          'Ejecutar la búsqueda y revisar los resultados mostrados.',
+          'Seleccionar datos relevantes y comprobar su consistencia.'
+        ],
+        result: `La consulta de ${titleLabel} muestra resultados consistentes y relevantes.`
+      }
+    ];
+
+    const matched = actionGroups.find(group => group.verbs.some(verb => matchesKeyword(normalized, verb)));
+    if (matched) return matched;
+
+    return {
+      steps: [
+        `Abrir el módulo o pantalla correspondiente a ${titleLabel}.`,
+        `Realizar la acción principal descrita en el título: ${titleLabel}.`,
+        'Verificar que los resultados sean correctos y consistentes.',
+        'Confirmar que no aparezcan errores visibles.'
+      ],
+      result: `La acción de ${titleLabel} se ejecuta correctamente y el sistema responde sin errores.`
+    };
+  }
+
+  function pickRandom(arr, n=3) {
+    const copy = [...arr];
+    const out = [];
+    while(out.length<n && copy.length) {
+      const i = Math.floor(Math.random() * copy.length);
+      out.push(copy.splice(i,1)[0]);
+    }
+    return out;
+  }
+
+  const matchingTemplate = templates.find(t => t.keywords.some(k => matchesKeyword(scenarioText, k)));
+  const defaultSteps = [
+    `Navegar al módulo relacionado con ${tc.escenario || 'el caso seleccionado'}.`,
+    `Ejecutar la acción principal descrita en el escenario: ${tc.descripcion || 'seguir el flujo definido'}.`,
+    'Verificar que el resultado se muestre correctamente y no haya errores visibles.'
+  ];
+  const scenarioSteps = matchingTemplate ? matchingTemplate.steps : defaultSteps;
+  const scenarioResult = matchingTemplate ? matchingTemplate.result : 'La operación se completa correctamente y el resultado es consistente con las expectativas.';
+
+  const chosenSteps = rawSteps.length ? rawSteps.slice(0, 3).map(s => s.replace(/\.$/, '')) : pickRandom(scenarioSteps, 3);
+  const extraSteps = pickRandom(scenarioSteps.filter(s => !chosenSteps.includes(s)), 2);
+  const validationSteps = [
+    'Verificar que no aparezcan mensajes de error durante el proceso.',
+    'Confirmar que los datos se guardan correctamente y son consistentes.',
+    'Comprobar que el resultado final sea el esperado y que no haya incongruencias.'
+  ];
+  const enrichedSteps = [...chosenSteps, ...extraSteps.slice(0, 2)].map(s => s.trim()).filter(Boolean);
+
+  const expectedResult = tc.resultado
+    ? `${tc.resultado}. Además: ${scenarioResult}`
+    : `${scenarioResult}`;
+
+  const opening = pickRandom([`
+Revisé el caso ${tc.id} y te propongo estos pasos específicos para el escenario.`,
+      `A continuación te presento una versión más concreta para el caso ${tc.id}.`,
+      `He generado pasos más enfocados al escenario del caso ${tc.id}.`], 1)[0];
+  const contextBits = [];
+  if(comments.length) contextBits.push(`Comentarios recientes: ${comments.join(' | ')}`);
+  if(historyNotes.length) contextBits.push(`Historial: ${historyNotes.join(' | ')}`);
+  if(attachments.length) contextBits.push(`Adjuntos: ${attachments.join(', ')}`);
+
+  const responseParts = [
+    opening.trim(),
+    `ID sugerido: ${suggestedId}`,
+    `Contexto: ${contextBits.join(' · ') || 'Sin contexto adicional'}`,
+    `Pasos sugeridos:\n${enrichedSteps.map((s, index) => `${index + 1}. ${s}`).join("\n")}`,
+    `Resultado esperado mejorado:\n${expectedResult}`,
+    'Notas: intenta usar datos concretos y validar los resultados con comprobaciones específicas.'
+  ];
+
+  return { suggestedId, enrichedSteps, expectedResult, response: responseParts.join("\n\n") };
+}
+
+function parseAiProposal(text, tc) {
+  const fallback = buildAiProposal(tc);
+
+  // Try JSON first (if model returned a structured payload)
+  try{
+    const maybeJson = JSON.parse(text);
+    const suggestedId = (maybeJson.suggestedId || maybeJson.id || fallback.suggestedId || tc.id).toString().trim();
+    const enrichedSteps = (maybeJson.steps || maybeJson.pasos || []).map(s=>String(s).trim()).filter(Boolean);
+    const expectedResult = (maybeJson.expectedResult || maybeJson.resultado || fallback.expectedResult || "").toString().trim();
+    return { suggestedId, enrichedSteps: enrichedSteps.length?enrichedSteps: fallback.enrichedSteps, expectedResult, response: text };
+  }catch(e){/* not json */}
+
+  // Generic regex extraction with multiple label variants
+  const suggestedId = (text.match(/ID\s*(?:SUGERIDO)?:?\s*[:\-–]?\s*(.+)/i)?.[1]
+    || text.match(/SUGERIDO ID:\s*(.+)/i)?.[1]
+    || text.match(/ID:\s*(.+)/i)?.[1]
+    || fallback?.suggestedId || tc.id || "").toString().trim();
+
+  const stepsSection = text.match(/(?:PASOS|PASOS SUGERIDOS|STEPS):\s*([\s\S]*?)(?:RESULTADO|RESULTADO ESPERADO|EXPECTED RESULT:|$)/i)?.[1] || "";
+  let enrichedSteps = [];
+  if(stepsSection){
+    enrichedSteps = stepsSection.split(/\n/).map(s=>s.replace(/^\s*[-\d\.\)\*]+\s*/, "").trim()).filter(Boolean);
+  }
+
+  let expectedResult = text.match(/(?:RESULTADO ESPERADO|RESULTADO|EXPECTED RESULT):\s*([\s\S]*)$/i)?.[1] || "";
+  expectedResult = expectedResult.trim() || fallback?.expectedResult || "";
+
+  return {
+    suggestedId,
+    enrichedSteps: enrichedSteps.length ? enrichedSteps : fallback?.enrichedSteps || [],
+    expectedResult: expectedResult || fallback?.expectedResult || "",
+    response: text.trim() || fallback?.response || ""
+  };
+}
+
+async function getAiProposal(tc, userPrompt) {
+  // Use local proxy first (/api/ai/generate). This avoids any external Gemini calls.
+  try {
+    // build a richer prompt including last historial, comments and attachments
+    const lastHist = (tc.historial||[]).slice(-3).map(h=>`${h.fecha||''}: ${h.nota||''}`).join('\n') || '';
+    const recentComments = (tc.comentarios||[]).slice(-3).map(c=>`${c.fecha||''}: ${c.texto||c}`).join('\n') || '';
+    const attachList = (tc.attachments||[]).slice(0,5).map(a=>a.name).join(', ') || '';
+    const promptBody = `Actúa como un experto en QA. Revisa este caso de prueba y mejóralo para hacerlo reproducible y robusto.\n\nID: ${tc.id}\nÁrea: ${tc.area || tc.proceso || 'Sin área'}\nEscenario: ${tc.escenario || ''}\nDescripción: ${tc.descripcion || ''}\nPasos actuales:\n${tc.pasos || '(sin pasos)'}\nResultado actual:\n${tc.resultado || '(sin resultado)'}\n\nHistorial:\n${lastHist}\n\nComentarios recientes:\n${recentComments}\n\nAdjuntos: ${attachList}\n\nSolicitud del usuario: ${userPrompt}\n\nDevuelve preferentemente JSON con campos: suggestedId, steps (array), expectedResult. Si no puedes, devuelve texto plano con etiquetas claras: 'ID sugerido:', 'PASOS:' y 'RESULTADO ESPERADO:'.`;
+
+    const res = await fetch('/api/ai/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: promptBody })
+    });
+      if (res.ok) {
+      const data = await res.json();
+      const text = (data && (data.text || data.output || data.result)) || (typeof data === 'string' ? data : '');
+      if (text) return parseAiProposal(String(text), tc);
+    }
+  } catch (e) {
+    console.warn('Local proxy failed:', e?.message || e);
+  }
+
+  // Fallback to local builder if proxy failed
+  return buildAiProposal(tc, userPrompt);
+}
+
+function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, darkMode }) {
+  const [prompt, setPrompt] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [activeProposal, setActiveProposal] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!selectedTc) {
+      setMessages([]);
+      setActiveProposal(null);
+      return;
+    }
+    setMessages([
+      { role: "assistant", text: `Hola, estoy revisando el caso ${selectedTc.id}. Puedo ayudarte a mejorar el ID, los pasos y el resultado esperado.` }
+    ]);
+    setPrompt(`Revisá el ID del caso ${selectedTc.id} y mejoralo. Agregá más pasos de validación y un resultado esperado más claro.`);
+    setActiveProposal(null);
+  }, [selectedTc?.id]);
+
+  async function handleSend() {
+    if (!selectedTc || !prompt.trim()) return;
+    const userText = prompt.trim();
+    setMessages(prev => [...prev, { role: "user", text: userText }]);
+    setLoading(true);
+    setError("");
+
+    try {
+      const proposal = await getAiProposal(selectedTc, userText);
+      setMessages(prev => [...prev, { role: "assistant", text: proposal.response, proposal }]);
+      setActiveProposal(proposal);
+      setPrompt("");
+    } catch (err) {
+      const msg = `No pude contactar al asistente local: ${err?.message || "error desconocido"}`;
+      setMessages(prev => [...prev, { role: "assistant", text: msg }]);
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function quickPrompt(text) {
+    setPrompt(text);
+  }
+
+  return (
+    <div style={{background:darkMode?"#1C1C1E":"#fff",borderRadius:14,padding:16,border:`1px solid ${darkMode?"#2a2a2a":"#f0f0f0"}`,boxShadow:"0 1px 8px #0000000a"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:800,color:darkMode?"#eee":"#1a1a1a"}}>🤖 Asistente IA para mejorar casos</div>
+          <div style={{fontSize:11,color:darkMode?"#888":"#666",marginTop:3}}>Revisa el ID, agrega pasos y mejora el resultado esperado.</div>
+        </div>
+        <select value={selectedTc?.id || ""} onChange={e=>{
+          const tc = tests.find(t=>t.id===e.target.value);
+          if (tc) onSelectTc(tc);
+        }} style={{...inputStyle, width:180, background:darkMode?"#2C2C2E":"#fff", color:darkMode?"#eee":"#1a1a1a", border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
+          <option value="">Selecciona un caso</option>
+          {tests.map(tc=><option key={tc.id} value={tc.id}>{tc.id} · {tc.escenario}</option>)}
+        </select>
+      </div>
+
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:12}}>
+        {[
+          "Mejorá el ID del caso y hacelo más específico.",
+          "Agregá más pasos de validación y cobertura.",
+          "Hazlo más claro y robusto para ejecución."
+        ].map(text=>(
+          <button key={text} onClick={()=>quickPrompt(text)} style={{background:darkMode?"#2C2C2E":"#f5f5f5",border:`1px solid ${darkMode?"#444":"#e0e0e0"}`,borderRadius:999,padding:"6px 10px",cursor:"pointer",fontSize:11,color:darkMode?"#eee":"#555"}}>
+            {text}
+          </button>
+        ))}
+      </div>
+
+      <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:8,maxHeight:220,overflowY:"auto",paddingRight:4}}>
+        {messages.map((m,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
+            <div style={{maxWidth:"100%",background:m.role==="user"?(darkMode?"#C0392B":"#FADBD8"):(darkMode?"#232323":"#f7f7f7"),color:m.role==="user"?"#fff":(darkMode?"#eee":"#444"),borderRadius:12,padding:"10px 12px",fontSize:12,lineHeight:1.5,whiteSpace:"pre-wrap",border:m.role==="user"?"none":`1px solid ${darkMode?"#333":"#eaeaea"}`}}>
+              {m.text}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:8}}>
+        <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} rows={3} placeholder="Escribe cómo querés mejorar el caso de prueba..." style={{...inputStyle, resize:"vertical", background:darkMode?"#2C2C2E":"#fff", color:darkMode?"#eee":"#1a1a1a", border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}/>
+        <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
+          <Btn small onClick={handleSend} disabled={!selectedTc || !prompt.trim() || loading}>{loading ? "Enviando..." : "Enviar a IA"}</Btn>
+          <Btn small variant="ghost" onClick={()=>{setMessages([]);setActiveProposal(null);setPrompt("");setError("");}}>Limpiar</Btn>
+        </div>
+        {/* Se utiliza el proxy local o el mock; no se requieren claves externas aquí. */}
+        {error&&(<div style={{fontSize:11,color:darkMode?"#f8b4b4":"#b91c1c"}}>{error}</div>)}
+      </div>
+
+      {activeProposal&&selectedTc&&(
+        <div style={{marginTop:12,padding:12,borderRadius:12,background:darkMode?"#232323":"#FDF2F2",border:`1px solid ${darkMode?"#333":"#f3d7d7"}`}}>
+          <div style={{fontSize:12,fontWeight:800,color:darkMode?"#eee":"#7f1d1d",marginBottom:8}}>Propuesta lista para aplicar</div>
+          <div style={{display:"grid",gap:8}}>
+            <div style={{background:darkMode?"#1d1d1d":"#fff",borderRadius:8,padding:"8px 10px",border:`1px solid ${darkMode?"#333":"#f0dada"}`}}>
+              <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:800}}>ID sugerido</div>
+              <div style={{fontSize:13,fontWeight:700,color:darkMode?"#eee":"#1a1a1a"}}>{activeProposal.suggestedId}</div>
+            </div>
+            <div style={{background:darkMode?"#1d1d1d":"#fff",borderRadius:8,padding:"8px 10px",border:`1px solid ${darkMode?"#333":"#f0dada"}`}}>
+              <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:800}}>Pasos mejorados</div>
+              <ul style={{margin:"6px 0 0 16px",padding:0,fontSize:12,color:darkMode?"#ddd":"#555",display:"grid",gap:4}}>
+                {activeProposal.enrichedSteps.map((step, i)=><li key={i}>{step}</li>)}
+              </ul>
+            </div>
+            <div style={{background:darkMode?"#1d1d1d":"#fff",borderRadius:8,padding:"8px 10px",border:`1px solid ${darkMode?"#333":"#f0dada"}`}}>
+              <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:800}}>Resultado esperado</div>
+              <div style={{fontSize:12,color:darkMode?"#ddd":"#555",marginTop:4,lineHeight:1.5}}>{activeProposal.expectedResult}</div>
+            </div>
+          </div>
+          {onApplyProposal&&(
+            <button onClick={()=>onApplyProposal(activeProposal)} style={{marginTop:10,background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>
+              ✅ Aplicar mejora al caso
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── DONUT ────────────────────────────────────────────────────────────────────
 function Donut({data}) {
   const total=data.reduce((s,d)=>s+d.value,0);
@@ -933,6 +1285,13 @@ function TcDetailModal({tc,onClose,onEdit,onDelete,onDuplicate,onAddComment}) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
         <div>
           <div style={{fontFamily:"monospace",fontSize:12,color:BRAND,fontWeight:700,marginBottom:4}}>{tc.id}</div>
+          {/* Mostrar la última entrada del historial (si existe) para ver la sugerencia inmediatamente */}
+          {tc.historial && tc.historial.length>0 && (
+            (()=>{
+              const last = tc.historial[tc.historial.length-1];
+              return last && last.nota ? <div style={{fontSize:12,color:"#6b7280",marginBottom:6}}>Última sugerencia: <strong style={{color:BRAND}}>{last.nota}</strong> <span style={{color:"#aaa",marginLeft:8,fontSize:11}}>{last.fecha}</span></div> : null;
+            })()
+          )}
           <h3 style={{margin:0,fontSize:17,fontWeight:800,color:"#1a1a1a"}}>{tc.descripcion}</h3>
         </div>
         <div style={{display:"flex",gap:7,flexWrap:"wrap",justifyContent:"flex-end"}}>
@@ -1090,6 +1449,7 @@ export default function App() {
   const [showJira,setShowJira]=useState(false);
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [storageWarn,setStorageWarn]=useState(false);
+  const [selectedAiTc,setSelectedAiTc]=useState(null);
   const dragIndex=useRef(null);
   const dragOverIndex=useRef(null);
   const dragIssueIndex=useRef(null);
@@ -1120,6 +1480,13 @@ export default function App() {
   };
 
   const proj=useMemo(()=>projects.find(p=>p.id===activeProjectId),[projects,activeProjectId]);
+
+  useEffect(()=>{
+    if(!proj) return;
+    if(!selectedAiTc || !proj.tests.some(t=>t.id===selectedAiTc.id)) {
+      setSelectedAiTc(proj.tests[0] || null);
+    }
+  }, [proj?.id, proj?.tests?.length]);
 
   function toggleCycleTcSelection(cicloId, tcId){
     setBulkTcSelection(prev=>{
@@ -1192,6 +1559,24 @@ export default function App() {
         return{...t,estado,historial:[...(t.historial||[]),entry]};
       })};
     }));
+  }
+  function handleApplyAiProposal(proposal){
+    if(!proposal || !selectedAiTc) return;
+    const newPasos = proposal.enrichedSteps.map((step, index)=>`${index+1}. ${step}`).join("\n");
+    setProjects(ps=>ps.map(p=>{
+      if(p.id!==activeProjectId) return p;
+      return {
+        ...p,
+        tests: p.tests.map(tc => tc.id !== selectedAiTc.id ? tc : {
+          ...tc,
+          pasos: newPasos,
+          resultado: proposal.expectedResult,
+          historial: [ ...(tc.historial||[]), { fecha: today(), de: tc.id, a: tc.id, nota: `ID sugerido: ${proposal.suggestedId}` } ]
+        })
+      };
+    }));
+    setSelectedAiTc(prev => prev ? { ...prev, pasos: newPasos, resultado: proposal.expectedResult, historial: [ ...(prev.historial||[]), { fecha: today(), de: prev.id, a: prev.id, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
+    setViewTc(prev => prev && prev.id === selectedAiTc.id ? { ...prev, pasos: newPasos, resultado: proposal.expectedResult, historial: [ ...(prev.historial||[]), { fecha: today(), de: prev.id, a: prev.id, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
   }
   function addComment(tcId,texto){
     setProjects(ps=>ps.map(p=>{
@@ -1717,6 +2102,7 @@ export default function App() {
                     <Btn small variant="ghost" onClick={()=>exportToCSV(proj, filteredTests)}>⬇ Exportar CSV</Btn>
                   </div>
                 </div>
+                <AiAssistantPanel tests={tests} selectedTc={selectedAiTc} onSelectTc={setSelectedAiTc} onApplyProposal={handleApplyAiProposal} darkMode={darkMode}/>
                 {/* Filtros */}
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                   <input placeholder="🔍 Buscar..." value={search} onChange={e=>setSearch(e.target.value)} style={{...inputStyle,width:160,padding:"7px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}/>
@@ -1761,7 +2147,7 @@ export default function App() {
                             onDragStart={()=>{dragIndex.current=realIndex;}}
                             onDragOver={e=>{e.preventDefault();dragOverIndex.current=realIndex;}}
                             onDrop={()=>{if(dragIndex.current!==null&&dragIndex.current!==dragOverIndex.current)reorderTests(dragIndex.current,dragOverIndex.current);dragIndex.current=null;dragOverIndex.current=null;}}
-                            onClick={()=>setViewTc(t)}
+                            onClick={()=>{setViewTc(t); setSelectedAiTc(t);}}
                             style={{background:i%2===0?DM.tableRow0:DM.tableRow1,cursor:"pointer",borderBottom:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
                             onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
                             onMouseLeave={e=>e.currentTarget.style.background=i%2===0?DM.tableRow0:DM.tableRow1}>
