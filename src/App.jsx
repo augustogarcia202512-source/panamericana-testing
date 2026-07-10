@@ -1235,6 +1235,77 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
   w.document.write(html);
   w.document.close();
 }
+
+// ─── EXPORT KPIS AS SVG/PNG ─────────────────────────────────────────────────
+function exportKPIsAsImage(proj, tests = proj.tests, filteredTestStats = {}, filteredIssueStats = {}){
+  const dateNow = today();
+  const total = tests.length || 0;
+  const approved = filteredTestStats["Aprobado"] || 0;
+  const failed = filteredTestStats["Fallido"] || 0;
+  const executed = tests.filter(t=>t.fechaEjecucion).length;
+  const issues = filteredIssueStats.total || 0;
+
+  const svg = `<?xml version="1.0" encoding="utf-8"?>
+  <svg xmlns='http://www.w3.org/2000/svg' width='820' height='260' viewBox='0 0 820 260'>
+    <style>
+      .card{fill:#fff;stroke:#f0f0f0;stroke-width:1;border-radius:10px}
+      .title{font-family:Arial,Helvetica,sans-serif;font-weight:800;fill:#222;font-size:14px}
+      .value{font-family:Arial,Helvetica,sans-serif;font-weight:800;fill:#111;font-size:28px}
+      .label{font-family:Arial,Helvetica,sans-serif;fill:#666;font-size:11px}
+    </style>
+    <rect x='8' y='8' width='804' height='244' rx='12' fill='#fafafa' stroke='#eee'/>
+    <text x='28' y='36' class='title'>KPIs · ${proj.name}</text>
+    <text x='28' y='54' class='label'>Generado: ${dateNow}</text>
+
+    <g transform='translate(28,80)'>
+      <rect x='0' y='0' width='180' height='120' rx='10' fill='#fff' stroke='#eee'/>
+      <text x='14' y='26' class='label'>Tasa Aprobación</text>
+      <text x='14' y='62' class='value' fill='#27AE60'>${Math.round(total?((approved/total)*100):0)}%</text>
+      <text x='14' y='92' class='label'>${approved} de ${total}</text>
+    </g>
+
+    <g transform='translate(228,80)'>
+      <rect x='0' y='0' width='180' height='120' rx='10' fill='#fff' stroke='#eee'/>
+      <text x='14' y='26' class='label'>Tasa Fallos</text>
+      <text x='14' y='62' class='value' fill='#E74C3C'>${Math.round(total?((failed/total)*100):0)}%</text>
+      <text x='14' y='92' class='label'>${failed} de ${total}</text>
+    </g>
+
+    <g transform='translate(428,80)'>
+      <rect x='0' y='0' width='180' height='120' rx='10' fill='#fff' stroke='#eee'/>
+      <text x='14' y='26' class='label'>Ejecutados</text>
+      <text x='14' y='62' class='value' fill='${proj.color||"#27AE60"}'>${executed}</text>
+      <text x='14' y='92' class='label'>Total ejecutados</text>
+    </g>
+
+    <g transform='translate(628,80)'>
+      <rect x='0' y='0' width='180' height='120' rx='10' fill='#fff' stroke='#eee'/>
+      <text x='14' y='26' class='label'>Issues abiertas</text>
+      <text x='14' y='62' class='value' fill='#8E44AD'>${issues}</text>
+      <text x='14' y='92' class='label'>Issues filtradas</text>
+    </g>
+  </svg>`;
+
+  // trigger SVG download
+  const blob = new Blob([svg], {type: 'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${proj.name.replace(/[^a-z0-9]/gi,'_')}_KPIs.svg`; a.click();
+  URL.revokeObjectURL(url);
+
+  // also try to export PNG (best effort)
+  try{
+    const img = new Image();
+    const svg64 = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    img.onload = ()=>{
+      const canvas = document.createElement('canvas'); canvas.width=820; canvas.height=260;
+      const ctx = canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img,0,0);
+      canvas.toBlob((b)=>{ if(!b) return; const u=URL.createObjectURL(b); const aa=document.createElement('a'); aa.href=u; aa.download=`${proj.name.replace(/[^a-z0-9]/gi,'_')}_KPIs.png`; aa.click(); URL.revokeObjectURL(u); }, 'image/png');
+    };
+    img.src = svg64;
+  }catch(e){ console.warn('PNG export failed', e); }
+}
 // ─── JIRA INTEGRATION MODAL ──────────────────────────────────────────────────
 function JiraModal({onImport,onClose,existingTests,darkMode}) {
   const [config,setConfig]=useState(()=>{
@@ -2226,11 +2297,9 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{flex:1,overflowY:"auto",padding:"24px 28px"}}>
-
-            {/* ── DASHBOARD ── */}
+              <div style={{flex:1,overflowY:"auto",padding:"24px 28px"}}>
             {tab==="dashboard"&&(
-              <div style={{display:"flex",flexDirection:"column",gap:22}}>
+                <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                   <div>
                     <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Control del Día</h2>
@@ -2250,14 +2319,17 @@ export default function App() {
                       <input type="date" value={filterFechaHasta} onChange={e=>setFilterFechaHasta(e.target.value)} style={{...inputStyle,width:140}}/>
                       <Btn small variant="ghost" onClick={()=>{setFilterFechaDesde("");setFilterFechaHasta("");setFilterAsignado("Todos");setFilterProceso("Todos");setSearch("");}}>Limpiar filtros</Btn>
                     </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:7,alignItems:"flex-end"}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:7,alignItems:"flex-end"}}>
                     <div style={{display:"flex",gap:8}}>
                       <Btn small onClick={()=>{setEditTc(null);setShowTcForm(true);}}>+ TC</Btn>
                       <Btn small variant="ghost" onClick={()=>{setEditIssue(null);setShowIssueForm(true);}}>+ Issue</Btn>
                       <Btn small variant="ghost" onClick={()=>exportToCSV(proj, filteredTests)}>⬇ TCs CSV</Btn>
                       <Btn small variant="ghost" onClick={()=>exportIssuesToCSV(proj, filteredIssues)}>⬇ Issues CSV</Btn>
                     </div>
-                    <Btn small onClick={()=>exportDashboardPDF(proj, filteredTests, filteredIssues)} style={{background:"#2980B9",color:"#fff",width:"100%"}}>📄 Descargar PDF Dashboard</Btn>
+                    <div style={{display:"flex",gap:8,flexDirection:"column",width:"100%"}}>
+                      <Btn small onClick={()=>exportKPIsAsImage(proj, filteredTests, filteredTestStats, filteredIssueStats)} style={{background:DM.card,border:`1px solid ${DM.cardBorder}`}}>📷 Exportar KPIs</Btn>
+                      <Btn small onClick={()=>exportDashboardPDF(proj, filteredTests, filteredIssues)} style={{background:"#2980B9",color:"#fff",width:"100%"}}>📄 Descargar PDF Dashboard</Btn>
+                    </div>
                   </div>
                 </div>
 
@@ -2526,10 +2598,10 @@ export default function App() {
                     </button>
                   </div>
                 )}
-              </div>
+                </div>
             )}
 
-            {/* ── CASOS DE PRUEBA ── */}
+          {/* ── CASOS DE PRUEBA ── */}
             {tab==="tests"&&(
               <div style={{display:"flex",flexDirection:"column",gap:18}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
