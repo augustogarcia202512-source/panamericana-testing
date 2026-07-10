@@ -446,6 +446,7 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
   const [activeProposal, setActiveProposal] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [renameId, setRenameId] = useState(false);
 
   useEffect(() => {
     if (!selectedTc) {
@@ -552,11 +553,17 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
               <div style={{fontSize:12,color:darkMode?"#ddd":"#555",marginTop:4,lineHeight:1.5}}>{activeProposal.expectedResult}</div>
             </div>
           </div>
-          {onApplyProposal&&(
-            <button onClick={()=>onApplyProposal(activeProposal)} style={{marginTop:10,background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>
-              ✅ Aplicar mejora al caso
-            </button>
-          )}
+          <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10}}>
+            <label style={{display:"inline-flex",alignItems:"center",gap:8,fontSize:12}}>
+              <input type="checkbox" checked={renameId} onChange={e=>setRenameId(e.target.checked)} />
+              <span style={{fontSize:13}}>Renombrar caso con ID sugerido</span>
+            </label>
+            {onApplyProposal&&(
+              <button onClick={()=>onApplyProposal(activeProposal, renameId)} style={{marginLeft:12,background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                ✅ Aplicar mejora al caso
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1483,10 +1490,11 @@ export default function App() {
 
   useEffect(()=>{
     if(!proj) return;
-    if(!selectedAiTc || !proj.tests.some(t=>t.id===selectedAiTc.id)) {
-      setSelectedAiTc(proj.tests[0] || null);
+    // If the previously selected test no longer exists, clear selection.
+    if(selectedAiTc && !proj.tests.some(t=>t.id===selectedAiTc.id)) {
+      setSelectedAiTc(null);
     }
-  }, [proj?.id, proj?.tests?.length]);
+  }, [proj?.id, proj?.tests?.length, selectedAiTc]);
 
   function toggleCycleTcSelection(cicloId, tcId){
     setBulkTcSelection(prev=>{
@@ -1563,20 +1571,38 @@ export default function App() {
   function handleApplyAiProposal(proposal){
     if(!proposal || !selectedAiTc) return;
     const newPasos = proposal.enrichedSteps.map((step, index)=>`${index+1}. ${step}`).join("\n");
+    // default: do not rename; if second arg true, rename to suggestedId (ensure uniqueness)
+    const rename = arguments[1]===true;
+    const oldId = selectedAiTc.id;
+    function makeUniqueId(tests, desired) {
+      if(!tests.some(t=>t.id===desired)) return desired;
+      let i=1;
+      while(tests.some(t=>t.id===`${desired}-${i}`)) i++;
+      return `${desired}-${i}`;
+    }
+    const finalNewId = rename ? makeUniqueId(proj.tests||[], proposal.suggestedId) : oldId;
+
     setProjects(ps=>ps.map(p=>{
       if(p.id!==activeProjectId) return p;
+      const newId = finalNewId;
       return {
         ...p,
-        tests: p.tests.map(tc => tc.id !== selectedAiTc.id ? tc : {
+        tests: p.tests.map(tc => tc.id !== oldId ? tc : {
           ...tc,
+          id: newId,
           pasos: newPasos,
           resultado: proposal.expectedResult,
-          historial: [ ...(tc.historial||[]), { fecha: today(), de: tc.id, a: tc.id, nota: `ID sugerido: ${proposal.suggestedId}` } ]
-        })
+          historial: [ ...(tc.historial||[]), { fecha: today(), de: oldId, a: newId, nota: `ID sugerido: ${proposal.suggestedId}` } ]
+        }),
+        // update issues referencing the tc id
+        issues: (p.issues||[]).map(is => is.testId===oldId ? { ...is, testId: newId } : is),
+        // update ciclos ejecuciones
+        ciclos: (p.ciclos||[]).map(c=>({ ...c, ejecuciones:(c.ejecuciones||[]).map(e=> e.tcId===oldId ? { ...e, tcId: newId } : e) }))
       };
     }));
-    setSelectedAiTc(prev => prev ? { ...prev, pasos: newPasos, resultado: proposal.expectedResult, historial: [ ...(prev.historial||[]), { fecha: today(), de: prev.id, a: prev.id, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
-    setViewTc(prev => prev && prev.id === selectedAiTc.id ? { ...prev, pasos: newPasos, resultado: proposal.expectedResult, historial: [ ...(prev.historial||[]), { fecha: today(), de: prev.id, a: prev.id, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
+
+    setSelectedAiTc(prev => prev ? { ...prev, id: finalNewId, pasos: newPasos, resultado: proposal.expectedResult, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
+    setViewTc(prev => prev && prev.id === oldId ? { ...prev, id: finalNewId, pasos: newPasos, resultado: proposal.expectedResult, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
   }
   function addComment(tcId,texto){
     setProjects(ps=>ps.map(p=>{
