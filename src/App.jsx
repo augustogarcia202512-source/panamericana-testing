@@ -461,12 +461,20 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
   const [applyResult, setApplyResult] = useState(true);
   const [drafts, setDrafts] = useState([]);
   const [caseSearch, setCaseSearch] = useState("");
+  const [showApplyConfirm, setShowApplyConfirm] = useState(false);
+  const [showFullDiff, setShowFullDiff] = useState(false);
+  const [fullDiffDocked, setFullDiffDocked] = useState(false);
 
   const filteredTests = tests.filter(tc => {
     const q = caseSearch.trim().toLowerCase();
     if (!q) return true;
     return [tc.id, tc.escenario, tc.descripcion].filter(Boolean).some(text => text.toLowerCase().includes(q));
   });
+
+  // compute quick diff flags for preview highlighting
+  const previewIdChanged = selectedTc && activeProposal && activeProposal.suggestedId && (selectedTc.id !== activeProposal.suggestedId);
+  const previewStepsChanged = selectedTc && activeProposal && activeProposal.enrichedSteps && (((selectedTc.pasos||"").toString().trim()) !== (activeProposal.enrichedSteps.join("\n")||"").toString().trim());
+  const previewResultChanged = selectedTc && activeProposal && (((selectedTc.resultado||"").toString().trim()) !== ((activeProposal.expectedResult||"").toString().trim()));
 
   useEffect(() => {
     if (!selectedTc) {
@@ -491,6 +499,59 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
       setApplyId(false);
     }
   }, [activeProposal]);
+
+  function handleRequestApply() {
+    if (!activeProposal || !selectedTc) return;
+    setShowApplyConfirm(true);
+  }
+
+  function handleConfirmApply() {
+    if (!activeProposal || !selectedTc) return;
+    const opts = { applyId, applySteps, applyResult };
+    try {
+      if (onApplyProposal) onApplyProposal(activeProposal, opts);
+      // add a comment to the case with a short note of the applied fields
+      try { addComment(selectedTc.id, `Aplicada propuesta IA: ${[opts.applyId?"ID":"", opts.applySteps?"Pasos":"", opts.applyResult?"Resultado":""].filter(Boolean).join(", ") || "(ninguno)"}`); } catch(e) {}
+      setMessages(prev => [...prev, { role: "system", text: `Se aplicaron: ${[applyId?"ID":"", applySteps?"Pasos":"", applyResult?"Resultado":""].filter(Boolean).join(", ") || "(ninguno)"}` }]);
+      // clear active proposal and reset selections
+      setActiveProposal(null);
+      setApplyId(false);
+      setApplySteps(true);
+      setApplyResult(true);
+      setPrompt(selectedTc ? buildDefaultPrompt(selectedTc) : "");
+    } catch (e) {
+      setMessages(prev => [...prev, { role: "system", text: `Error al aplicar la propuesta: ${e?.message||e}` }]);
+    } finally {
+      setShowApplyConfirm(false);
+    }
+  }
+
+  function renderLinesDiff(currentText, proposedLines) {
+    const curr = (currentText||"").toString().split('\n').map(s=>s.replace(/\s+$/,'').replace(/^\s+/,'')).filter(()=>true);
+    const prop = (proposedLines||[]).map(s=>s.toString());
+    const max = Math.max(curr.length, prop.length);
+    return (
+      <div style={{fontSize:12,marginTop:8}}>
+        {Array.from({length:max}).map((_,i)=>{
+          const c = (curr[i]||"").toString();
+          const p = (prop[i]||"").toString();
+          const same = c === p;
+          const added = !c && p;
+          const removed = c && !p;
+          const changed = !same && c && p;
+          const bg = same ? 'transparent' : (added ? (darkMode? '#083a1a' : '#e6ffed') : removed ? (darkMode? '#3a1010' : '#fff1f0') : (darkMode? '#2b3a2b' : '#fff7e6'));
+          const color = same ? (darkMode? '#ddd' : '#222') : (added? (darkMode? '#a7f0bf' : '#036a1a') : removed? (darkMode? '#ffb4b4' : '#9b1c1c') : (darkMode? '#ffdca8' : '#8a5b00'));
+          const sign = added ? '+' : removed ? '−' : changed ? '±' : ' ';
+          return (
+            <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:6}}>
+              <div style={{width:18,flex:'0 0 18px',textAlign:'center',color:color,fontWeight:700}}>{sign}</div>
+              <pre style={{margin:0,whiteSpace:'pre-wrap',lineHeight:1.4,background:bg,padding: same ? 0 : '6px 8px',borderRadius:6,color:color,fontFamily:'inherit',flex:1}}>{p || c}</pre>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   async function handleSend() {
     if (!selectedTc || !prompt.trim()) return;
@@ -660,25 +721,37 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
             </div>
           </div>
           <div style={{marginTop:12,padding:12,borderRadius:12,background:darkMode?"#141414":"#fff",border:`1px solid ${darkMode?"#222":"#e5e7eb"}`}}>
-            <div style={{fontSize:12,fontWeight:700,color:darkMode?"#eee":"#333",marginBottom:8}}>Vista previa antes de aplicar</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div style={{padding:12,borderRadius:10,background:darkMode?"#1c1c1e":"#fafafa",border:`1px solid ${darkMode?"#2a2a2a":"#e0e0e0"}`}}>
-                <div style={{fontSize:11,color:darkMode?"#888":"#777",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Caso actual</div>
-                <div style={{fontSize:13,fontWeight:700,color:darkMode?"#fff":"#1a1a1a",marginBottom:8}}>{selectedTc.id}</div>
-                <div style={{fontSize:11,color:darkMode?"#aaa":"#555",fontWeight:700,marginBottom:4}}>Pasos actuales</div>
-                <pre style={{margin:0,fontFamily:"inherit",whiteSpace:"pre-wrap",lineHeight:1.6,fontSize:12,color:darkMode?"#ddd":"#444"}}>{selectedTc.pasos || "(sin pasos)"}</pre>
-                <div style={{fontSize:11,color:darkMode?"#aaa":"#555",fontWeight:700,marginTop:12,marginBottom:4}}>Resultado esperado actual</div>
-                <div style={{fontSize:12,lineHeight:1.6,color:darkMode?"#ddd":"#444"}}>{selectedTc.resultado || "(sin resultado esperado)"}</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+              <div style={{fontSize:12,fontWeight:700,color:darkMode?"#eee":"#333",marginBottom:8}}>Vista previa antes de aplicar</div>
+              <div>
+                <Btn small variant="ghost" onClick={()=>setShowFullDiff(true)} style={{marginLeft:8}}>Ver diferencias completas</Btn>
+                <Btn small variant="ghost" onClick={()=>{ setFullDiffDocked(prev=>!prev); setShowFullDiff(false); }} style={{marginLeft:8}}>{fullDiffDocked? 'Desanclar vista' : 'Anclar vista'}</Btn>
               </div>
-              <div style={{padding:12,borderRadius:10,background:darkMode?"#1c1c1e":"#fafafa",border:`1px solid ${darkMode?"#2a2a2a":"#e0e0e0"}`}}>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div style={{padding:12,borderRadius:10,background:darkMode?"#1c1c1e":"#fafafa",border:`1px solid ${darkMode?"#2a2a2a":"#e0e0e0"}`, position:"relative"}}>
+                <div style={{fontSize:11,color:darkMode?"#888":"#777",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Caso actual</div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{fontSize:13,fontWeight:700,color:darkMode?"#fff":"#1a1a1a",marginBottom:8}}>{selectedTc.id}</div>
+                  {previewIdChanged ? <div style={{fontSize:11,color:BRAND,fontWeight:800,background:BRAND+"20",padding:"2px 8px",borderRadius:8}}>Cambia</div> : <div style={{fontSize:11,color:darkMode?"#888":"#666"}}>Sin cambios</div>}
+                </div>
+                <div style={{fontSize:11,color:darkMode?"#aaa":"#555",fontWeight:700,marginBottom:4,marginTop:8}}>Pasos actuales</div>
+                <pre style={{margin:0,fontFamily:"inherit",whiteSpace:"pre-wrap",lineHeight:1.6,fontSize:12,color:darkMode?"#ddd":"#444",borderLeft: previewStepsChanged? `4px solid ${BRAND}` : undefined, paddingLeft: previewStepsChanged?12 : undefined, background: previewStepsChanged? (darkMode?"#0f1b1a":"#fffdf0") : undefined}}>{selectedTc.pasos || "(sin pasos)"}</pre>
+                <div style={{fontSize:11,color:darkMode?"#aaa":"#555",fontWeight:700,marginTop:12,marginBottom:4}}>Resultado esperado actual</div>
+                <div style={{fontSize:12,lineHeight:1.6,color:darkMode?"#ddd":"#444",borderLeft: previewResultChanged? `4px solid ${BRAND}` : undefined, paddingLeft: previewResultChanged?12 : undefined, background: previewResultChanged? (darkMode?"#0f1b1a":"#fffdf0") : undefined}}>{selectedTc.resultado || "(sin resultado esperado)"}</div>
+              </div>
+              <div style={{padding:12,borderRadius:10,background:darkMode?"#1c1c1e":"#fafafa",border:`1px solid ${darkMode?"#2a2a2a":"#e0e0e0"}`, position:"relative"}}>
                 <div style={{fontSize:11,color:darkMode?"#888":"#777",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Propuesta IA</div>
-                <div style={{fontSize:13,fontWeight:700,color:darkMode?"#fff":"#1a1a1a",marginBottom:8}}>{activeProposal.suggestedId}</div>
-                <div style={{fontSize:11,color:darkMode?"#aaa":"#555",fontWeight:700,marginBottom:4}}>Pasos propuestos</div>
-                <ul style={{margin:"0 0 0 16px",padding:0,fontSize:12,lineHeight:1.6,color:darkMode?"#ddd":"#444"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{fontSize:13,fontWeight:700,color:darkMode?"#fff":"#1a1a1a",marginBottom:8}}>{activeProposal.suggestedId}</div>
+                  {previewIdChanged ? <div style={{fontSize:11,color:BRAND,fontWeight:800,background:BRAND+"20",padding:"2px 8px",borderRadius:8}}>Sugerido</div> : <div style={{fontSize:11,color:darkMode?"#888":"#666"}}>Id igual</div>}
+                </div>
+                <div style={{fontSize:11,color:darkMode?"#aaa":"#555",fontWeight:700,marginBottom:4,marginTop:8}}>Pasos propuestos</div>
+                <ul style={{margin:"0 0 0 16px",padding:0,fontSize:12,lineHeight:1.6,color:darkMode?"#ddd":"#444",borderLeft: previewStepsChanged? `4px solid ${BRAND}` : undefined, paddingLeft: previewStepsChanged?12 : undefined, background: previewStepsChanged? (darkMode?"#081615":"#fffdf9") : undefined}}>
                   {activeProposal.enrichedSteps.map((step,i)=><li key={i} style={{marginBottom:8}}>{step}</li>)}
                 </ul>
                 <div style={{fontSize:11,color:darkMode?"#aaa":"#555",fontWeight:700,marginTop:12,marginBottom:4}}>Resultado esperado propuesto</div>
-                <div style={{fontSize:12,lineHeight:1.6,color:darkMode?"#ddd":"#444"}}>{activeProposal.expectedResult}</div>
+                <div style={{fontSize:12,lineHeight:1.6,color:darkMode?"#ddd":"#444",borderLeft: previewResultChanged? `4px solid ${BRAND}` : undefined, paddingLeft: previewResultChanged?12 : undefined, background: previewResultChanged? (darkMode?"#081615":"#fffdf9") : undefined}}>{activeProposal.expectedResult}</div>
               </div>
             </div>
           </div>
@@ -704,11 +777,93 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
             <Btn small variant="ghost" onClick={()=>{setApplyId(true);setApplySteps(true);setApplyResult(true);}}>
               Aplicar todo
             </Btn>
+            <Btn small variant="ghost" onClick={handleRequestApply} disabled={!applyId && !applySteps && !applyResult}>
+              Aceptar cambios parciales
+            </Btn>
             {onApplyProposal&&(
-              <button onClick={()=>onApplyProposal(activeProposal, { applyId, applySteps, applyResult })} style={{background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700}} disabled={!applyId && !applySteps && !applyResult}>
+              <button onClick={handleRequestApply} style={{background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700}} disabled={!applyId && !applySteps && !applyResult}>
                 ✅ Aplicar mejora al caso
               </button>
             )}
+          </div>
+        </div>
+      )}
+      {showApplyConfirm && (
+        <div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.45)",zIndex:9999}}>
+          <div style={{width:520,maxWidth:"94%",background:darkMode?"#0f0f10":"#fff",padding:18,borderRadius:12,boxShadow:"0 10px 40px rgba(0,0,0,0.6)",border:`1px solid ${darkMode?"#222":"#e6e6e6"}`}}>
+            <div style={{fontSize:16,fontWeight:800,color:darkMode?"#fff":"#111",marginBottom:8}}>Confirmar aplicación</div>
+            <div style={{fontSize:13,color:darkMode?"#ccc":"#333",marginBottom:12}}>Vas a aplicar los siguientes cambios al caso <strong>{selectedTc?.id}</strong>:</div>
+            <ul style={{marginTop:0,marginBottom:12,color:darkMode?"#ddd":"#444"}}>
+              {applyId && <li>ID sugerido: <strong style={{color:BRAND}}>{activeProposal?.suggestedId}</strong></li>}
+              {applySteps && <li>Pasos mejorados (se reemplazarán los pasos actuales).</li>}
+              {applyResult && <li>Resultado esperado actualizado.</li>}
+              {!applyId && !applySteps && !applyResult && <li style={{color:"#b91c1c"}}>No se seleccionaron campos para aplicar.</li>}
+            </ul>
+            {applySteps && (
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:darkMode?"#eee":"#333",marginBottom:6}}>Comparación de pasos (actual → propuesto)</div>
+                {renderLinesDiff(selectedTc?.pasos||"", activeProposal?.enrichedSteps||[])}
+              </div>
+            )}
+            {applyResult && (
+              <div style={{marginTop:10}}>
+                <div style={{fontSize:12,fontWeight:700,color:darkMode?"#eee":"#333",marginBottom:6}}>Comparación de resultado esperado</div>
+                {renderLinesDiff(selectedTc?.resultado||"", [(activeProposal?.expectedResult||"")])}
+              </div>
+            )}
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+              <Btn small variant="ghost" onClick={()=>setShowApplyConfirm(false)}>Cancelar</Btn>
+              <button onClick={handleConfirmApply} style={{background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:13,fontWeight:800}} disabled={!applyId && !applySteps && !applyResult}>Confirmar y aplicar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showFullDiff && (
+        <div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.6)",zIndex:10000}}>
+          <div style={{width:"90%",maxWidth:1100,maxHeight:"90%",overflowY:"auto",background:darkMode?"#0b0b0b":"#fff",padding:18,borderRadius:10,border:`1px solid ${darkMode?"#222":"#e6e6e6"}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:12}}>
+              <div>
+                <div style={{fontSize:16,fontWeight:800,color:darkMode?"#fff":"#111"}}>Diferencias completas — {selectedTc?.id}</div>
+                <div style={{fontSize:12,color:darkMode?"#bbb":"#666"}}>Comparación lado a lado: caso actual vs propuesta IA</div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <Btn small variant="ghost" onClick={()=>setShowFullDiff(false)}>Cerrar</Btn>
+                <Btn small variant="ghost" onClick={()=>{ setFullDiffDocked(true); setShowFullDiff(false); }}>Anclar panel</Btn>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+              <div style={{padding:12,borderRadius:8,background:darkMode?"#0f1412":"#fafafa",border:`1px solid ${darkMode?"#1f1f1f":"#eaeaea"}`}}>
+                <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>Caso actual</div>
+                <div style={{fontSize:12,color:darkMode?"#ddd":"#333",marginBottom:8}}>Pasos</div>
+                {renderLinesDiff(selectedTc?.pasos||"", (selectedTc?.pasos||"").toString().split('\n'))}
+                <div style={{fontSize:12,color:darkMode?"#ddd":"#333",marginTop:12,marginBottom:8}}>Resultado esperado</div>
+                {renderLinesDiff(selectedTc?.resultado||"", [(selectedTc?.resultado||"")])}
+              </div>
+              <div style={{padding:12,borderRadius:8,background:darkMode?"#0f1412":"#fafafa",border:`1px solid ${darkMode?"#1f1f1f":"#eaeaea"}`}}>
+                <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>Propuesta IA</div>
+                <div style={{fontSize:12,color:darkMode?"#ddd":"#333",marginBottom:8}}>Pasos propuestos</div>
+                {renderLinesDiff((selectedTc?.pasos||""), activeProposal?.enrichedSteps||[])}
+                <div style={{fontSize:12,color:darkMode?"#ddd":"#333",marginTop:12,marginBottom:8}}>Resultado esperado propuesto</div>
+                {renderLinesDiff((selectedTc?.resultado||""), [(activeProposal?.expectedResult||"")])}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {fullDiffDocked && (
+        <div style={{position:"fixed",right:12,top:80,bottom:40,width:520,maxWidth:"46%",overflowY:"auto",background:darkMode?"#0b0b0b":"#fff",padding:12,borderRadius:10,border:`1px solid ${darkMode?"#222":"#e6e6e6"}`,zIndex:9998,boxShadow:"0 8px 30px rgba(0,0,0,0.4)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:8}}>
+            <div style={{fontSize:14,fontWeight:800,color:darkMode?"#fff":"#111"}}>Diferencias ancladas — {selectedTc?.id}</div>
+            <div style={{display:"flex",gap:8}}>
+              <Btn small variant="ghost" onClick={()=>setFullDiffDocked(false)}>Desanclar</Btn>
+              <Btn small variant="ghost" onClick={()=>setShowFullDiff(true)}>Abrir modal</Btn>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10}}>
+            <div style={{fontSize:12,fontWeight:700,color:darkMode?"#eee":"#333"}}>Pasos (actual → propuesto)</div>
+            {renderLinesDiff(selectedTc?.pasos||"", activeProposal?.enrichedSteps||[])}
+            <div style={{fontSize:12,fontWeight:700,color:darkMode?"#eee":"#333",marginTop:8}}>Resultado esperado</div>
+            {renderLinesDiff(selectedTc?.resultado||"", [(activeProposal?.expectedResult||"")])}
           </div>
         </div>
       )}
@@ -768,6 +923,55 @@ function LineChart({data,color="#27AE60",label}) {
         </g>
       ))}
     </svg>
+  );
+}
+
+// ─── SPARKLINE (mini-graph) ───────────────────────────────────────────────
+function Sparkline({data=[],color="#2980B9",width=120,height=34,strokeWidth=2}){
+  const vals = (data||[]).map(item=>{
+    if(typeof item === 'number') return item;
+    if(item && typeof item === 'object' && item.value!==undefined) return Number(item.value)||0;
+    return parseFloat(item)||0;
+  });
+  const [hoverIdx,setHoverIdx] = useState(-1);
+  const [tipPos,setTipPos] = useState({left:0,top:0});
+  const wrapRef = useRef();
+  if(!vals.length) return <div style={{width, height, display:'flex', alignItems:'center', justifyContent:'center', color:'#999', fontSize:11}}>sin datos</div>;
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const range = maxV - minV || 1;
+  const pts = vals.map((v,i)=>({ x: (i/(vals.length-1))*(width-4)+2, y: 2 + (1-((v-minV)/range))*(height-6), v, label: (data[i] && typeof data[i] === 'object' ? (data[i].label||data[i].name||data[i].date) : null) }));
+  const path = pts.map((p,i)=>(i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`)).join(' ');
+  const areaPath = `${path} L ${width-2},${height-2} L 2 ${height-2} Z`;
+
+  function handleMove(e){
+    const rect = wrapRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    let nearest = 0; let best = Infinity;
+    pts.forEach((p,i)=>{ const d=Math.abs(p.x - x); if(d<best){best=d;nearest=i;} });
+    setHoverIdx(nearest);
+    const top = Math.max(6, (pts[nearest].y - 28));
+    const left = Math.min(rect.width - 80, Math.max(6, pts[nearest].x - 40));
+    setTipPos({left, top});
+  }
+  function handleLeave(){ setHoverIdx(-1); }
+
+  return (
+    <div ref={wrapRef} style={{width, height, position:'relative', display:'inline-block'}} onMouseMove={handleMove} onMouseLeave={handleLeave}>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{display:'block'}}>
+        <path d={areaPath} fill={color + '22'} stroke="none" />
+        <path d={path} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" strokeLinecap="round" />
+        {pts.map((p,i)=>{
+          const r = i===hoverIdx?3.4:(i===pts.length-1?2.6:1.4);
+          const fill = i===hoverIdx? (color) : color;
+          return <circle key={i} cx={p.x} cy={p.y} r={r} fill={fill}/>;
+        })}
+      </svg>
+      {hoverIdx>=0 && (
+        <div style={{position:'absolute',left:tipPos.left,top:tipPos.top,background:'#111',color:'#fff',padding:'6px 8px',borderRadius:6,fontSize:11,boxShadow:'0 6px 18px rgba(0,0,0,0.35)'}}>
+          {pts[hoverIdx].label ? `${pts[hoverIdx].label}: ${String(pts[hoverIdx].v)}` : String(pts[hoverIdx].v)}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1907,6 +2111,30 @@ export default function App() {
     return Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0])).map(([d,v])=>({label:d.slice(0,5),value:v}));
   },[filteredTests]);
 
+  // Build a per-date map with state counts to feed sparklines for KPIs
+  const timelineMap = useMemo(()=>{
+    const m={};
+    filteredTests.filter(t=>t.fechaEjecucion).forEach(t=>{
+      if(!m[t.fechaEjecucion]) m[t.fechaEjecucion]={Aprobado:0,Fallido:0,total:0};
+      m[t.fechaEjecucion][t.estado] = (m[t.fechaEjecucion][t.estado]||0) + 1;
+      m[t.fechaEjecucion].total = (m[t.fechaEjecucion].total||0) + 1;
+    });
+    return m;
+  },[filteredTests]);
+
+  const timelineKeys = useMemo(()=>Object.keys(timelineMap).sort(),[timelineMap]);
+
+  const sparkApproved = timelineKeys.map(d=>({label:d, value: timelineMap[d].Aprobado||0}));
+  const sparkFailed = timelineKeys.map(d=>({label:d, value: timelineMap[d].Fallido||0}));
+  const sparkExecuted = timelineKeys.map(d=>({label:d, value: timelineMap[d].total||0}));
+
+  // Issues spark (by creation date)
+  const issuesByDate = useMemo(()=>{
+    const m={}; filteredIssues.forEach(i=>{ if(!i.fechaCreacion) return; m[i.fechaCreacion]=(m[i.fechaCreacion]||0)+1; }); return m;
+  },[filteredIssues]);
+  const issueKeys = useMemo(()=>Object.keys(issuesByDate).sort(),[issuesByDate]);
+  const sparkIssues = issueKeys.map(d=>({label:d, value: issuesByDate[d]||0}));
+
   const pct=(n,total=filteredTests.length)=>total?Math.round((n/total)*100):0;
   const execPct=pct(filteredTestStats["Aprobado"]+filteredTestStats["No aplica"]);
 
@@ -2008,6 +2236,20 @@ export default function App() {
                     <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Control del Día</h2>
                     <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>Resumen general · {proj.name}</p>
                   </div>
+              
+                    {/* Dashboard filters (quick) */}
+                    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:8}}>
+                      <input placeholder="🔍 Buscar TCs..." value={search} onChange={e=>setSearch(e.target.value)} style={{...inputStyle,width:200,padding:"7px 10px",background:darkMode?"#2C2C2E":"#fff"}}/>
+                      <select value={filterProceso} onChange={e=>setFilterProceso(e.target.value)} style={{...inputStyle,width:160}}>
+                        {procesosList.map(p=> <option key={p} value={p}>{p}</option>)}
+                      </select>
+                      <select value={filterAsignado} onChange={e=>setFilterAsignado(e.target.value)} style={{...inputStyle,width:160}}>
+                        {asignadosList.map(a=> <option key={a} value={a}>{a}</option>)}
+                      </select>
+                      <input type="date" value={filterFechaDesde} onChange={e=>setFilterFechaDesde(e.target.value)} style={{...inputStyle,width:140}}/>
+                      <input type="date" value={filterFechaHasta} onChange={e=>setFilterFechaHasta(e.target.value)} style={{...inputStyle,width:140}}/>
+                      <Btn small variant="ghost" onClick={()=>{setFilterFechaDesde("");setFilterFechaHasta("");setFilterAsignado("Todos");setFilterProceso("Todos");setSearch("");}}>Limpiar filtros</Btn>
+                    </div>
                   <div style={{display:"flex",flexDirection:"column",gap:7,alignItems:"flex-end"}}>
                     <div style={{display:"flex",gap:8}}>
                       <Btn small onClick={()=>{setEditTc(null);setShowTcForm(true);}}>+ TC</Btn>
@@ -2022,6 +2264,34 @@ export default function App() {
                 {/* Semáforo */}
                 <div style={{background:DM.card,borderRadius:14,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                   <Semaforo pct={execPct}/>
+                </div>
+
+                {/* KPI cards */}
+                <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                  <div style={{background:DM.card,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 8px #0000000a",border:`1px solid ${DM.cardBorder}`,minWidth:160}}>
+                    <div style={{fontSize:11,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>Tasa Aprobación</div>
+                    <div style={{fontSize:22,fontWeight:800,color:'#27AE60',lineHeight:1.1}}>{pct(filteredTestStats["Aprobado"]) }%</div>
+                    <div style={{marginTop:8}}><Sparkline data={sparkApproved} color="#27AE60" width={140} height={36}/></div>
+                    <div style={{fontSize:11,color:DM.sub,marginTop:6}}>Porcentaje de casos aprobados</div>
+                  </div>
+                  <div style={{background:DM.card,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 8px #0000000a",border:`1px solid ${DM.cardBorder}`,minWidth:160}}>
+                    <div style={{fontSize:11,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>Tasa Fallos</div>
+                    <div style={{fontSize:22,fontWeight:800,color:'#E74C3C',lineHeight:1.1}}>{pct(filteredTestStats["Fallido"]) }%</div>
+                    <div style={{marginTop:8}}><Sparkline data={sparkFailed} color="#E74C3C" width={140} height={36}/></div>
+                    <div style={{fontSize:11,color:DM.sub,marginTop:6}}>Porcentaje de casos con fallo</div>
+                  </div>
+                  <div style={{background:DM.card,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 8px #0000000a",border:`1px solid ${DM.cardBorder}`,minWidth:160}}>
+                    <div style={{fontSize:11,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>Ejecutados</div>
+                    <div style={{fontSize:22,fontWeight:800,color:'#27AE60',lineHeight:1.1}}>{filteredTests.filter(t=>t.fechaEjecucion).length}</div>
+                    <div style={{marginTop:8}}><Sparkline data={sparkExecuted} color={proj.color||"#27AE60"} width={140} height={36}/></div>
+                    <div style={{fontSize:11,color:DM.sub,marginTop:6}}>Total de TCs ejecutados</div>
+                  </div>
+                  <div style={{background:DM.card,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 8px #0000000a",border:`1px solid ${DM.cardBorder}`,minWidth:160}}>
+                    <div style={{fontSize:11,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>Issues abiertas</div>
+                    <div style={{fontSize:22,fontWeight:800,color:'#8E44AD',lineHeight:1.1}}>{filteredIssueStats.total}</div>
+                    <div style={{marginTop:8}}><Sparkline data={sparkIssues} color="#8E44AD" width={140} height={36}/></div>
+                    <div style={{fontSize:11,color:DM.sub,marginTop:6}}>Issues filtradas</div>
+                  </div>
                 </div>
 
                 {/* stat chips */}
