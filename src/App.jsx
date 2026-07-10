@@ -214,9 +214,9 @@ function AttachmentViewer({attachments}) {
 function buildAiProposal(tc, prompt = "") {
   if(!tc) return null;
   const area = tc.area || tc.proceso || "General";
-  const baseNum = parseInt(String(tc.id).match(/(\d+)/)?.[1] || "0", 10) || 0;
+  const baseNum = parseInt(String(tc.id).match(/(\d+)/)?.[1] || "0", 10) || 1;
   const areaKey = String(area).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "").slice(0,3).toUpperCase() || "GEN";
-  const suggestedId = `TC-${String(baseNum + 1).padStart(2, "0")}-${areaKey}`;
+  const suggestedId = `TC-${String(baseNum).padStart(2, "0")}-${areaKey}`;
 
   const normalizeStep = (step) => String(step || '').replace(/^\s*\d+[.)\-]*\s*/, '').trim();
   const rawSteps = String(tc.pasos || '').split(/\r?\n/).map(s => normalizeStep(s)).filter(Boolean);
@@ -413,6 +413,16 @@ function parseAiProposal(text, tc) {
   };
 }
 
+function buildDefaultPrompt(tc, intent = "Mejorá este caso") {
+  if(!tc) return "";
+  const title = tc.escenario ? `${tc.escenario}` : "el caso seleccionado";
+  const description = tc.descripcion ? `Descripción: ${tc.descripcion}` : "";
+  const comments = (tc.comentarios||[]).slice(-2).map(c=>`- ${c.fecha||""}: ${c.texto||c}`).join("\n");
+  const history = (tc.historial||[]).slice(-2).map(h=>`- ${h.fecha||""}: ${h.nota||`${h.de} → ${h.a}`}`).join("\n");
+  const context = [description, comments ? `Comentarios recientes:\n${comments}` : "", history ? `Historial reciente:\n${history}` : ""].filter(Boolean).join("\n\n");
+  return `${intent} ${tc.id} (${title}).\n${context ? context + "\n\n" : ""}Enfócate en generar pasos claros, validaciones y un resultado esperado más preciso.`;
+}
+
 async function getAiProposal(tc, userPrompt) {
   // Use local proxy first (/api/ai/generate). This avoids any external Gemini calls.
   try {
@@ -446,20 +456,41 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
   const [activeProposal, setActiveProposal] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [renameId, setRenameId] = useState(false);
+  const [applyId, setApplyId] = useState(false);
+  const [applySteps, setApplySteps] = useState(true);
+  const [applyResult, setApplyResult] = useState(true);
+  const [drafts, setDrafts] = useState([]);
+  const [caseSearch, setCaseSearch] = useState("");
+
+  const filteredTests = tests.filter(tc => {
+    const q = caseSearch.trim().toLowerCase();
+    if (!q) return true;
+    return [tc.id, tc.escenario, tc.descripcion].filter(Boolean).some(text => text.toLowerCase().includes(q));
+  });
 
   useEffect(() => {
     if (!selectedTc) {
       setMessages([]);
       setActiveProposal(null);
+      setPrompt("");
       return;
     }
-    setMessages([
-      { role: "assistant", text: `Hola, estoy revisando el caso ${selectedTc.id}. Puedo ayudarte a mejorar el ID, los pasos y el resultado esperado.` }
-    ]);
-    setPrompt(`Revisá el ID del caso ${selectedTc.id} y mejoralo. Agregá más pasos de validación y un resultado esperado más claro.`);
+    setApplyId(false);
+    setApplySteps(true);
+    setApplyResult(true);
     setActiveProposal(null);
+    setMessages([]);
+    setPrompt(buildDefaultPrompt(selectedTc));
   }, [selectedTc?.id]);
+
+  useEffect(() => {
+    if (activeProposal) {
+      setApplySteps(true);
+      setApplyResult(true);
+      // Keep ID unchecked by default to avoid accidental renames.
+      setApplyId(false);
+    }
+  }, [activeProposal]);
 
   async function handleSend() {
     if (!selectedTc || !prompt.trim()) return;
@@ -482,8 +513,41 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
     }
   }
 
-  function quickPrompt(text) {
-    setPrompt(text);
+  function quickPrompt(action) {
+    if (!selectedTc) return;
+    const intentMap = {
+      pasos: `Refina los pasos del caso ${selectedTc.id} y agrega validaciones claras.`,
+      resultado: `Aclará el resultado esperado del caso ${selectedTc.id} para que sea más preciso.`,
+      id: `Mejorá el ID del caso ${selectedTc.id} para que sea más descriptivo y consistente.`,
+      completo: `Mejorá el caso ${selectedTc.id}: revisá la descripción, completá los pasos con validaciones y refiná el resultado esperado.`
+    };
+    setPrompt(intentMap[action] || buildDefaultPrompt(selectedTc));
+  }
+
+  function saveDraft() {
+    if (!activeProposal || !selectedTc) return;
+    const draft = {
+      id: Date.now().toString(),
+      title: `${selectedTc.id} - ${selectedTc.escenario || 'Borrador'}`,
+      date: today(),
+      caseId: selectedTc.id,
+      proposal: activeProposal,
+      prompt,
+    };
+    setDrafts(prev => [draft, ...prev]);
+  }
+
+  function restoreDraft(draft) {
+    setActiveProposal(draft.proposal);
+    setPrompt(draft.prompt || "");
+    if (draft.caseId && tests.some(tc => tc.id === draft.caseId)) {
+      const tc = tests.find(tc => tc.id === draft.caseId);
+      onSelectTc(tc);
+    }
+  }
+
+  function deleteDraft(draftId) {
+    setDrafts(prev => prev.filter(d => d.id !== draftId));
   }
 
   return (
@@ -495,25 +559,60 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
         </div>
         <select value={selectedTc?.id || ""} onChange={e=>{
           const tc = tests.find(t=>t.id===e.target.value);
-          if (tc) onSelectTc(tc);
+          if (tc) {
+            onSelectTc(tc);
+          } else {
+            onSelectTc(null);
+          }
         }} style={{...inputStyle, width:180, background:darkMode?"#2C2C2E":"#fff", color:darkMode?"#eee":"#1a1a1a", border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
           <option value="">Selecciona un caso</option>
           {tests.map(tc=><option key={tc.id} value={tc.id}>{tc.id} · {tc.escenario}</option>)}
         </select>
       </div>
-
-      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:12}}>
-        {[
-          "Mejorá el ID del caso y hacelo más específico.",
-          "Agregá más pasos de validación y cobertura.",
-          "Hazlo más claro y robusto para ejecución."
-        ].map(text=>(
-          <button key={text} onClick={()=>quickPrompt(text)} style={{background:darkMode?"#2C2C2E":"#f5f5f5",border:`1px solid ${darkMode?"#444":"#e0e0e0"}`,borderRadius:999,padding:"6px 10px",cursor:"pointer",fontSize:11,color:darkMode?"#eee":"#555"}}>
-            {text}
-          </button>
-        ))}
-      </div>
-
+        {selectedTc && (
+          <div style={{marginTop:12,padding:14,borderRadius:14,background:darkMode?"#171717":"#fafafa",border:`1px solid ${darkMode?"#333":"#e6e6e6"}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+              <div style={{flex:"1 1 240px"}}>
+                <div style={{fontSize:12,color:darkMode?"#bbb":"#666",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:6}}>Caso seleccionado</div>
+                <div style={{fontSize:14,fontWeight:800,color:darkMode?"#fff":"#1a1a1a"}}>{selectedTc.id} · {selectedTc.escenario}</div>
+                <div style={{fontSize:12,color:darkMode?"#ddd":"#444",marginTop:4}}>{selectedTc.descripcion || "Sin descripción"}</div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(2, minmax(120px, 1fr))",gap:10,marginTop:selectedTc?8:0}}>
+                <div style={{padding:10,borderRadius:10,background:darkMode?"#232323":"#fff",border:`1px solid ${darkMode?"#333":"#e8e8e8"}`}}>
+                  <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Estado</div>
+                  <div style={{fontSize:13,fontWeight:700,color:darkMode?"#fff":"#1a1a1a"}}>{selectedTc.estado}</div>
+                </div>
+                <div style={{padding:10,borderRadius:10,background:darkMode?"#232323":"#fff",border:`1px solid ${darkMode?"#333":"#e8e8e8"}`}}>
+                  <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Asignado a</div>
+                  <div style={{fontSize:13,fontWeight:700,color:darkMode?"#fff":"#1a1a1a"}}>{selectedTc.asignadoA || "—"}</div>
+                </div>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:14}}>
+              <div style={{padding:12,borderRadius:12,background:darkMode?"#141414":"#fff",border:`1px solid ${darkMode?"#2b2b2b":"#f0f0f0"}`,fontSize:12,color:darkMode?"#ddd":"#444"}}>
+                <div style={{fontSize:11,color:darkMode?"#888":"#777",fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Pasos actuales</div>
+                <pre style={{margin:0,fontFamily:"inherit",whiteSpace:"pre-wrap",lineHeight:1.5}}>{selectedTc.pasos || "(sin pasos)"}</pre>
+              </div>
+              <div style={{padding:12,borderRadius:12,background:darkMode?"#141414":"#fff",border:`1px solid ${darkMode?"#2b2b2b":"#f0f0f0"}`,fontSize:12,color:darkMode?"#ddd":"#444"}}>
+                <div style={{fontSize:11,color:darkMode?"#888":"#777",fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Resultado esperado</div>
+                <div style={{lineHeight:1.6}}>{selectedTc.resultado || "(sin resultado esperado)"}</div>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:14}}>
+              <div style={{padding:12,borderRadius:12,background:darkMode?"#141414":"#fff",border:`1px solid ${darkMode?"#2b2b2b":"#f0f0f0"}`,fontSize:12,color:darkMode?"#ddd":"#444"}}>
+                <div style={{fontSize:11,color:darkMode?"#888":"#777",fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Comentarios recientes</div>
+                <div style={{whiteSpace:"pre-wrap",lineHeight:1.5}}>{(selectedTc.comentarios||[]).slice(-3).map(c=>`${c.fecha||""}: ${c.texto||c}`).join("\n") || "(sin comentarios)"}</div>
+              </div>
+              <div style={{padding:12,borderRadius:12,background:darkMode?"#141414":"#fff",border:`1px solid ${darkMode?"#2b2b2b":"#f0f0f0"}`,fontSize:12,color:darkMode?"#ddd":"#444"}}>
+                <div style={{fontSize:11,color:darkMode?"#888":"#777",fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Historial reciente</div>
+                <div style={{whiteSpace:"pre-wrap",lineHeight:1.5}}>{(selectedTc.historial||[]).slice(-3).map(h=>`${h.fecha||""}: ${h.nota||""}`).join("\n") || "(sin historial)"}</div>
+              </div>
+            </div>
+            <div style={{marginTop:14,fontSize:12,color:darkMode?"#aaa":"#666"}}>
+              Adjuntos: {(selectedTc.attachments||[]).map(a=>a.name).join(", ") || "Ninguno"}
+            </div>
+          </div>
+        )}
       <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:8,maxHeight:220,overflowY:"auto",paddingRight:4}}>
         {messages.map((m,i)=>(
           <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
@@ -525,10 +624,17 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
       </div>
 
       <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:8}}>
-        <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} rows={3} placeholder="Escribe cómo querés mejorar el caso de prueba..." style={{...inputStyle, resize:"vertical", background:darkMode?"#2C2C2E":"#fff", color:darkMode?"#eee":"#1a1a1a", border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}/>
-        <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
+        <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} rows={4} placeholder="Usa el prompt predeterminado o escribe qué querés mejorar." style={{...inputStyle, resize:"vertical", background:darkMode?"#2C2C2E":"#fff", color:darkMode?"#eee":"#1a1a1a", border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}/>
+        <div style={{display:"flex",justifyContent:"flex-start",gap:8,flexWrap:"wrap"}}>
           <Btn small onClick={handleSend} disabled={!selectedTc || !prompt.trim() || loading}>{loading ? "Enviando..." : "Enviar a IA"}</Btn>
-          <Btn small variant="ghost" onClick={()=>{setMessages([]);setActiveProposal(null);setPrompt("");setError("");}}>Limpiar</Btn>
+          <Btn small variant="ghost" onClick={()=>setPrompt(selectedTc ? buildDefaultPrompt(selectedTc) : "")}>Predeterminado</Btn>
+          <Btn small variant="ghost" onClick={()=>quickPrompt('pasos')}>Refinar pasos</Btn>
+          <Btn small variant="ghost" onClick={()=>quickPrompt('resultado')}>Mejorar resultado</Btn>
+          <Btn small variant="ghost" onClick={()=>quickPrompt('completo')}>Mejorar todo</Btn>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
+          <Btn small variant="ghost" onClick={()=>{setMessages([]);setActiveProposal(null);setPrompt(selectedTc ? buildDefaultPrompt(selectedTc) : "");setError("");}}>Limpiar</Btn>
+          <div style={{fontSize:11,color:darkMode?"#bbb":"#666",alignSelf:"center"}}>La IA corre localmente mediante proxy interno y no usa Gemini.</div>
         </div>
         {/* Se utiliza el proxy local o el mock; no se requieren claves externas aquí. */}
         {error&&(<div style={{fontSize:11,color:darkMode?"#f8b4b4":"#b91c1c"}}>{error}</div>)}
@@ -553,13 +659,53 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
               <div style={{fontSize:12,color:darkMode?"#ddd":"#555",marginTop:4,lineHeight:1.5}}>{activeProposal.expectedResult}</div>
             </div>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10}}>
+          <div style={{marginTop:12,padding:12,borderRadius:12,background:darkMode?"#141414":"#fff",border:`1px solid ${darkMode?"#222":"#e5e7eb"}`}}>
+            <div style={{fontSize:12,fontWeight:700,color:darkMode?"#eee":"#333",marginBottom:8}}>Vista previa antes de aplicar</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div style={{padding:12,borderRadius:10,background:darkMode?"#1c1c1e":"#fafafa",border:`1px solid ${darkMode?"#2a2a2a":"#e0e0e0"}`}}>
+                <div style={{fontSize:11,color:darkMode?"#888":"#777",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Caso actual</div>
+                <div style={{fontSize:13,fontWeight:700,color:darkMode?"#fff":"#1a1a1a",marginBottom:8}}>{selectedTc.id}</div>
+                <div style={{fontSize:11,color:darkMode?"#aaa":"#555",fontWeight:700,marginBottom:4}}>Pasos actuales</div>
+                <pre style={{margin:0,fontFamily:"inherit",whiteSpace:"pre-wrap",lineHeight:1.6,fontSize:12,color:darkMode?"#ddd":"#444"}}>{selectedTc.pasos || "(sin pasos)"}</pre>
+                <div style={{fontSize:11,color:darkMode?"#aaa":"#555",fontWeight:700,marginTop:12,marginBottom:4}}>Resultado esperado actual</div>
+                <div style={{fontSize:12,lineHeight:1.6,color:darkMode?"#ddd":"#444"}}>{selectedTc.resultado || "(sin resultado esperado)"}</div>
+              </div>
+              <div style={{padding:12,borderRadius:10,background:darkMode?"#1c1c1e":"#fafafa",border:`1px solid ${darkMode?"#2a2a2a":"#e0e0e0"}`}}>
+                <div style={{fontSize:11,color:darkMode?"#888":"#777",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Propuesta IA</div>
+                <div style={{fontSize:13,fontWeight:700,color:darkMode?"#fff":"#1a1a1a",marginBottom:8}}>{activeProposal.suggestedId}</div>
+                <div style={{fontSize:11,color:darkMode?"#aaa":"#555",fontWeight:700,marginBottom:4}}>Pasos propuestos</div>
+                <ul style={{margin:"0 0 0 16px",padding:0,fontSize:12,lineHeight:1.6,color:darkMode?"#ddd":"#444"}}>
+                  {activeProposal.enrichedSteps.map((step,i)=><li key={i} style={{marginBottom:8}}>{step}</li>)}
+                </ul>
+                <div style={{fontSize:11,color:darkMode?"#aaa":"#555",fontWeight:700,marginTop:12,marginBottom:4}}>Resultado esperado propuesto</div>
+                <div style={{fontSize:12,lineHeight:1.6,color:darkMode?"#ddd":"#444"}}>{activeProposal.expectedResult}</div>
+              </div>
+            </div>
+          </div>
+          <div style={{marginTop:12,fontSize:12,color:darkMode?"#ddd":"#444"}}>Actualizar campos antes de aplicar la propuesta:</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3, minmax(150px, 1fr))",gap:10,marginTop:10}}>
             <label style={{display:"inline-flex",alignItems:"center",gap:8,fontSize:12}}>
-              <input type="checkbox" checked={renameId} onChange={e=>setRenameId(e.target.checked)} />
-              <span style={{fontSize:13}}>Renombrar caso con ID sugerido</span>
+              <input type="checkbox" checked={applyId} onChange={e=>setApplyId(e.target.checked)} />
+              <span style={{fontSize:13}}>Aplicar ID sugerido</span>
             </label>
+            <label style={{display:"inline-flex",alignItems:"center",gap:8,fontSize:12}}>
+              <input type="checkbox" checked={applySteps} onChange={e=>setApplySteps(e.target.checked)} />
+              <span style={{fontSize:13}}>Aplicar pasos mejorados</span>
+            </label>
+            <label style={{display:"inline-flex",alignItems:"center",gap:8,fontSize:12}}>
+              <input type="checkbox" checked={applyResult} onChange={e=>setApplyResult(e.target.checked)} />
+              <span style={{fontSize:13}}>Aplicar resultado esperado</span>
+            </label>
+          </div>
+          {!applyId && !applySteps && !applyResult && (
+            <div style={{marginTop:10,fontSize:11,color:darkMode?"#f8b4b4":"#b91c1c"}}>Marca al menos una opción para aplicar la propuesta.</div>
+          )}
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:10}}>
+            <Btn small variant="ghost" onClick={()=>{setApplyId(true);setApplySteps(true);setApplyResult(true);}}>
+              Aplicar todo
+            </Btn>
             {onApplyProposal&&(
-              <button onClick={()=>onApplyProposal(activeProposal, renameId)} style={{marginLeft:12,background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>
+              <button onClick={()=>onApplyProposal(activeProposal, { applyId, applySteps, applyResult })} style={{background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700}} disabled={!applyId && !applySteps && !applyResult}>
                 ✅ Aplicar mejora al caso
               </button>
             )}
@@ -1490,7 +1636,7 @@ export default function App() {
 
   useEffect(()=>{
     if(!proj) return;
-    // If the previously selected test no longer exists, clear selection.
+    // If the previously selected test no longer exists, clear the selection and previous AI state.
     if(selectedAiTc && !proj.tests.some(t=>t.id===selectedAiTc.id)) {
       setSelectedAiTc(null);
     }
@@ -1570,39 +1716,39 @@ export default function App() {
   }
   function handleApplyAiProposal(proposal){
     if(!proposal || !selectedAiTc) return;
-    const newPasos = proposal.enrichedSteps.map((step, index)=>`${index+1}. ${step}`).join("\n");
-    // default: do not rename; if second arg true, rename to suggestedId (ensure uniqueness)
-    const rename = arguments[1]===true;
+    const opts = arguments[1] || { applyId:false, applySteps:true, applyResult:true };
     const oldId = selectedAiTc.id;
+    const newPasos = opts.applySteps ? proposal.enrichedSteps.map((step, index)=>`${index+1}. ${step}`).join("\n") : selectedAiTc.pasos;
+    const newResultado = opts.applyResult ? proposal.expectedResult : selectedAiTc.resultado;
+    const applyId = opts.applyId === true;
+
     function makeUniqueId(tests, desired) {
       if(!tests.some(t=>t.id===desired)) return desired;
       let i=1;
       while(tests.some(t=>t.id===`${desired}-${i}`)) i++;
       return `${desired}-${i}`;
     }
-    const finalNewId = rename ? makeUniqueId(proj.tests||[], proposal.suggestedId) : oldId;
+
+    const finalNewId = applyId ? makeUniqueId(proj.tests||[], proposal.suggestedId) : oldId;
 
     setProjects(ps=>ps.map(p=>{
       if(p.id!==activeProjectId) return p;
-      const newId = finalNewId;
       return {
         ...p,
         tests: p.tests.map(tc => tc.id !== oldId ? tc : {
           ...tc,
-          id: newId,
+          id: finalNewId,
           pasos: newPasos,
-          resultado: proposal.expectedResult,
-          historial: [ ...(tc.historial||[]), { fecha: today(), de: oldId, a: newId, nota: `ID sugerido: ${proposal.suggestedId}` } ]
+          resultado: newResultado,
+          historial: [ ...(tc.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ]
         }),
-        // update issues referencing the tc id
-        issues: (p.issues||[]).map(is => is.testId===oldId ? { ...is, testId: newId } : is),
-        // update ciclos ejecuciones
-        ciclos: (p.ciclos||[]).map(c=>({ ...c, ejecuciones:(c.ejecuciones||[]).map(e=> e.tcId===oldId ? { ...e, tcId: newId } : e) }))
+        issues: (p.issues||[]).map(is => is.testId===oldId ? { ...is, testId: finalNewId } : is),
+        ciclos: (p.ciclos||[]).map(c=>({ ...c, ejecuciones:(c.ejecuciones||[]).map(e=> e.tcId===oldId ? { ...e, tcId: finalNewId } : e) }))
       };
     }));
 
-    setSelectedAiTc(prev => prev ? { ...prev, id: finalNewId, pasos: newPasos, resultado: proposal.expectedResult, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
-    setViewTc(prev => prev && prev.id === oldId ? { ...prev, id: finalNewId, pasos: newPasos, resultado: proposal.expectedResult, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
+    setSelectedAiTc(prev => prev ? { ...prev, id: finalNewId, pasos: newPasos, resultado: newResultado, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
+    setViewTc(prev => prev && prev.id === oldId ? { ...prev, id: finalNewId, pasos: newPasos, resultado: newResultado, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
   }
   function addComment(tcId,texto){
     setProjects(ps=>ps.map(p=>{
