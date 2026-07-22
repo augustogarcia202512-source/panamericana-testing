@@ -66,6 +66,57 @@ function today() {
   const d = new Date();
   return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
 }
+function SuggestionInput({ value, onChange, options = [], placeholder, darkMode }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(value || "");
+  const IS = darkMode ? inputStyleDark : inputStyle;
+  const normalizedOptions = Array.from(new Set((options || []).filter(Boolean).map(v => String(v).trim()).filter(Boolean)));
+
+  useEffect(() => {
+    setDraft(value || "");
+  }, [value]);
+
+  const visibleOptions = open
+    ? (draft.trim()
+        ? normalizedOptions.filter(opt => opt.toLowerCase().includes(draft.toLowerCase()))
+        : normalizedOptions)
+    : [];
+
+  const selectOption = (option) => {
+    setDraft(option);
+    onChange(option);
+    setOpen(false);
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        style={IS}
+        value={draft}
+        onChange={(e) => {
+          const next = e.target.value;
+          setDraft(next);
+          onChange(next);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        placeholder={placeholder}
+      />
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 30, maxHeight: 180, overflowY: "auto", border: darkMode ? "1px solid #3a3a3d" : "1px solid #e5e7eb", borderRadius: 10, background: darkMode ? "#1f1f22" : "#fff", boxShadow: "0 10px 24px rgba(0,0,0,0.12)" }}>
+          {visibleOptions.length > 0 ? visibleOptions.map((opt) => (
+            <button key={opt} type="button" onMouseDown={(e) => { e.preventDefault(); selectOption(opt); }} style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 10px", border: "none", background: "transparent", cursor: "pointer", fontSize: 12, color: darkMode ? "#eee" : "#333" }}>
+              {opt}
+            </button>
+          )) : (
+            <div style={{ padding: "8px 10px", fontSize: 12, color: darkMode ? "#888" : "#888" }}>Sin coincidencias</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 function toInputDate(value) {
   if (!value) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
@@ -1658,13 +1709,11 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <Field label="Escenario"><textarea style={{...IS,minHeight:48,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.escenario} onChange={e=>set("escenario",e.target.value)} /></Field>
         <Field label="Módulo">
-          <input style={IS} value={form.proceso} onChange={e=>set("proceso",e.target.value)} list="project-modules-list" placeholder="Selecciona o escribe un módulo" />
-          <datalist id="project-modules-list">{(project?.modules||[]).map(mod=><option key={mod} value={mod}/>)}</datalist>
+          <SuggestionInput value={form.proceso} onChange={v=>set("proceso",v)} options={project?.modules||[]} placeholder="Selecciona o escribe un módulo" darkMode={darkMode} />
         </Field>
         <Field label="Área"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} /></Field>
         <Field label="Persona que prueba">
-          <input style={IS} value={form.asignadoA||""} onChange={e=>set("asignadoA",e.target.value)} list="project-testers-list" placeholder="Selecciona o escribe una persona" />
-          <datalist id="project-testers-list">{(project?.testers||[]).map(person=><option key={person} value={person}/>)}</datalist>
+          <SuggestionInput value={form.asignadoA||""} onChange={v=>set("asignadoA",v)} options={project?.testers||[]} placeholder="Selecciona o escribe una persona" darkMode={darkMode} />
         </Field>
         <Field label="Estado">
           <select style={IS} value={form.estado} onChange={e=>set("estado",e.target.value)}>
