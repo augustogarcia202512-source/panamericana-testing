@@ -23,13 +23,16 @@ const COLORS = ["#C0392B","#2980B9","#16A085","#8E44AD","#D35400","#2C3E50","#27
 const EMPTY_TC = { area:"",proceso:"",escenario:"",descripcion:"",pasos:"",resultado:"",fechaAprobacion:"",fechaEjecucion:"",estado:"No ejecutado",asignadoA:"",attachments:[],historial:[],comentarios:[] };
 const EMPTY_ISSUE = { testId:"",escenario:"",formulario:"",observacion:"",modulo:"",estado:"Open",severidad:"Medium",prioridad:"Medium",fechaCreacion:"",fechaSolucion:"",attachments:[] };
 const EMPTY_CICLO = { nombre:"",modulo:"",fechaInicio:"",fechaFin:"",descripcion:"",ejecuciones:[] };
+const EMPTY_PROJECT = { name:"",description:"",color:COLORS[0],modules:[],testers:[] };
 // ejecucion: { tcId, estado, fechaEjecucion, nota }
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 const seedProjects = [{
   id:"proj-1", name:"Panamericana – SAP Compras", description:"Pruebas funcionales módulo Compras a Pago", color:"#C0392B", createdAt:"01/06/2026",
+  modules:["Compras","Logística","Pagos"],
+  testers:["Carlos Pérez","María Gómez","Andrés Rojas"],
   tests:[
-    { id:"TC-01",area:"Compras a pago",proceso:"Compras",escenario:"Modificación",descripcion:"Modificación de ítems o condiciones específicas en una orden de compra",pasos:"1. Ingresar al sistema\n2. Buscar la orden de compra\n3. Validar estado de la orden\n4. Seleccionar ítem a modificar\n5. Realizar cambios\n6. Guardar cambios",resultado:"La orden de compra se actualiza correctamente",fechaAprobacion:"29/04/2026",fechaEjecucion:"",estado:"Aprobado",asignadoA:"",attachments:[],historial:[{fecha:"29/04/2026",de:"—",a:"Aprobado",nota:"Estado inicial"}],comentarios:[] },
+    { id:"TC-01",area:"Compras a pago",proceso:"Compras",escenario:"Modificación",descripcion:"Modificación de ítems o condiciones específicas en una orden de compra",pasos:"1. Ingresar al sistema\n2. Buscar la orden de compra\n3. Validar estado de la orden\n4. Seleccionar ítem a modificar\n5. Realizar cambios\n6. Guardar cambios",resultado:"La orden de compra se actualiza correctamente",fechaAprobacion:"29/04/2026",fechaEjecucion:"",estado:"Aprobado",asignadoA:"Carlos Pérez",attachments:[],historial:[{fecha:"29/04/2026",de:"—",a:"Aprobado",nota:"Estado inicial"}],comentarios:[] },
     { id:"TC-02",area:"Compras a pago",proceso:"Logística",escenario:"Recepción de mercancía",descripcion:"Recepción conforme a orden de compra",pasos:"1. Ingresar al sistema\n2. Verificar estado de la orden\n3. Recibir mercancía\n4. Validar orden vs factura\n5. Registrar recepción",resultado:"La mercancía es recibida y registrada en inventario",fechaAprobacion:"21/05/2026",fechaEjecucion:"21/05/2026",estado:"Aprobado",asignadoA:"",attachments:[],historial:[{fecha:"21/05/2026",de:"—",a:"Aprobado",nota:""}],comentarios:[] },
     { id:"TC-03",area:"Compras a pago",proceso:"Logística",escenario:"Devolución parcial",descripcion:"Devolución parcial por producto defectuoso",pasos:"1. Recibir mercancía\n2. Identificar producto dañado\n3. Registrar devolución parcial\n4. Aceptar productos en buen estado",resultado:"Se recibe parcialmente y se registra devolución",fechaAprobacion:"21/05/2026",fechaEjecucion:"21/05/2026",estado:"Aprobado",asignadoA:"",attachments:[],historial:[],comentarios:[] },
     { id:"TC-04",area:"Compras a pago",proceso:"Pagos",escenario:"Generación de pago",descripcion:"Generar pago a proveedor contra factura registrada",pasos:"1. Buscar factura\n2. Validar orden de compra\n3. Generar documento de pago\n4. Aprobar pago\n5. Registrar egreso",resultado:"El pago se genera y registra correctamente",fechaAprobacion:"",fechaEjecucion:"",estado:"Fallido",asignadoA:"",attachments:[],historial:[{fecha:"06/05/2026",de:"—",a:"Fallido",nota:"Error en generación"}],comentarios:[] },
@@ -1559,15 +1562,61 @@ function CicloFormModal({initial,cicloId,modulosList,onSave,onClose,darkMode}) {
 
 // ─── FORM MODALS ──────────────────────────────────────────────────────────────
 function ProjectFormModal({initial,onSave,onClose,darkMode}) {
-  const [form,setForm]=useState(initial||{name:"",description:"",color:COLORS[0]});
+  const [form,setForm]=useState({ ...EMPTY_PROJECT, ...(initial||{}) });
+  const [moduleInput,setModuleInput]=useState("");
+  const [testerInput,setTesterInput]=useState("");
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const IS=darkMode?inputStyleDark:inputStyle;
+  function addItem(field, inputValue, setter) {
+    const value = String(inputValue||"").trim();
+    if(!value) return;
+    const items = Array.isArray(form[field]) ? form[field] : [];
+    const next = [...items, ...value.split(",").map(v=>v.trim()).filter(Boolean)];
+    set(field, next.filter((item, index) => next.indexOf(item) === index));
+    setter("");
+  }
+  function removeItem(field, item) {
+    const items = Array.isArray(form[field]) ? form[field] : [];
+    set(field, items.filter(i=>i!==item));
+  }
   return (
     <Modal onClose={onClose} preventOutsideClose>
       <ModalHeader title={initial?"Editar Proyecto":"Nuevo Proyecto"} onClose={onClose}/>
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
         <Field label="Nombre del Proyecto"><input style={IS} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Ej: SAP – Módulo Ventas"/></Field>
         <Field label="Descripción"><input style={IS} value={form.description} onChange={e=>set("description",e.target.value)} placeholder="Descripción breve"/></Field>
+        <Field label="Módulos del proyecto">
+          <div style={{display:"flex",gap:8}}>
+            <input style={IS} value={moduleInput} onChange={e=>setModuleInput(e.target.value)} placeholder="Ej: Compras, Inventarios" onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addItem("modules",moduleInput,setModuleInput);}}}/>
+            <Btn small variant="ghost" onClick={()=>addItem("modules",moduleInput,setModuleInput)}>Agregar</Btn>
+          </div>
+          {(form.modules||[]).length>0&&(
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
+              {(form.modules||[]).map(mod=>(
+                <span key={mod} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#f4f4f4",color:darkMode?"#eee":"#444",fontSize:12}}>
+                  {mod}
+                  <button type="button" onClick={()=>removeItem("modules",mod)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12}}>✕</button>
+                </span>
+              ))}
+            </div>
+          )}
+        </Field>
+        <Field label="Personas para pruebas">
+          <div style={{display:"flex",gap:8}}>
+            <input style={IS} value={testerInput} onChange={e=>setTesterInput(e.target.value)} placeholder="Ej: Ana, Luis" onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addItem("testers",testerInput,setTesterInput);}}}/>
+            <Btn small variant="ghost" onClick={()=>addItem("testers",testerInput,setTesterInput)}>Agregar</Btn>
+          </div>
+          {(form.testers||[]).length>0&&(
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
+              {(form.testers||[]).map(person=>(
+                <span key={person} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#f4f4f4",color:darkMode?"#eee":"#444",fontSize:12}}>
+                  {person}
+                  <button type="button" onClick={()=>removeItem("testers",person)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12}}>✕</button>
+                </span>
+              ))}
+            </div>
+          )}
+        </Field>
         <Field label="Color">
           <div style={{display:"flex",gap:10}}>
             {COLORS.map(c=><div key={c} onClick={()=>set("color",c)} style={{width:28,height:28,borderRadius:6,background:c,cursor:"pointer",border:form.color===c?"3px solid #fff":"3px solid transparent",transition:"border 0.15s"}}/>)}
@@ -1576,13 +1625,13 @@ function ProjectFormModal({initial,onSave,onClose,darkMode}) {
       </div>
       <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:20}}>
         <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
-        <Btn onClick={()=>{if(!form.name.trim())return alert("El nombre es requerido");onSave(form);}}>💾 Guardar</Btn>
+        <Btn onClick={()=>{if(!form.name.trim())return alert("El nombre es requerido");onSave({...form,modules:(form.modules||[]).filter(Boolean),testers:(form.testers||[]).filter(Boolean)});}}>💾 Guardar</Btn>
       </div>
     </Modal>
   );
 }
 
-function TcFormModal({initial,tcId,onSave,onClose,darkMode}) {
+function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
   const [form,setForm]=useState({ ...EMPTY_TC, ...(initial||{}) });
   const [steps,setSteps]=useState(()=>parseSteps(initial?.pasos||""));
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
@@ -1590,11 +1639,33 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode}) {
   return (
     <Modal onClose={onClose} wide preventOutsideClose>
       <ModalHeader title={initial?`Editar ${tcId}`:"Nuevo Caso de Prueba"} sub={initial?"Modifica y guarda":"Completa los datos del escenario"} onClose={onClose}/>
+      {(project?.modules?.length || project?.testers?.length) > 0 && (
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14,padding:"12px 14px",borderRadius:12,background:darkMode?"#242427":"#f8fafc",border:`1px solid ${darkMode?"#3a3a3d":"#e5e7eb"}`}}>
+          <div>
+            <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Módulos del proyecto</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {(project?.modules||[]).length>0 ? (project.modules||[]).map(mod=><span key={mod} style={{fontSize:11,padding:"4px 8px",borderRadius:999,background:darkMode?"#2C2C2E":"#eef2ff",color:darkMode?"#eee":"#4c51bf"}}>{mod}</span>) : <span style={{fontSize:11,color:"#888"}}>Sin módulos definidos</span>}
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Personas para pruebas</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {(project?.testers||[]).length>0 ? (project.testers||[]).map(person=><span key={person} style={{fontSize:11,padding:"4px 8px",borderRadius:999,background:darkMode?"#2C2C2E":"#ecfdf5",color:darkMode?"#eee":"#047857"}}>{person}</span>) : <span style={{fontSize:11,color:"#888"}}>Sin personas definidas</span>}
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <Field label="Escenario"><textarea style={{...IS,minHeight:48,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.escenario} onChange={e=>set("escenario",e.target.value)} /></Field>
-        <Field label="Módulo"><input style={IS} value={form.proceso} onChange={e=>set("proceso",e.target.value)} /></Field>
+        <Field label="Módulo">
+          <input style={IS} value={form.proceso} onChange={e=>set("proceso",e.target.value)} list="project-modules-list" placeholder="Selecciona o escribe un módulo" />
+          <datalist id="project-modules-list">{(project?.modules||[]).map(mod=><option key={mod} value={mod}/>)}</datalist>
+        </Field>
         <Field label="Área"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} /></Field>
-        <Field label="Asignado a"><input style={IS} value={form.asignadoA||""} onChange={e=>set("asignadoA",e.target.value)} /></Field>
+        <Field label="Persona que prueba">
+          <input style={IS} value={form.asignadoA||""} onChange={e=>set("asignadoA",e.target.value)} list="project-testers-list" placeholder="Selecciona o escribe una persona" />
+          <datalist id="project-testers-list">{(project?.testers||[]).map(person=><option key={person} value={person}/>)}</datalist>
+        </Field>
         <Field label="Estado">
           <select style={IS} value={form.estado} onChange={e=>set("estado",e.target.value)}>
             {Object.keys(statusConfig).map(k=><option key={k} value={k}>{k}</option>)}
@@ -1842,6 +1913,8 @@ export default function App() {
       // Migración: asegurar que todos los ciclos tengan ejecuciones
       return parsed.map(p=>({
         ...p,
+        modules: Array.isArray(p.modules) ? p.modules : [],
+        testers: Array.isArray(p.testers) ? p.testers : [],
         ciclos:(p.ciclos||[]).map(c=>({
           ...c,
           ejecuciones:c.ejecuciones||[]
@@ -2144,7 +2217,7 @@ export default function App() {
       <div style={{fontSize:48}}>📂</div>
       <p style={{color:"#888"}}>No hay proyectos. Crea uno para comenzar.</p>
       <Btn onClick={()=>setShowProjForm(true)}>+ Nuevo Proyecto</Btn>
-      {showProjForm&&<ProjectFormModal onSave={saveProject} onClose={()=>setShowProjForm(false)}/>}
+      {showProjForm && <ProjectFormModal onSave={saveProject} onClose={()=>setShowProjForm(false)} darkMode={darkMode} />}
     </div>
   );
 
@@ -2973,7 +3046,7 @@ export default function App() {
       {showJira&&<JiraModal onImport={handleJiraImport} onClose={()=>setShowJira(false)} existingTests={tests} darkMode={darkMode}/>}
       {showCicloForm&&<CicloFormModal initial={editCiclo} cicloId={editCiclo?.nombre} modulosList={[...new Set(tests.map(t=>t.proceso).filter(Boolean))]} onSave={saveCiclo} onClose={()=>{setShowCicloForm(false);setEditCiclo(null);}} darkMode={darkMode}/>}
       {showProjForm&&<ProjectFormModal initial={editProj} onSave={saveProject} onClose={()=>{setShowProjForm(false);setEditProj(null);}} darkMode={darkMode}/>}
-      {showTcForm&&<TcFormModal initial={editTc} tcId={editTc?.id} onSave={saveTC} onClose={()=>{setShowTcForm(false);setEditTc(null);}} darkMode={darkMode}/>}
+      {showTcForm&&<TcFormModal initial={editTc} tcId={editTc?.id} onSave={saveTC} onClose={()=>{setShowTcForm(false);setEditTc(null);}} darkMode={darkMode} project={proj}/>}
       {observationTc&&<ObservationModal tc={observationTc} initialText="" darkMode={darkMode}
         onClose={()=>setObservationTc(null)}
         onSave={(text)=>{addComment(observationTc.id,text);setObservationTc(null);}} />}
