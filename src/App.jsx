@@ -1683,10 +1683,24 @@ function ProjectFormModal({initial,onSave,onClose,darkMode}) {
 }
 
 function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
-  const [form,setForm]=useState({ ...EMPTY_TC, ...(initial||{}) });
+  const [form,setForm]=useState(() => {
+    const base = { ...EMPTY_TC, ...(initial || {}) };
+    if (!base.proceso && project?.modules?.length) base.proceso = project.modules[0];
+    if (!base.asignadoA && project?.testers?.length) base.asignadoA = project.testers[0];
+    return base;
+  });
   const [steps,setSteps]=useState(()=>parseSteps(initial?.pasos||""));
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const IS=darkMode?inputStyleDark:inputStyle;
+
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      ...(current.proceso ? {} : { proceso: project?.modules?.[0] || "" }),
+      ...(current.asignadoA ? {} : { asignadoA: project?.testers?.[0] || "" }),
+    }));
+  }, [project?.modules, project?.testers]);
+
   return (
     <Modal onClose={onClose} wide preventOutsideClose>
       <ModalHeader title={initial?`Editar ${tcId}`:"Nuevo Caso de Prueba"} sub={initial?"Modifica y guarda":"Completa los datos del escenario"} onClose={onClose}/>
@@ -1979,6 +1993,9 @@ function DocumentadorPanel({ darkMode }) {
     }
   });
   const [status, setStatus] = useState("Guardado localmente");
+  const [shareStream, setShareStream] = useState(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const previewVideoRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -1986,9 +2003,27 @@ function DocumentadorPanel({ darkMode }) {
     } catch {}
   }, [form]);
 
+  useEffect(() => {
+    const video = previewVideoRef.current;
+    if (video && shareStream) {
+      video.srcObject = shareStream;
+      video.play().catch(() => {});
+    }
+    return () => {
+      if (video) video.srcObject = null;
+    };
+  }, [shareStream]);
+
+  useEffect(() => {
+    return () => {
+      shareStream?.getTracks().forEach(track => track.stop());
+    };
+  }, [shareStream]);
+
   const setField = (field, value) => setForm(f => ({ ...f, [field]: value }));
-  const addStep = () => {
-    setForm(f => ({ ...f, steps: [...f.steps, { id: Date.now(), title: "", description: "", imageData: "", isNovedad: false, color: "#E8A33D" }] }));
+  const addStep = (extra = {}) => {
+    const newStep = { id: Date.now(), title: "", description: "", imageData: "", isNovedad: false, color: "#E8A33D", ...extra };
+    setForm(f => ({ ...f, steps: [...f.steps, newStep] }));
     setStatus("Paso agregado");
   };
   const updateStep = (id, patch) => {
@@ -2005,6 +2040,51 @@ function DocumentadorPanel({ darkMode }) {
     reader.readAsDataURL(file);
     setStatus("Imagen cargada en el paso");
   };
+
+  const shareScreen = async () => {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setStatus("Tu navegador no soporta compartir pantalla aquí");
+      return;
+    }
+    if (shareStream) {
+      shareStream.getTracks().forEach(track => track.stop());
+      setShareStream(null);
+      setIsSharing(false);
+      setStatus("Pantalla desconectada");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 }, audio: false });
+      const track = stream.getVideoTracks()[0];
+      track.addEventListener("ended", () => {
+        setShareStream(null);
+        setIsSharing(false);
+        setStatus("Captura de pantalla detenida");
+      });
+      setShareStream(stream);
+      setIsSharing(true);
+      setStatus("Pantalla compartida · listo para capturar");
+    } catch {
+      setStatus("No se pudo iniciar la compartición de pantalla");
+    }
+  };
+
+  const captureFrame = () => {
+    const video = previewVideoRef.current;
+    if (!shareStream || !video) {
+      setStatus("Activa la pantalla o pestaña antes de capturar");
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    addStep({ title: "Captura de pantalla", description: "Evidencia tomada desde la pantalla compartida", imageData: canvas.toDataURL("image/png") });
+    setStatus("Captura añadida como un nuevo paso");
+  };
+
   const buildHtml = () => {
     const stepsHtml = form.steps.length
       ? form.steps.map((step, index) => `
@@ -2018,6 +2098,7 @@ function DocumentadorPanel({ darkMode }) {
 
     return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8" /><title>${form.caseId || "Caso de prueba"}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#222;} h1{margin-bottom:6px;} .meta{color:#666;font-size:13px;margin-bottom:12px;} .card{border:1px solid #e8e8e8;border-radius:8px;padding:14px;margin-bottom:12px;background:#fff;}</style></head><body><h1>${form.caseId || "Caso de prueba"}</h1><div class="meta">Descripción: ${form.description || "—"}</div><div class="meta">Área / equipo: ${form.team || "—"}</div><div class="meta">Documentado por: ${form.tester || "—"}</div><div class="card">${stepsHtml}</div></body></html>`;
   };
+
   const exportHtml = () => {
     const blob = new Blob([buildHtml()], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -2028,6 +2109,7 @@ function DocumentadorPanel({ darkMode }) {
     URL.revokeObjectURL(url);
     setStatus("Documento HTML descargado");
   };
+
   const copyPreview = async () => {
     try {
       await navigator.clipboard.writeText(buildHtml());
@@ -2036,6 +2118,7 @@ function DocumentadorPanel({ darkMode }) {
       setStatus("No fue posible copiar automáticamente");
     }
   };
+
   const reset = () => {
     setForm(defaultState);
     setStatus("Se reinició el documentador");
@@ -2043,10 +2126,15 @@ function DocumentadorPanel({ darkMode }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <button onClick={() => { addStep(); window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); }} style={{ position: "fixed", right: 20, bottom: 24, zIndex: 50, width: 54, height: 54, borderRadius: "50%", background: "#C0392B", border: "none", color: "#fff", fontSize: 24, cursor: "pointer", boxShadow: "0 8px 24px rgba(0,0,0,0.2)" }} title="Agregar paso rápido">＋</button>
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: darkMode ? "#eee" : "#1a1a1a" }}>🗂️ Documentador de Casos de Prueba</h2>
-          <p style={{ margin: "3px 0 0", color: darkMode ? "#888" : "#666", fontSize: 12 }}>Guarda el contexto del caso, captura pasos y exporta un documento listo para compartir.</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: isSharing ? "#E8A33D" : "#5d6674", boxShadow: isSharing ? "0 0 0 4px rgba(232,163,61,0.16)" : "none" }} />
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: darkMode ? "#eee" : "#1a1a1a" }}>Documentador de Casos de Prueba</h2>
+          </div>
+          <p style={{ margin: "3px 0 0", color: darkMode ? "#888" : "#666", fontSize: 12 }}>Comparte pantalla, captura evidencia y deja un registro listo para exportar.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={addStep} style={{ background: darkMode ? "#2C2C2E" : "#fff", border: `1px solid ${darkMode ? "#444" : "#e0e0e0"}`, borderRadius: 8, padding: "8px 12px", color: darkMode ? "#eee" : "#333", cursor: "pointer", fontSize: 12 }}>➕ Agregar paso</button>
@@ -2055,20 +2143,41 @@ function DocumentadorPanel({ darkMode }) {
       </div>
       <div style={{ fontSize: 12, color: darkMode ? "#aaa" : "#777", marginTop: -4 }}>{status}</div>
 
-      <div style={{ background: darkMode ? "#1C1C1E" : "#fff", border: `1px solid ${darkMode ? "#2a2a2a" : "#f0f0f0"}`, borderRadius: 14, padding: 18, boxShadow: "0 1px 8px rgba(0,0,0,0.04)" }}>
+      <div style={{ background: darkMode ? "#1B2027" : "#0f172a", border: `1px solid ${darkMode ? "#333c47" : "#1e293b"}`, borderRadius: 14, padding: 18, boxShadow: "0 1px 8px rgba(0,0,0,0.08)" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
           <Field label="ID / Tema">
-            <input value={form.caseId} onChange={e => setField("caseId", e.target.value)} placeholder="Ej: CP-001 o Soporte contabilidad" style={{ ...inputStyle, background: darkMode ? "#2C2C2E" : "#fff", color: darkMode ? "#eee" : "#222" }} />
+            <input value={form.caseId} onChange={e => setField("caseId", e.target.value)} placeholder="Ej: CP-001 o Soporte contabilidad" style={{ ...inputStyle, background: darkMode ? "#232a33" : "#fff", color: darkMode ? "#eee" : "#222" }} />
           </Field>
           <Field label="Descripción">
-            <input value={form.description} onChange={e => setField("description", e.target.value)} placeholder="Descripción breve" style={{ ...inputStyle, background: darkMode ? "#2C2C2E" : "#fff", color: darkMode ? "#eee" : "#222" }} />
+            <input value={form.description} onChange={e => setField("description", e.target.value)} placeholder="Descripción breve" style={{ ...inputStyle, background: darkMode ? "#232a33" : "#fff", color: darkMode ? "#eee" : "#222" }} />
           </Field>
           <Field label="Área / equipo">
-            <input value={form.team} onChange={e => setField("team", e.target.value)} placeholder="Contabilidad, soporte, etc." style={{ ...inputStyle, background: darkMode ? "#2C2C2E" : "#fff", color: darkMode ? "#eee" : "#222" }} />
+            <input value={form.team} onChange={e => setField("team", e.target.value)} placeholder="Contabilidad, soporte, etc." style={{ ...inputStyle, background: darkMode ? "#232a33" : "#fff", color: darkMode ? "#eee" : "#222" }} />
           </Field>
           <Field label="Documentado por">
-            <input value={form.tester} onChange={e => setField("tester", e.target.value)} placeholder="Tu nombre" style={{ ...inputStyle, background: darkMode ? "#2C2C2E" : "#fff", color: darkMode ? "#eee" : "#222" }} />
+            <input value={form.tester} onChange={e => setField("tester", e.target.value)} placeholder="Tu nombre" style={{ ...inputStyle, background: darkMode ? "#232a33" : "#fff", color: darkMode ? "#eee" : "#222" }} />
           </Field>
+        </div>
+
+        <div style={{ background: darkMode ? "#12151a" : "#111827", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ color: darkMode ? "#e7ebf0" : "#f9fafb", fontSize: 13, fontWeight: 700 }}>Vista previa de sesión</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button onClick={shareScreen} style={{ background: isSharing ? "#E8A33D" : darkMode ? "#2b3340" : "#f3f4f6", color: isSharing ? "#1a1406" : darkMode ? "#e7ebf0" : "#111827", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+                {isSharing ? "🛑 Detener compartir" : "🖥️ Compartir pantalla o pestaña"}
+              </button>
+              <button onClick={captureFrame} style={{ background: "#4FB5A8", color: "#fff", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>📸 Capturar ahora</button>
+            </div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            {shareStream ? (
+              <video ref={previewVideoRef} autoPlay playsInline muted style={{ width: "100%", maxHeight: 240, objectFit: "contain", borderRadius: 8, background: "#000" }} />
+            ) : (
+              <div style={{ border: `1px dashed ${darkMode ? "#44505c" : "#94a3b8"}`, borderRadius: 8, padding: 24, textAlign: "center", color: darkMode ? "#8b95a3" : "#64748b", fontSize: 12 }}>
+                La vista previa está activa cuando compartes una pestaña o ventana.
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
@@ -2241,13 +2350,22 @@ export default function App() {
     const prevEstado=editTc?.estado;
     const newEstado=form.estado;
     const histEntry=(prevEstado&&prevEstado!==newEstado)?{fecha:today(),de:prevEstado,a:newEstado,nota:""}:null;
+    const normalizedForm = {
+      ...form,
+      proceso: form.proceso?.trim() || "",
+      asignadoA: form.asignadoA?.trim() || "",
+      area: form.area?.trim() || "",
+      escenario: form.escenario?.trim() || "",
+      descripcion: form.descripcion?.trim() || "",
+      resultado: form.resultado?.trim() || "",
+    };
     setProjects(ps=>ps.map(p=>{
       if(p.id!==activeProjectId)return p;
       if(editTc){
-        return{...p,tests:p.tests.map(t=>t.id===editTc.id?{...t,...form,historial:histEntry?[...(t.historial||[]),histEntry]:(t.historial||[])}:t)};
+        return{...p,tests:p.tests.map(t=>t.id===editTc.id?{...t,...normalizedForm,historial:histEntry?[...(t.historial||[]),histEntry]:(t.historial||[])}:t)};
       }else{
         const newId=nextTcId(p.tests);
-        return{...p,tests:[...p.tests,{id:newId,...form,historial:[{fecha:today(),de:"—",a:form.estado,nota:"Creado"}],comentarios:[]}]};
+        return{...p,tests:[...p.tests,{id:newId,...normalizedForm,historial:[{fecha:today(),de:"—",a:normalizedForm.estado,nota:"Creado"}],comentarios:[]}]};
       }
     }));
     setShowTcForm(false);setEditTc(null);setViewTc(null);
@@ -2546,6 +2664,7 @@ export default function App() {
             ))}
           </div>
           <div style={{padding:"10px 10px 16px",borderTop:"1px solid #2a2a2a",display:"flex",flexDirection:"column",gap:5}}>
+            <button onClick={()=>setTab("documentador")} style={{background:"linear-gradient(135deg, #C0392B 0%, #E74C3C 100%)",border:"none",borderRadius:10,color:"#fff",padding:"10px 12px",cursor:"pointer",fontSize:12,fontWeight:800,boxShadow:"0 8px 20px rgba(192,57,43,0.22)",width:"100%"}}>🗂️ Abrir documentador</button>
             <button onClick={()=>{setShowProjForm(true);setEditProj(null);}} style={{background:"#2C2C2E",border:"1px dashed #444",borderRadius:8,color:"#aaa",padding:"8px 0",cursor:"pointer",fontSize:12,width:"100%"}}>+ Nuevo Proyecto</button>
             <button onClick={()=>{setEditProj(proj);setShowProjForm(true);}} style={{background:"none",border:"none",color:"#666",fontSize:11,cursor:"pointer",padding:"4px 0"}}>✏️ Editar proyecto</button>
             <button onClick={()=>setConfirmDelete({type:"project",id:proj.id})} style={{background:"none",border:"none",color:"#6B2020",fontSize:11,cursor:"pointer",padding:"4px 0"}}>🗑️ Eliminar proyecto</button>
@@ -2572,7 +2691,7 @@ export default function App() {
             </div>
             <div style={{display:"flex",gap:2}}>
               {tabs.map(t=>(
-                <button key={t.id} onClick={()=>setTab(t.id)} style={{background:tab===t.id?DM.bg:"transparent",color:tab===t.id?DM.text:DM.sub,border:"none",padding:"14px 18px",cursor:"pointer",fontSize:13,fontWeight:tab===t.id?700:400,borderBottom:tab===t.id?`3px solid ${proj.color}`:"3px solid transparent",transition:"all 0.2s"}}>
+                <button key={t.id} onClick={()=>setTab(t.id)} style={{background: tab===t.id ? (t.id==="documentador" ? "linear-gradient(135deg, #C0392B 0%, #E74C3C 100%)" : DM.bg) : (t.id==="documentador" ? "rgba(192,57,43,0.10)" : "transparent"), color: tab===t.id ? (t.id==="documentador" ? "#fff" : DM.text) : (t.id==="documentador" ? BRAND : DM.sub), border: t.id==="documentador" ? "1px solid rgba(192,57,43,0.18)" : "none", padding:"12px 16px", cursor:"pointer", fontSize:13, fontWeight:tab===t.id?800:600, borderBottom:tab===t.id?`3px solid ${proj.color}`:"3px solid transparent", borderRadius: t.id==="documentador" ? 999 : 0, boxShadow: t.id==="documentador" && tab===t.id ? "0 8px 18px rgba(192,57,43,0.18)" : "none", transition:"all 0.2s"}}>
                   {t.label}
                 </button>
               ))}
@@ -2587,6 +2706,19 @@ export default function App() {
             {tab==="dashboard"&&(
                 <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+                  <div>
+                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Control del Día</h2>
+                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>Resumen general · {proj.name}</p>
+                  </div>
+                </div>
+                <div style={{marginTop:14,padding:"14px 16px",borderRadius:14,background:darkMode?"#18181b":"#fff7f6",border:`1px solid ${darkMode?"#3a3a3d":"#f2d9d5"}`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:800,color:darkMode?"#eee":"#1a1a1a"}}>📋 Documentador de evidencia listo</div>
+                    <div style={{fontSize:12,color:darkMode?"#aaa":"#6b7280",marginTop:2}}>Captura pasos, adjunta evidencia y compártela desde un solo lugar.</div>
+                  </div>
+                  <button onClick={()=>setTab("documentador")} style={{background:"linear-gradient(135deg, #C0392B 0%, #E74C3C 100%)",color:"#fff",border:"none",borderRadius:999,padding:"9px 14px",cursor:"pointer",fontSize:12,fontWeight:800,boxShadow:"0 8px 20px rgba(192,57,43,0.18)"}}>Abrir documentador</button>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginTop:18}}>
                   <div>
                     <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Control del Día</h2>
                     <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>Resumen general · {proj.name}</p>
