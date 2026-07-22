@@ -1952,6 +1952,166 @@ function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
   );
 }
 
+// ─── DOCUMENTADOR PANEL ───────────────────────────────────────────────────
+function DocumentadorPanel({ darkMode }) {
+  const storageKey = "pana_documentador_state";
+  const defaultState = {
+    caseId: "",
+    description: "",
+    team: "",
+    tester: "",
+    steps: []
+  };
+  const [form, setForm] = useState(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return defaultState;
+      const parsed = JSON.parse(raw);
+      return {
+        caseId: parsed.caseId || "",
+        description: parsed.description || "",
+        team: parsed.team || "",
+        tester: parsed.tester || "",
+        steps: Array.isArray(parsed.steps) ? parsed.steps : []
+      };
+    } catch {
+      return defaultState;
+    }
+  });
+  const [status, setStatus] = useState("Guardado localmente");
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(form));
+    } catch {}
+  }, [form]);
+
+  const setField = (field, value) => setForm(f => ({ ...f, [field]: value }));
+  const addStep = () => {
+    setForm(f => ({ ...f, steps: [...f.steps, { id: Date.now(), title: "", description: "", imageData: "", isNovedad: false, color: "#E8A33D" }] }));
+    setStatus("Paso agregado");
+  };
+  const updateStep = (id, patch) => {
+    setForm(f => ({ ...f, steps: f.steps.map(step => step.id === id ? { ...step, ...patch } : step) }));
+  };
+  const removeStep = (id) => {
+    setForm(f => ({ ...f, steps: f.steps.filter(step => step.id !== id) }));
+    setStatus("Paso eliminado");
+  };
+  const handleImageUpload = (id, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => updateStep(id, { imageData: reader.result });
+    reader.readAsDataURL(file);
+    setStatus("Imagen cargada en el paso");
+  };
+  const buildHtml = () => {
+    const stepsHtml = form.steps.length
+      ? form.steps.map((step, index) => `
+        <div style="margin: 14px 0; padding: 12px 14px; border-left: 4px solid ${step.color}; background: #f9f9f9; border-radius: 8px;">
+          <div style="font-weight: 700; margin-bottom: 6px;">${index + 1}. ${step.title || "Paso sin título"}</div>
+          <div style="color: #444; white-space: pre-wrap;">${(step.description || "").replace(/\n/g, "<br/>")}</div>
+          ${step.imageData ? `<img src="${step.imageData}" style="max-width: 100%; margin-top: 8px; border-radius: 6px;" />` : ""}
+          ${step.isNovedad ? `<div style="margin-top: 8px; color: #c0392b; font-weight: 700;">⚠️ Novedad detectada</div>` : ""}
+        </div>`).join("")
+      : `<div style="color:#888;">No hay pasos capturados aún.</div>`;
+
+    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8" /><title>${form.caseId || "Caso de prueba"}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#222;} h1{margin-bottom:6px;} .meta{color:#666;font-size:13px;margin-bottom:12px;} .card{border:1px solid #e8e8e8;border-radius:8px;padding:14px;margin-bottom:12px;background:#fff;}</style></head><body><h1>${form.caseId || "Caso de prueba"}</h1><div class="meta">Descripción: ${form.description || "—"}</div><div class="meta">Área / equipo: ${form.team || "—"}</div><div class="meta">Documentado por: ${form.tester || "—"}</div><div class="card">${stepsHtml}</div></body></html>`;
+  };
+  const exportHtml = () => {
+    const blob = new Blob([buildHtml()], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${(form.caseId || "documentador").replace(/\s+/g, "-").toLowerCase() || "documentador"}.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus("Documento HTML descargado");
+  };
+  const copyPreview = async () => {
+    try {
+      await navigator.clipboard.writeText(buildHtml());
+      setStatus("Contenido copiado al portapapeles");
+    } catch {
+      setStatus("No fue posible copiar automáticamente");
+    }
+  };
+  const reset = () => {
+    setForm(defaultState);
+    setStatus("Se reinició el documentador");
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: darkMode ? "#eee" : "#1a1a1a" }}>🗂️ Documentador de Casos de Prueba</h2>
+          <p style={{ margin: "3px 0 0", color: darkMode ? "#888" : "#666", fontSize: 12 }}>Guarda el contexto del caso, captura pasos y exporta un documento listo para compartir.</p>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={addStep} style={{ background: darkMode ? "#2C2C2E" : "#fff", border: `1px solid ${darkMode ? "#444" : "#e0e0e0"}`, borderRadius: 8, padding: "8px 12px", color: darkMode ? "#eee" : "#333", cursor: "pointer", fontSize: 12 }}>➕ Agregar paso</button>
+          <button onClick={exportHtml} style={{ background: "#C0392B", color: "#fff", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12 }}>⬇️ Exportar HTML</button>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: darkMode ? "#aaa" : "#777", marginTop: -4 }}>{status}</div>
+
+      <div style={{ background: darkMode ? "#1C1C1E" : "#fff", border: `1px solid ${darkMode ? "#2a2a2a" : "#f0f0f0"}`, borderRadius: 14, padding: 18, boxShadow: "0 1px 8px rgba(0,0,0,0.04)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <Field label="ID / Tema">
+            <input value={form.caseId} onChange={e => setField("caseId", e.target.value)} placeholder="Ej: CP-001 o Soporte contabilidad" style={{ ...inputStyle, background: darkMode ? "#2C2C2E" : "#fff", color: darkMode ? "#eee" : "#222" }} />
+          </Field>
+          <Field label="Descripción">
+            <input value={form.description} onChange={e => setField("description", e.target.value)} placeholder="Descripción breve" style={{ ...inputStyle, background: darkMode ? "#2C2C2E" : "#fff", color: darkMode ? "#eee" : "#222" }} />
+          </Field>
+          <Field label="Área / equipo">
+            <input value={form.team} onChange={e => setField("team", e.target.value)} placeholder="Contabilidad, soporte, etc." style={{ ...inputStyle, background: darkMode ? "#2C2C2E" : "#fff", color: darkMode ? "#eee" : "#222" }} />
+          </Field>
+          <Field label="Documentado por">
+            <input value={form.tester} onChange={e => setField("tester", e.target.value)} placeholder="Tu nombre" style={{ ...inputStyle, background: darkMode ? "#2C2C2E" : "#fff", color: darkMode ? "#eee" : "#222" }} />
+          </Field>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+          <button onClick={copyPreview} style={{ background: darkMode ? "#242429" : "#f8f8f8", border: `1px solid ${darkMode ? "#3a3a3d" : "#e0e0e0"}`, color: darkMode ? "#eee" : "#444", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>📄 Copiar vista previa</button>
+          <button onClick={reset} style={{ background: "transparent", border: `1px solid ${darkMode ? "#3a3a3d" : "#e0e0e0"}`, padding: "8px 12px", borderRadius: 8, cursor: "pointer", color: darkMode ? "#eee" : "#444", fontSize: 12 }}>🗑️ Reiniciar</button>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {form.steps.length === 0 ? (
+          <div style={{ background: darkMode ? "#1C1C1E" : "#fff", border: `1px dashed ${darkMode ? "#444" : "#e0e0e0"}`, borderRadius: 12, padding: 24, textAlign: "center", color: darkMode ? "#888" : "#777", fontSize: 13 }}>
+            Aún no hay pasos. Agrega uno para empezar a documentar la evidencia.
+          </div>
+        ) : form.steps.map((step, index) => (
+          <div key={step.id} style={{ background: darkMode ? "#1C1C1E" : "#fff", border: `1px solid ${darkMode ? "#2a2a2a" : "#f0f0f0"}`, borderLeft: `4px solid ${step.color || "#E8A33D"}`, borderRadius: 12, padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: darkMode ? "#aaa" : "#666", fontWeight: 700 }}>Paso {index + 1}</div>
+              <button onClick={() => removeStep(step.id)} style={{ background: "transparent", border: "none", color: "#C0392B", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Eliminar</button>
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              <input value={step.title} onChange={e => updateStep(step.id, { title: e.target.value })} placeholder="Título del paso" style={{ ...inputStyle, background: darkMode ? "#2C2C2E" : "#fff", color: darkMode ? "#eee" : "#222" }} />
+              <textarea value={step.description} onChange={e => updateStep(step.id, { description: e.target.value })} placeholder="Describe lo observado, la acción realizada o la evidencia" style={{ minHeight: 70, background: darkMode ? "#2C2C2E" : "#fff", color: darkMode ? "#eee" : "#222" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <label style={{ fontSize: 12, color: darkMode ? "#aaa" : "#666" }}>Color del paso:</label>
+                {['#E8A33D', '#4FB5A8', '#E0524A', '#8B95A3'].map(color => (
+                  <button key={color} type="button" onClick={() => updateStep(step.id, { color })} style={{ width: 20, height: 20, borderRadius: "50%", border: step.color === color ? "2px solid #fff" : "1px solid #ccc", background: color, cursor: "pointer" }} />
+                ))}
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: darkMode ? "#aaa" : "#666", marginLeft: 8 }}>
+                  <input type="checkbox" checked={!!step.isNovedad} onChange={e => updateStep(step.id, { isNovedad: e.target.checked })} />
+                  Marcar como novedad
+                </label>
+              </div>
+              <label style={{ fontSize: 12, color: darkMode ? "#aaa" : "#666" }}>Adjuntar evidencia (imagen o captura)</label>
+              <input type="file" accept="image/*" onChange={e => handleImageUpload(step.id, e.target.files?.[0])} style={{ fontSize: 12 }} />
+              {step.imageData && <img src={step.imageData} alt="Evidencia capturada" style={{ maxHeight: 180, objectFit: "contain", borderRadius: 8, border: `1px solid ${darkMode ? "#444" : "#e0e0e0"}` }} />}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [projects,setProjects]=useState(()=>{
@@ -2347,7 +2507,7 @@ export default function App() {
     });
     return modules;
   },[filteredTests]);
-  const tabs=[{id:"dashboard",label:"📊 Dashboard"},{id:"tests",label:"🧪 Casos de Prueba"},{id:"ciclos",label:"🔄 Ciclos"},{id:"issues",label:"🐛 Issues"}];
+  const tabs=[{id:"dashboard",label:"📊 Dashboard"},{id:"tests",label:"🧪 Casos de Prueba"},{id:"ciclos",label:"🔄 Ciclos"},{id:"issues",label:"🐛 Issues"},{id:"documentador",label:"🗂️ Documentador"}];
 
   return (
     <div style={{fontFamily:"'Poppins', 'Segoe UI', Arial, sans-serif",background:DM.bg,minHeight:"100vh",color:DM.text,letterSpacing:"0.2px"}}>
@@ -2420,6 +2580,10 @@ export default function App() {
           </div>
 
               <div style={{flex:1,overflowY:"auto",padding:"24px 28px"}}>
+            {tab==="documentador"&&(
+              <DocumentadorPanel darkMode={darkMode} />
+            )}
+
             {tab==="dashboard"&&(
                 <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
