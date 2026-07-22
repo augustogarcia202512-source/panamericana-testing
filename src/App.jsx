@@ -1995,7 +1995,13 @@ function DocumentadorPanel({ darkMode }) {
   const [status, setStatus] = useState("Guardado localmente");
   const [shareStream, setShareStream] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [imageEditorOpen, setImageEditorOpen] = useState(false);
+  const [editingStepId, setEditingStepId] = useState(null);
+  const [editorMode, setEditorMode] = useState("pen");
+  const [drawColor, setDrawColor] = useState("#E0524A");
+  const [isDrawing, setIsDrawing] = useState(false);
   const previewVideoRef = useRef(null);
+  const editorCanvasRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -2085,18 +2091,99 @@ function DocumentadorPanel({ darkMode }) {
     setStatus("Captura añadida como un nuevo paso");
   };
 
-  const buildHtml = () => {
-    const stepsHtml = form.steps.length
-      ? form.steps.map((step, index) => `
-        <div style="margin: 14px 0; padding: 12px 14px; border-left: 4px solid ${step.color}; background: #f9f9f9; border-radius: 8px;">
-          <div style="font-weight: 700; margin-bottom: 6px;">${index + 1}. ${step.title || "Paso sin título"}</div>
-          <div style="color: #444; white-space: pre-wrap;">${(step.description || "").replace(/\n/g, "<br/>")}</div>
-          ${step.imageData ? `<img src="${step.imageData}" style="max-width: 100%; margin-top: 8px; border-radius: 6px;" />` : ""}
-          ${step.isNovedad ? `<div style="margin-top: 8px; color: #c0392b; font-weight: 700;">⚠️ Novedad detectada</div>` : ""}
-        </div>`).join("")
-      : `<div style="color:#888;">No hay pasos capturados aún.</div>`;
+  const openImageEditor = (stepId) => {
+    const step = form.steps.find(s => s.id === stepId);
+    if (!step || !step.imageData) return;
+    setEditingStepId(stepId);
+    setImageEditorOpen(true);
+    setEditorMode("pen");
+    setDrawColor("#E0524A");
+    setTimeout(() => {
+      const canvas = editorCanvasRef.current;
+      if (!canvas) return;
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.drawImage(img, 0, 0);
+      };
+      img.src = step.imageData;
+    }, 0);
+  };
 
-    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8" /><title>${form.caseId || "Caso de prueba"}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#222;} h1{margin-bottom:6px;} .meta{color:#666;font-size:13px;margin-bottom:12px;} .card{border:1px solid #e8e8e8;border-radius:8px;padding:14px;margin-bottom:12px;background:#fff;}</style></head><body><h1>${form.caseId || "Caso de prueba"}</h1><div class="meta">Descripción: ${form.description || "—"}</div><div class="meta">Área / equipo: ${form.team || "—"}</div><div class="meta">Documentado por: ${form.tester || "—"}</div><div class="card">${stepsHtml}</div></body></html>`;
+  const handleCanvasMouseDown = (e) => {
+    const canvas = editorCanvasRef.current;
+    if (!canvas) return;
+    setIsDrawing(true);
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const handleCanvasMouseMove = (e) => {
+    if (!isDrawing) return;
+    const canvas = editorCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    if (editorMode === "pen") {
+      ctx.strokeStyle = drawColor;
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    } else if (editorMode === "highlight") {
+      ctx.strokeStyle = drawColor;
+      ctx.lineWidth = 12;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.globalAlpha = 0.4;
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    } else if (editorMode === "eraser") {
+      ctx.clearRect(x - 10, y - 10, 20, 20);
+    }
+  };
+
+  const handleCanvasMouseUp = () => {
+    setIsDrawing(false);
+  };
+
+  const saveEditorImage = () => {
+    const canvas = editorCanvasRef.current;
+    if (!canvas) return;
+    const newImageData = canvas.toDataURL("image/png");
+    updateStep(editingStepId, { imageData: newImageData });
+    setImageEditorOpen(false);
+    setEditingStepId(null);
+    setStatus("Imagen editada y guardada");
+  };
+
+  const buildHtml = (onlyNovedades = false) => {
+    const dateStr = new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" });
+    const stepsToDisplay = onlyNovedades ? form.steps.filter(s => s.isNovedad) : form.steps;
+    const stepsHtml = stepsToDisplay.length
+      ? stepsToDisplay.map((step, index) => {
+        const bgColor = step.isNovedad ? "rgba(224, 82, 74, 0.08)" : "#f9f9f9";
+        const borderColor = step.isNovedad ? "#c0392b" : (step.color || "#e8a33d");
+        return `<div style="margin: 18px 0; padding: 16px; border-left: 4px solid ${borderColor}; background: ${bgColor}; border-radius: 8px; page-break-inside: avoid;"><div style="font-weight: 700; font-size: 15px; margin-bottom: 8px; color: #1a1a1a;">${index + 1}. ${step.title || "Paso sin título"}</div><div style="color: #444; font-size: 13px; white-space: pre-wrap; line-height: 1.5; margin-bottom: 10px;">${(step.description || "").replace(/\n/g, "<br/>")}</div>${step.imageData ? `<div style="margin: 12px 0;"><img src="${step.imageData}" style="max-width: 100%; border-radius: 6px; border: 1px solid #ddd;" /></div>` : ""}${step.isNovedad ? `<div style="margin-top: 12px; padding: 10px; color: #c0392b; font-weight: 700; background: rgba(192, 57, 43, 0.12); border-radius: 4px; border-left: 3px solid #c0392b;">⚠️ Novedad detectada</div>` : ""}</div>`;
+      }).join("")
+      : `<div style="color:#888; padding: 24px; text-align: center; border: 1px dashed #ddd; border-radius: 8px; font-size: 14px;">${onlyNovedades ? "No hay novedades registradas." : "No hay pasos capturados aún."}</div>`;
+
+    const novedadesCount = form.steps.filter(s => s.isNovedad).length;
+    const metaHtml = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; padding: 16px; background: #f9f9f9; border-radius: 8px; border: 1px solid #e8e8e8;"><div style="padding: 8px;"><div style="font-family: monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px;">Descripción</div><div style="font-size: 13px; color: #333; font-weight: 500;">${form.description || "—"}</div></div><div style="padding: 8px;"><div style="font-family: monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px;">Área / Equipo</div><div style="font-size: 13px; color: #333; font-weight: 500;">${form.team || "—"}</div></div><div style="padding: 8px;"><div style="font-family: monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px;">Documentado por</div><div style="font-size: 13px; color: #333; font-weight: 500;">${form.tester || "—"}</div></div><div style="padding: 8px;"><div style="font-family: monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 4px;">${onlyNovedades ? "Novedades" : "Total de Pasos"}</div><div style="font-size: 13px; color: #333; font-weight: 500;">${onlyNovedades ? novedadesCount : form.steps.length} ${onlyNovedades ? "novedad" : "paso"}${(onlyNovedades ? novedadesCount : form.steps.length) !== 1 ? "s" : ""}</div></div></div>`;
+    const titleSuffix = onlyNovedades ? "(Solo Novedades)" : "";
+    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>${form.caseId || "Caso de prueba"}</title><style>* { box-sizing: border-box; } body { font-family: Calibri, "Segoe UI", Arial, sans-serif; padding: 32px 28px; color: #1a1a1a; line-height: 1.6; max-width: 900px; margin: 0 auto; background: #fff; } h1 { font-size: 24px; font-weight: 700; margin: 0 0 12px 0; color: #c0392b; } .header { margin-bottom: 24px; border-bottom: 2px solid #c0392b; padding-bottom: 16px; } .date { color: #666; font-size: 12px; margin-top: 6px; } .steps-title { font-size: 14px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin: 28px 0 12px 0; padding-top: 12px; border-top: 1px solid #e8e8e8; }</style></head><body><div class="header"><h1>${form.caseId || "Caso de prueba"} ${titleSuffix}</h1><div class="date">Generado el ${dateStr}</div></div>${metaHtml}<div class="steps-title">${onlyNovedades ? "Novedades" : "Pasos de Prueba"}</div><div style="margin-top: 24px;">${stepsHtml}</div></body></html>`;
   };
 
   const exportHtml = () => {
@@ -2108,6 +2195,37 @@ function DocumentadorPanel({ darkMode }) {
     link.click();
     URL.revokeObjectURL(url);
     setStatus("Documento HTML descargado");
+  };
+
+  const exportWord = () => {
+    const html = buildHtml();
+    const blob = new Blob([html], { type: "application/msword" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const filename = (form.caseId || "documentador").replace(/\s+/g, "-").toLowerCase();
+    link.download = filename + ".doc";
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus("Documento Word descargado");
+  };
+
+  const exportWordNovedades = () => {
+    const novedades = form.steps.filter(s => s.isNovedad);
+    if (!novedades.length) {
+      setStatus("No hay novedades para descargar");
+      return;
+    }
+    const html = buildHtml(true);
+    const blob = new Blob([html], { type: "application/msword" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const filename = (form.caseId || "documentador").replace(/\s+/g, "-").toLowerCase() + "-novedades";
+    link.download = filename + ".doc";
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus(`Documento con ${novedades.length} novedad${novedades.length !== 1 ? "es" : ""} descargado`);
   };
 
   const copyPreview = async () => {
@@ -2138,7 +2256,9 @@ function DocumentadorPanel({ darkMode }) {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={addStep} style={{ background: darkMode ? "#2C2C2E" : "#fff", border: `1px solid ${darkMode ? "#444" : "#e0e0e0"}`, borderRadius: 8, padding: "8px 12px", color: darkMode ? "#eee" : "#333", cursor: "pointer", fontSize: 12 }}>➕ Agregar paso</button>
-          <button onClick={exportHtml} style={{ background: "#C0392B", color: "#fff", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12 }}>⬇️ Exportar HTML</button>
+          <button onClick={exportWord} style={{ background: "#E8A33D", color: "#1a1406", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>📄 Descargar Word (.doc)</button>
+          <button onClick={exportWordNovedades} style={{ background: form.steps.some(s => s.isNovedad) ? "#C0392B" : darkMode ? "#3a3a3d" : "#e0e0e0", color: form.steps.some(s => s.isNovedad) ? "#fff" : darkMode ? "#666" : "#999", border: "none", borderRadius: 8, padding: "8px 12px", cursor: form.steps.some(s => s.isNovedad) ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 700 }}>⚠️ Solo novedades</button>
+          <button onClick={exportHtml} style={{ background: "#4FB5A8", color: "#fff", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12 }}>📥 Descargar HTML</button>
         </div>
       </div>
       <div style={{ fontSize: 12, color: darkMode ? "#aaa" : "#777", marginTop: -4 }}>{status}</div>
@@ -2212,11 +2332,48 @@ function DocumentadorPanel({ darkMode }) {
               </div>
               <label style={{ fontSize: 12, color: darkMode ? "#aaa" : "#666" }}>Adjuntar evidencia (imagen o captura)</label>
               <input type="file" accept="image/*" onChange={e => handleImageUpload(step.id, e.target.files?.[0])} style={{ fontSize: 12 }} />
-              {step.imageData && <img src={step.imageData} alt="Evidencia capturada" style={{ maxHeight: 180, objectFit: "contain", borderRadius: 8, border: `1px solid ${darkMode ? "#444" : "#e0e0e0"}` }} />}
+              {step.imageData && (
+                <div style={{ cursor: "pointer", position: "relative", display: "inline-block" }} onClick={() => openImageEditor(step.id)} title="Haz clic para editar">
+                  <img src={step.imageData} alt="Evidencia" style={{ maxHeight: 180, objectFit: "contain", borderRadius: 8, border: `1px solid ${darkMode ? "#444" : "#e0e0e0"}` }} />
+                  <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700 }}>Editar</div>
+                </div>
+              )}
             </div>
           </div>
         ))}
       </div>
+
+      {imageEditorOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+          <div style={{ background: darkMode ? "#1B2027" : "#fff", borderRadius: 12, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", maxWidth: "90vw", maxHeight: "90vh", overflow: "auto", padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, color: darkMode ? "#eee" : "#1a1a1a", fontSize: 18, fontWeight: 700 }}>Editor de Imagen</h3>
+              <button onClick={() => setImageEditorOpen(false)} style={{ background: "transparent", border: "none", color: darkMode ? "#aaa" : "#666", fontSize: 20, cursor: "pointer" }}>X</button>
+            </div>
+            
+            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+              <button onClick={() => setEditorMode("pen")} style={{ background: editorMode === "pen" ? "#E0524A" : darkMode ? "#2C2C2E" : "#f0f0f0", color: editorMode === "pen" ? "#fff" : darkMode ? "#eee" : "#333", border: "none", borderRadius: 6, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Dibujar</button>
+              <button onClick={() => setEditorMode("highlight")} style={{ background: editorMode === "highlight" ? "#E8A33D" : darkMode ? "#2C2C2E" : "#f0f0f0", color: editorMode === "highlight" ? "#1a1406" : darkMode ? "#eee" : "#333", border: "none", borderRadius: 6, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Resaltar</button>
+              <button onClick={() => setEditorMode("eraser")} style={{ background: editorMode === "eraser" ? "#4FB5A8" : darkMode ? "#2C2C2E" : "#f0f0f0", color: editorMode === "eraser" ? "#fff" : darkMode ? "#eee" : "#333", border: "none", borderRadius: 6, padding: "8px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Borrador</button>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <label style={{ fontSize: 12, color: darkMode ? "#aaa" : "#666" }}>Color:</label>
+                {["#E0524A", "#E8A33D", "#4FB5A8", "#8B95A3"].map(color => (
+                  <button key={color} onClick={() => setDrawColor(color)} style={{ width: 24, height: 24, borderRadius: "50%", border: drawColor === color ? "3px solid #fff" : "1px solid #ccc", background: color, cursor: "pointer" }} />
+                ))}
+              </div>
+            </div>
+            
+            <div style={{ background: darkMode ? "#12151a" : "#f9f9f9", borderRadius: 8, padding: 8, marginBottom: 16, textAlign: "center", maxHeight: "60vh", overflow: "auto" }}>
+              <canvas ref={editorCanvasRef} onMouseDown={handleCanvasMouseDown} onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp} onMouseLeave={handleCanvasMouseUp} style={{ cursor: "crosshair", border: `1px solid ${darkMode ? "#444" : "#ddd"}`, borderRadius: 4, maxWidth: "100%", display: "block", margin: "0 auto" }} />
+            </div>
+            
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setImageEditorOpen(false)} style={{ background: darkMode ? "#2C2C2E" : "#f0f0f0", color: darkMode ? "#eee" : "#333", border: "none", borderRadius: 6, padding: "10px 16px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Cancelar</button>
+              <button onClick={saveEditorImage} style={{ background: "#4FB5A8", color: "#fff", border: "none", borderRadius: 6, padding: "10px 16px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Guardar Cambios</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
