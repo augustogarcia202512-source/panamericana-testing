@@ -6,7 +6,12 @@ Usage
 
 Real AI providers
 - The proxy can call a real model API when credentials are configured.
-- Provider priority: `Azure OpenAI` -> `OpenAI` -> `LOCAL_MODEL_CMD` -> `mock`.
+- Provider priority: `GitHub Models` -> `Azure OpenAI` -> `OpenAI` -> `LOCAL_MODEL_CMD` -> `mock`.
+
+GitHub Models setup (Copilot ecosystem)
+- `GITHUB_MODELS_TOKEN=...`
+- Optional: `GITHUB_MODELS_MODEL=gpt-4o-mini`
+- Optional: `GITHUB_MODELS_ENDPOINT=https://models.inference.ai.azure.com/chat/completions`
 
 OpenAI setup
 - `OPENAI_API_KEY=...`
@@ -20,7 +25,7 @@ Azure OpenAI setup
 
 Health check
 - `GET /api/ai/health`
-- Returns active mode (`azure-openai`, `openai`, `local-cli`, `mock`) and whether a real provider is active.
+- Returns active mode (`github-models`, `azure-openai`, `openai`, `local-cli`, `mock`) and whether a real provider is active.
 
 By default the server returns a simple mock response. To connect to a local model CLI, set the `LOCAL_MODEL_CMD` environment variable to the executable and arguments.
 

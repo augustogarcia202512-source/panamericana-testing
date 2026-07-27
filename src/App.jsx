@@ -346,6 +346,29 @@ function buildAiProposal(tc, prompt = "") {
         'Generar la orden y comprobar que el número de orden se crea y los totales son correctos.'
       ],
       result: 'La orden de compra se genera con los datos correctos, el proveedor y los totales son coherentes, y se crea un número de orden válido.'
+    },
+    {
+      keywords: [
+        'recepcion de mercancia',
+        'recepción de mercancía',
+        'recepcion de mercancia',
+        'recepción de mercancia',
+        'recepcion de mercaderia',
+        'recepción de mercadería',
+        'ingreso de mercancia',
+        'entrada de mercancia',
+        'recepcion oc',
+        'recepción oc'
+      ],
+      steps: [
+        'Ingresar al módulo de recepción y buscar la orden de compra por número de OC.',
+        'Validar que la OC esté aprobada y vigente, y que el proveedor coincida con el documento de entrega.',
+        'Registrar la recepción de mercancía capturando cantidades recibidas por ítem y lote/serie cuando aplique.',
+        'Comparar cantidad recibida vs cantidad ordenada y validar reglas de tolerancia (faltantes, excedentes o recepción parcial).',
+        'Guardar la recepción y verificar que se genere el comprobante/documento de entrada con número y fecha.',
+        'Confirmar impacto en inventario y estado de la OC (parcial/completa), sin errores ni diferencias pendientes no justificadas.'
+      ],
+      result: 'La recepción queda registrada contra la OC correcta, con cantidades y proveedor consistentes, se genera el comprobante de entrada y el inventario/estado documental se actualiza correctamente.'
     }
   ];
 
@@ -445,8 +468,12 @@ function buildAiProposal(tc, prompt = "") {
   const scenarioSteps = matchingTemplate ? matchingTemplate.steps : defaultSteps;
   const scenarioResult = matchingTemplate ? matchingTemplate.result : 'La operación se completa correctamente y el resultado es consistente con las expectativas.';
 
-  const chosenSteps = rawSteps.length ? rawSteps.slice(0, 3).map(s => s.replace(/\.$/, '')) : pickRandom(scenarioSteps, 3);
-  const extraSteps = pickRandom(scenarioSteps.filter(s => !chosenSteps.includes(s)), 2);
+  const chosenSteps = rawSteps.length
+    ? rawSteps.slice(0, 3).map(s => s.replace(/\.$/, ''))
+    : (matchingTemplate ? scenarioSteps.slice(0, 6) : pickRandom(scenarioSteps, 3));
+  const extraSteps = matchingTemplate
+    ? []
+    : pickRandom(scenarioSteps.filter(s => !chosenSteps.includes(s)), 2);
   const validationSteps = [
     'Verificar que no aparezcan mensajes de error durante el proceso.',
     'Confirmar que los datos se guardan correctamente y son consistentes.',
@@ -540,6 +567,13 @@ async function getAiProposal(tc, userPrompt) {
     });
       if (res.ok) {
       const data = await res.json();
+      const provider = String(data?.provider || '').toLowerCase();
+
+      // Si el proxy responde en modo mock, evita pasos genéricos y usa la propuesta local contextual.
+      if (provider === 'mock') {
+        return buildAiProposal(tc, userPrompt);
+      }
+
       const text = (data && (data.text || data.output || data.result)) || (typeof data === 'string' ? data : '');
       if (text) return parseAiProposal(String(text), tc);
     }
@@ -796,7 +830,7 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
         </div>
         <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
           <Btn small variant="ghost" onClick={()=>{setMessages([]);setActiveProposal(null);setPrompt(selectedTc ? buildDefaultPrompt(selectedTc) : "");setError("");}}>Limpiar</Btn>
-          <div style={{fontSize:11,color:darkMode?"#bbb":"#666",alignSelf:"center"}}>La IA usa el proxy interno: si configuras claves, consulta un modelo real (OpenAI/Azure).</div>
+          <div style={{fontSize:11,color:darkMode?"#bbb":"#666",alignSelf:"center"}}>La IA usa el proxy interno: si configuras credenciales, consulta un modelo real (GitHub Models/OpenAI/Azure).</div>
         </div>
         {/* El proxy puede usar IA real por API o fallback local/mock según configuración. */}
         {error&&(<div style={{fontSize:11,color:darkMode?"#f8b4b4":"#b91c1c"}}>{error}</div>)}

@@ -4,6 +4,32 @@ const cors = require('cors');
 const { spawn } = require('child_process');
 const crypto = require('crypto');
 const https = require('https');
+const fs = require('fs');
+const path = require('path');
+
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  const content = fs.readFileSync(filePath, 'utf8');
+  const lines = content.split(/\r?\n/);
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eqIndex = line.indexOf('=');
+    if (eqIndex <= 0) continue;
+    const key = line.slice(0, eqIndex).trim();
+    let value = line.slice(eqIndex + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (!(key in process.env)) {
+      process.env[key] = value;
+    }
+  }
+}
+
+// Load env vars from server/.env and root/.env when present.
+loadEnvFile(path.resolve(__dirname, '.env'));
+loadEnvFile(path.resolve(__dirname, '..', '.env'));
 
 const app = express();
 app.use(cors());
@@ -14,6 +40,9 @@ const LOCAL_CMD = process.env.LOCAL_MODEL_CMD || '';
 const MODEL_TIMEOUT = parseInt(process.env.MODEL_TIMEOUT_SECONDS || '60', 10); // seconds
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const GITHUB_MODELS_TOKEN = process.env.GITHUB_MODELS_TOKEN || '';
+const GITHUB_MODELS_MODEL = process.env.GITHUB_MODELS_MODEL || 'gpt-4o-mini';
+const GITHUB_MODELS_ENDPOINT = process.env.GITHUB_MODELS_ENDPOINT || 'https://models.inference.ai.azure.com/chat/completions';
 const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY || '';
 const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT || '';
 const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || '';
@@ -181,6 +210,30 @@ async function generateWithOpenAI(prompt) {
   return normalizeRealModelOutput(text);
 }
 
+async function generateWithGitHubModels(prompt) {
+  if (!GITHUB_MODELS_TOKEN) return null;
+  const payload = {
+    model: GITHUB_MODELS_MODEL,
+    temperature: 0.2,
+    messages: [
+      { role: 'system', content: buildSystemPrompt() },
+      { role: 'user', content: prompt }
+    ]
+  };
+
+  const response = await postJson(GITHUB_MODELS_ENDPOINT, {
+    Authorization: `Bearer ${GITHUB_MODELS_TOKEN}`,
+  }, payload);
+
+  if (response.status < 200 || response.status >= 300) {
+    const detail = response.body?.error?.message || response.raw || `GitHub Models HTTP ${response.status}`;
+    throw new Error(detail);
+  }
+
+  const text = response.body?.choices?.[0]?.message?.content || '';
+  return normalizeRealModelOutput(text);
+}
+
 async function generateWithAzureOpenAI(prompt) {
   if (!AZURE_OPENAI_API_KEY || !AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_DEPLOYMENT) return null;
   const endpoint = AZURE_OPENAI_ENDPOINT.replace(/\/$/, '');
@@ -207,6 +260,7 @@ async function generateWithAzureOpenAI(prompt) {
 }
 
 function getProviderMode() {
+  if (GITHUB_MODELS_TOKEN) return 'github-models';
   if (AZURE_OPENAI_API_KEY && AZURE_OPENAI_ENDPOINT && AZURE_OPENAI_DEPLOYMENT) return 'azure-openai';
   if (OPENAI_API_KEY) return 'openai';
   if (LOCAL_CMD) return 'local-cli';
@@ -218,8 +272,17 @@ app.get('/api/ai/health', (req, res) => {
   return res.json({
     ok: true,
     mode,
-    hasRealAI: mode === 'openai' || mode === 'azure-openai',
-    model: mode === 'openai' ? OPENAI_MODEL : (mode === 'azure-openai' ? AZURE_OPENAI_DEPLOYMENT : null),
+    hasRealAI: mode === 'github-models' || mode === 'openai' || mode === 'azure-openai',
+    model: mode === 'github-models'
+      ? GITHUB_MODELS_MODEL
+      : (mode === 'openai' ? OPENAI_MODEL : (mode === 'azure-openai' ? AZURE_OPENAI_DEPLOYMENT : null)),
+    providersConfigured: {
+      githubModels: Boolean(GITHUB_MODELS_TOKEN),
+      azureOpenAI: Boolean(AZURE_OPENAI_API_KEY && AZURE_OPENAI_ENDPOINT && AZURE_OPENAI_DEPLOYMENT),
+      openAI: Boolean(OPENAI_API_KEY),
+      localCli: Boolean(LOCAL_CMD),
+    },
+    envSourcesChecked: ['server/.env', '.env (raiz)', 'variables de entorno del proceso'],
   });
 });
 
@@ -234,8 +297,14 @@ app.post('/api/ai/generate', async (req, res) => {
     console.warn('Cache error', e?.message || e);
   }
 
-  // Preferencia: proveedor real por API (Azure OpenAI / OpenAI), si hay credenciales.
+  // Preferencia: proveedor real por API (GitHub Models / Azure OpenAI / OpenAI), si hay credenciales.
   try {
+    const githubText = await generateWithGitHubModels(prompt);
+    if (githubText) {
+      setCached(prompt, githubText);
+      return res.json({ text: githubText, provider: 'github-models' });
+    }
+
     const azureText = await generateWithAzureOpenAI(prompt);
     if (azureText) {
       setCached(prompt, azureText);
