@@ -4,14 +4,20 @@
 const BRAND = "#C0392B";
 const BRAND_LIGHT = "#FADBD8";
 
-const statusConfig = {
-  "Aprobado":     { color: "#27AE60", bg: "#EAFAF1" },
-  "En Progreso":  { color: "#F39C12", bg: "#FEF9E7" },
-  "Fallido":      { color: "#E74C3C", bg: "#FDEDEC" },
-  "No ejecutado": { color: "#95A5A6", bg: "#F2F3F4" },
-  "No aplica":    { color: "#BDC3C7", bg: "#F2F3F4" },
-  "Bloqueante":   { color: "#8E44AD", bg: "#F5EEF8" },
+const testStatusConfig = {
+  "Borrador": { color: "#95A5A6", bg: "#F2F3F4" },
+  "Revisión": { color: "#F39C12", bg: "#FEF9E7" },
+  "Aprobado": { color: "#27AE60", bg: "#EAFAF1" },
 };
+const cycleStatusConfig = {
+  "No ejecutado": { color: "#95A5A6", bg: "#F2F3F4" },
+  "En Progreso": { color: "#F39C12", bg: "#FEF9E7" },
+  "Fallido": { color: "#E74C3C", bg: "#FDEDEC" },
+  "Aprobado": { color: "#27AE60", bg: "#EAFAF1" },
+  "No aplica": { color: "#BDC3C7", bg: "#F2F3F4" },
+  "Bloqueante": { color: "#8E44AD", bg: "#F5EEF8" },
+};
+const statusConfig = testStatusConfig;
 const issueStatusConfig = {
   "Open":        { color: "#E74C3C", bg: "#FDEDEC" },
   "Closed":      { color: "#27AE60", bg: "#EAFAF1" },
@@ -20,7 +26,7 @@ const issueStatusConfig = {
 };
 const severityConfig = { "Critical":"#C0392B","High":"#E74C3C","Medium":"#F39C12","Low":"#27AE60" };
 const COLORS = ["#C0392B","#2980B9","#16A085","#8E44AD","#D35400","#2C3E50","#27AE60","#F39C12"];
-const EMPTY_TC = { area:"",proceso:"",escenario:"",descripcion:"",pasos:"",resultado:"",fechaAprobacion:"",fechaEjecucion:"",estado:"No ejecutado",asignadoA:"",attachments:[],historial:[],comentarios:[] };
+const EMPTY_TC = { area:"",proceso:"",escenario:"",descripcion:"",pasos:"",resultado:"",fechaAprobacion:"",fechaEjecucion:"",estado:"Borrador",asignadoA:"",attachments:[],historial:[],comentarios:[] };
 const EMPTY_ISSUE = { testId:"",escenario:"",formulario:"",observacion:"",modulo:"",estado:"Open",severidad:"Medium",prioridad:"Medium",fechaCreacion:"",fechaSolucion:"",attachments:[] };
 const EMPTY_CICLO = { nombre:"",modulo:"",fechaInicio:"",fechaFin:"",descripcion:"",ejecuciones:[] };
 const EMPTY_PROJECT = { name:"",description:"",color:COLORS[0],modules:[],testers:[] };
@@ -35,8 +41,8 @@ const seedProjects = [{
     { id:"TC-01",area:"Compras a pago",proceso:"Compras",escenario:"Modificación",descripcion:"Modificación de ítems o condiciones específicas en una orden de compra",pasos:"1. Ingresar al sistema\n2. Buscar la orden de compra\n3. Validar estado de la orden\n4. Seleccionar ítem a modificar\n5. Realizar cambios\n6. Guardar cambios",resultado:"La orden de compra se actualiza correctamente",fechaAprobacion:"29/04/2026",fechaEjecucion:"",estado:"Aprobado",asignadoA:"Carlos Pérez",attachments:[],historial:[{fecha:"29/04/2026",de:"—",a:"Aprobado",nota:"Estado inicial"}],comentarios:[] },
     { id:"TC-02",area:"Compras a pago",proceso:"Logística",escenario:"Recepción de mercancía",descripcion:"Recepción conforme a orden de compra",pasos:"1. Ingresar al sistema\n2. Verificar estado de la orden\n3. Recibir mercancía\n4. Validar orden vs factura\n5. Registrar recepción",resultado:"La mercancía es recibida y registrada en inventario",fechaAprobacion:"21/05/2026",fechaEjecucion:"21/05/2026",estado:"Aprobado",asignadoA:"",attachments:[],historial:[{fecha:"21/05/2026",de:"—",a:"Aprobado",nota:""}],comentarios:[] },
     { id:"TC-03",area:"Compras a pago",proceso:"Logística",escenario:"Devolución parcial",descripcion:"Devolución parcial por producto defectuoso",pasos:"1. Recibir mercancía\n2. Identificar producto dañado\n3. Registrar devolución parcial\n4. Aceptar productos en buen estado",resultado:"Se recibe parcialmente y se registra devolución",fechaAprobacion:"21/05/2026",fechaEjecucion:"21/05/2026",estado:"Aprobado",asignadoA:"",attachments:[],historial:[],comentarios:[] },
-    { id:"TC-04",area:"Compras a pago",proceso:"Pagos",escenario:"Generación de pago",descripcion:"Generar pago a proveedor contra factura registrada",pasos:"1. Buscar factura\n2. Validar orden de compra\n3. Generar documento de pago\n4. Aprobar pago\n5. Registrar egreso",resultado:"El pago se genera y registra correctamente",fechaAprobacion:"",fechaEjecucion:"",estado:"Fallido",asignadoA:"",attachments:[],historial:[{fecha:"06/05/2026",de:"—",a:"Fallido",nota:"Error en generación"}],comentarios:[] },
-    { id:"TC-05",area:"Compras a pago",proceso:"Compras",escenario:"Aprobación multinivel",descripcion:"Flujo de aprobación multinivel de orden de compra",pasos:"1. Crear orden\n2. Enviar a aprobación\n3. Primer nivel aprueba\n4. Segundo nivel aprueba\n5. Orden habilitada",resultado:"La orden pasa por todos los niveles de aprobación",fechaAprobacion:"21/05/2026",fechaEjecucion:"",estado:"En Progreso",asignadoA:"",attachments:[],historial:[],comentarios:[] },
+    { id:"TC-04",area:"Compras a pago",proceso:"Pagos",escenario:"Generación de pago",descripcion:"Generar pago a proveedor contra factura registrada",pasos:"1. Buscar factura\n2. Validar orden de compra\n3. Generar documento de pago\n4. Aprobar pago\n5. Registrar egreso",resultado:"El pago se genera y registra correctamente",fechaAprobacion:"",fechaEjecucion:"",estado:"Revisión",asignadoA:"",attachments:[],historial:[{fecha:"06/05/2026",de:"—",a:"Revisión",nota:"Pendiente de revisión"}],comentarios:[] },
+    { id:"TC-05",area:"Compras a pago",proceso:"Compras",escenario:"Aprobación multinivel",descripcion:"Flujo de aprobación multinivel de orden de compra",pasos:"1. Crear orden\n2. Enviar a aprobación\n3. Primer nivel aprueba\n4. Segundo nivel aprueba\n5. Orden habilitada",resultado:"La orden pasa por todos los niveles de aprobación",fechaAprobacion:"21/05/2026",fechaEjecucion:"",estado:"Borrador",asignadoA:"",attachments:[],historial:[],comentarios:[] },
   ],
   issues:[
     { id:1,testId:"TC-01",escenario:"Distribución de ajustes de comprobantes",formulario:"Distribución de ajustes",observacion:"Con productos no inventariados, está tomando la moneda de parámetros incorrecta. La columna NIT no se visualiza de manera consistente.",modulo:"Compras a pagos",estado:"Closed",severidad:"Medium",prioridad:"High",fechaCreacion:"05/05/2026",attachments:[] },
@@ -47,7 +53,7 @@ const seedProjects = [{
       ejecuciones:[
         {tcId:"TC-01",estado:"Aprobado",fechaEjecucion:"21/05/2026",nota:""},
         {tcId:"TC-02",estado:"Aprobado",fechaEjecucion:"21/05/2026",nota:""},
-        {tcId:"TC-04",estado:"Fallido",fechaEjecucion:"21/05/2026",nota:"Error en generación de pago"},
+        {tcId:"TC-04",estado:"Fallido",fechaEjecucion:"21/05/2026",nota:"Pendiente de revisión"},
       ]},
     { id:"ciclo-2", nombre:"Ciclo 2", modulo:"Compras", fechaInicio:"2026-05-22", fechaFin:"2026-05-30", descripcion:"Re-ejecución casos fallidos",
       ejecuciones:[
@@ -57,6 +63,26 @@ const seedProjects = [{
 }];
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
+function normalizeTestStatus(status) {
+  const value = String(status || "").trim();
+  if (!value) return "Borrador";
+  if (["No ejecutado", "No Ejecutado", "Pending", "Draft"].includes(value)) return "Borrador";
+  if (["En Progreso", "In Progress"].includes(value)) return "Revisión";
+  if (["Fallido", "Fallada", "Bloqueante", "Blocked", "No aplica", "No Aplica"].includes(value)) return "Revisión";
+  if (["Aprobado", "Approved", "Closed"].includes(value)) return "Aprobado";
+  return Object.prototype.hasOwnProperty.call(testStatusConfig, value) ? value : "Borrador";
+}
+function normalizeCycleExecutionStatus(status) {
+  const value = String(status || "").trim();
+  if (!value) return "No ejecutado";
+  if (["Borrador", "No ejecutado", "No Ejecutado", "Pending", "Draft"].includes(value)) return "No ejecutado";
+  if (["Revisión", "En Progreso", "In Progress"].includes(value)) return "En Progreso";
+  if (["Fallido", "Fallada"].includes(value)) return "Fallido";
+  if (["Bloqueante", "Blocked"].includes(value)) return "Bloqueante";
+  if (["No aplica", "No Aplica"].includes(value)) return "No aplica";
+  if (["Aprobado", "Approved", "Closed"].includes(value)) return "Aprobado";
+  return Object.prototype.hasOwnProperty.call(cycleStatusConfig, value) ? value : "No ejecutado";
+}
 function nextTcId(tests) {
   if (!tests.length) return "TC-01";
   const nums = tests.map(t => parseInt(t.id.replace("TC-",""))||0);
@@ -156,19 +182,40 @@ function parseSteps(value="") {
   return lines.map((line,index)=>{
     const cleaned = line.replace(/^\s*\d+[.)]\s*/, "").trim();
     const statusMatch = cleaned.match(/^\[(.+?)\]\s*(.*)$/);
-    const status = statusMatch && Object.keys(statusConfig).includes(statusMatch[1]) ? statusMatch[1] : "No ejecutado";
+    const parsedStatus = statusMatch && statusMatch[1] ? statusMatch[1] : "No ejecutado";
+    const status = normalizeCycleExecutionStatus(parsedStatus);
     const text = statusMatch ? statusMatch[2].trim() : cleaned;
     return { id:index+1, status, text };
   });
 }
 
 function serializeSteps(steps) {
-  return steps.filter(s=>s.text.trim()).map((s,index)=>`${index+1}. ${s.status && s.status!=="No ejecutado" ? `[${s.status}] ` : ""}${s.text.trim()}`).join("\n");
+  return steps.filter(s=>s.text.trim()).map((s,index)=>`${index+1}. ${s.status && s.status!=="No ejecutado" ? `[${normalizeCycleExecutionStatus(s.status)}] ` : ""}${s.text.trim()}`).join("\n");
+}
+
+function summarizeCycleStepStatuses(steps=[]) {
+  const statuses = (steps||[])
+    .map(step => normalizeCycleExecutionStatus(step?.status))
+    .filter(Boolean);
+
+  if (!statuses.length) return "No ejecutado";
+  if (statuses.some(status => status === "Bloqueante")) return "Bloqueante";
+  if (statuses.some(status => status === "Fallido")) return "Fallido";
+  if (statuses.some(status => status === "En Progreso")) return "En Progreso";
+  if (statuses.every(status => status === "Aprobado")) return "Aprobado";
+  if (statuses.every(status => status === "No aplica")) return "No aplica";
+  if (statuses.every(status => status === "No ejecutado")) return "No ejecutado";
+  return "En Progreso";
 }
 
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────────
 function Badge({label,color,bg}) {
-  return <span style={{display:"inline-flex",alignItems:"center",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700,color,background:bg,border:`1px solid ${color}30`,whiteSpace:"nowrap"}}>{label}</span>;
+  return (
+    <span style={{display:"inline-flex",alignItems:"center",gap:6,padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:800,color,background:bg,border:`1px solid ${color}30`,whiteSpace:"nowrap",boxShadow:"inset 0 0 0 1px rgba(255,255,255,0.35)"}}>
+      <span style={{width:8,height:8,borderRadius:"50%",background:color,boxShadow:`0 0 0 2px ${color}22`,flexShrink:0}} />
+      <span>{label}</span>
+    </span>
+  );
 }
 function Btn({children,onClick,variant="primary",small,danger,disabled,style:extra={}}) {
   const base={border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:700,fontSize:small?12:13,padding:small?"5px 12px":"9px 18px",transition:"all 0.15s",opacity:disabled?0.5:1,...extra};
@@ -478,7 +525,7 @@ function buildDefaultPrompt(tc, intent = "Mejorá este caso") {
 }
 
 async function getAiProposal(tc, userPrompt) {
-  // Use local proxy first (/api/ai/generate). This avoids any external Gemini calls.
+  // Use proxy endpoint first (/api/ai/generate). It can route to real AI (OpenAI/Azure), local CLI, or mock fallback.
   try {
     // build a richer prompt including last historial, comments and attachments
     const lastHist = (tc.historial||[]).slice(-3).map(h=>`${h.fecha||''}: ${h.nota||''}`).join('\n') || '';
@@ -497,7 +544,7 @@ async function getAiProposal(tc, userPrompt) {
       if (text) return parseAiProposal(String(text), tc);
     }
   } catch (e) {
-    console.warn('Local proxy failed:', e?.message || e);
+    console.warn('AI proxy failed:', e?.message || e);
   }
 
   // Fallback to local builder if proxy failed
@@ -749,9 +796,9 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
         </div>
         <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
           <Btn small variant="ghost" onClick={()=>{setMessages([]);setActiveProposal(null);setPrompt(selectedTc ? buildDefaultPrompt(selectedTc) : "");setError("");}}>Limpiar</Btn>
-          <div style={{fontSize:11,color:darkMode?"#bbb":"#666",alignSelf:"center"}}>La IA corre localmente mediante proxy interno y no usa Gemini.</div>
+          <div style={{fontSize:11,color:darkMode?"#bbb":"#666",alignSelf:"center"}}>La IA usa el proxy interno: si configuras claves, consulta un modelo real (OpenAI/Azure).</div>
         </div>
-        {/* Se utiliza el proxy local o el mock; no se requieren claves externas aquí. */}
+        {/* El proxy puede usar IA real por API o fallback local/mock según configuración. */}
         {error&&(<div style={{fontSize:11,color:darkMode?"#f8b4b4":"#b91c1c"}}>{error}</div>)}
       </div>
 
@@ -1067,12 +1114,9 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
   const { name, description, createdAt } = proj;
   const dateNow = today();
   const stats = {
-    "Aprobado": tests.filter(t=>t.estado==="Aprobado").length,
-    "En Progreso": tests.filter(t=>t.estado==="En Progreso").length,
-    "Fallido": tests.filter(t=>t.estado==="Fallido").length,
-    "No ejecutado": tests.filter(t=>t.estado==="No ejecutado").length,
-    "No aplica": tests.filter(t=>t.estado==="No aplica").length,
-    "Bloqueante": tests.filter(t=>t.estado==="Bloqueante").length,
+    "Borrador": tests.filter(t=>normalizeTestStatus(t.estado)==="Borrador").length,
+    "Revisión": tests.filter(t=>normalizeTestStatus(t.estado)==="Revisión").length,
+    "Aprobado": tests.filter(t=>normalizeTestStatus(t.estado)==="Aprobado").length,
   };
   const issueStats = {
     open: issues.filter(i=>i.estado==="Open").length,
@@ -1082,16 +1126,13 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
     total: issues.length,
   };
   const pct = n => tests.length ? Math.round((n / tests.length) * 100) : 0;
-  const execPct = pct(stats["Aprobado"] + stats["No aplica"]);
+  const execPct = pct(stats["Aprobado"]);
 
   // Build bar SVG
   const bars = [
-    { label:"Aprobado",     value:stats["Aprobado"],     color:"#27AE60" },
-    { label:"En Progreso",  value:stats["En Progreso"],  color:"#F39C12" },
-    { label:"Fallido",      value:stats["Fallido"],      color:"#E74C3C" },
-    { label:"No ejecutado", value:stats["No ejecutado"], color:"#95A5A6" },
-    { label:"No aplica",    value:stats["No aplica"],    color:"#BDC3C7" },
-    { label:"Bloqueante",   value:stats["Bloqueante"],   color:"#8E44AD" },
+    { label:"Aprobado", value:stats["Aprobado"], color:"#27AE60" },
+    { label:"Revisión", value:stats["Revisión"], color:"#F39C12" },
+    { label:"Borrador", value:stats["Borrador"], color:"#95A5A6" },
   ];
   const barsSVG = bars.map((b,i) => {
     const w = tests.length ? Math.round((b.value / tests.length) * 300) : 0;
@@ -1129,9 +1170,9 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
   const cycleRows = (proj.ciclos||[]).map(c => {
     const execs = (c.ejecuciones||[]).filter(e => tests.some(t => t.id === e.tcId));
     const total = execs.length;
-    const aprobados = execs.filter(e=>e.estado==="Aprobado").length;
-    const fallidos = execs.filter(e=>e.estado==="Fallido").length;
-    const noEjec = execs.filter(e=>e.estado==="No ejecutado").length;
+    const aprobados = execs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Aprobado").length;
+    const revisiones = execs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="En Progreso").length;
+    const noEjec = execs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="No ejecutado").length;
     const avance = total ? Math.round((aprobados / total) * 100) : 0;
     return `<tr>
       <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:700">${escapeHtml(c.nombre||"Sin nombre")}</td>
@@ -1140,7 +1181,7 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
       <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${escapeHtml(c.fechaFin||"—")}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${total}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#27AE60;font-weight:700">${aprobados}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#E74C3C;font-weight:700">${fallidos}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#F39C12;font-weight:700">${revisiones}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#95A5A6;font-weight:700">${noEjec}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;font-weight:800;color:${avance>=70?"#27AE60":avance>=40?"#F39C12":"#E74C3C"}">${avance}%</td>
     </tr>`;
@@ -1148,7 +1189,7 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
 
   // TC table rows
   const tcRows = tests.map(t => {
-    const sc = {"Aprobado":"#27AE60","En Progreso":"#F39C12","Fallido":"#E74C3C","No ejecutado":"#95A5A6","No aplica":"#BDC3C7","Bloqueante":"#8E44AD"}[t.estado]||"#888";
+    const sc = {"Aprobado":"#27AE60","Revisión":"#F39C12","Borrador":"#95A5A6"}[normalizeTestStatus(t.estado)]||"#888";
     return `<tr>
       <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-family:monospace;font-weight:bold;color:#C0392B">${escapeHtml(t.id)}</td>
       <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:11px">${escapeHtml(t.area)}</td>
@@ -1212,11 +1253,8 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
   <div class="chips">
     <div class="chip"><div class="chip-label">Total</div><div class="chip-value" style="color:#222">${tests.length}</div></div>
     <div class="chip"><div class="chip-label">Aprobado</div><div class="chip-value" style="color:#27AE60">${stats["Aprobado"]}</div></div>
-    <div class="chip"><div class="chip-label">En Progreso</div><div class="chip-value" style="color:#F39C12">${stats["En Progreso"]}</div></div>
-    <div class="chip"><div class="chip-label">Fallido</div><div class="chip-value" style="color:#E74C3C">${stats["Fallido"]}</div></div>
-    <div class="chip"><div class="chip-label">No ejecutado</div><div class="chip-value" style="color:#95A5A6">${stats["No ejecutado"]}</div></div>
-    <div class="chip"><div class="chip-label">No aplica</div><div class="chip-value" style="color:#BDC3C7">${stats["No aplica"]}</div></div>
-    <div class="chip"><div class="chip-label">Bloqueante</div><div class="chip-value" style="color:#8E44AD">${stats["Bloqueante"]}</div></div>
+    <div class="chip"><div class="chip-label">Revisión</div><div class="chip-value" style="color:#F39C12">${stats["Revisión"]}</div></div>
+    <div class="chip"><div class="chip-label">Borrador</div><div class="chip-value" style="color:#95A5A6">${stats["Borrador"]}</div></div>
   </div>
   <svg width="500" height="${bars.length*28+10}" viewBox="0 0 500 ${bars.length*28+10}">${barsSVG}</svg>
 </div>
@@ -1237,23 +1275,21 @@ function exportDashboardPDF(proj, tests = proj.tests, issues = proj.issues) {
 <div class="section">
   <div class="section-title">📦 Métricas por Módulo</div>
   <table>
-    <thead><tr><th>Módulo</th><th>Total</th><th style="color:#27AE60">Aprobado</th><th style="color:#F39C12">En Progreso</th><th style="color:#E74C3C">Fallido</th><th style="color:#95A5A6">No ejec.</th><th style="color:#BDC3C7">No aplica</th><th>% Ejec.</th></tr></thead>
+    <thead><tr><th>Módulo</th><th>Total</th><th style="color:#27AE60">Aprobado</th><th style="color:#F39C12">Revisión</th><th style="color:#95A5A6">Borrador</th><th>% Aprob.</th></tr></thead>
     <tbody>${(()=>{
       const mm={};
       tests.forEach(t=>{
         const mod=t.proceso||"Sin módulo";
         if(!mm[mod]) mm[mod]={total:0,ap:0,ep:0,fa:0,ne:0,na:0};
         mm[mod].total++;
-        if(t.estado==="Aprobado")mm[mod].ap++;
-        else if(t.estado==="En Progreso")mm[mod].ep++;
-        else if(t.estado==="Fallido")mm[mod].fa++;
-        else if(t.estado==="No ejecutado")mm[mod].ne++;
-        else if(t.estado==="No aplica")mm[mod].na++;
+        if(normalizeTestStatus(t.estado)==="Aprobado")mm[mod].ap++;
+        else if(normalizeTestStatus(t.estado)==="Revisión")mm[mod].ep++;
+        else if(normalizeTestStatus(t.estado)==="Borrador")mm[mod].ne++;
       });
       return Object.entries(mm).map(([mod,m])=>{
-        const mp=m.total?Math.round(((m.ap+m.na)/m.total)*100):0;
+        const mp=m.total?Math.round((m.ap/m.total)*100):0;
         const mc=mp>=70?"#27AE60":mp>=40?"#F39C12":"#E74C3C";
-        return `<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:700">${mod}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${m.total}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#27AE60;font-weight:700">${m.ap}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#F39C12;font-weight:700">${m.ep}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#E74C3C;font-weight:700">${m.fa}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#95A5A6;font-weight:700">${m.ne}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#BDC3C7;font-weight:700">${m.na}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;font-weight:800;color:${mc}">${mp}%</td></tr>`;
+        return `<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:700">${mod}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${m.total}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#27AE60;font-weight:700">${m.ap}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#F39C12;font-weight:700">${m.ep}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;color:#95A5A6;font-weight:700">${m.ne}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center;font-weight:800;color:${mc}">${mp}%</td></tr>`;
       }).join("");
     })()}</tbody>
   </table>
@@ -1295,7 +1331,7 @@ function exportKPIsAsImage(proj, tests = proj.tests, filteredTestStats = {}, fil
   const dateNow = today();
   const total = tests.length || 0;
   const approved = filteredTestStats["Aprobado"] || 0;
-  const failed = filteredTestStats["Fallido"] || 0;
+  const inReview = filteredTestStats["Revisión"] || 0;
   const executed = tests.filter(t=>t.fechaEjecucion).length;
   const issues = filteredIssueStats.total || 0;
 
@@ -1321,8 +1357,8 @@ function exportKPIsAsImage(proj, tests = proj.tests, filteredTestStats = {}, fil
     <g transform='translate(228,80)'>
       <rect x='0' y='0' width='180' height='120' rx='10' fill='#fff' stroke='#eee'/>
       <text x='14' y='26' class='label'>Tasa Fallos</text>
-      <text x='14' y='62' class='value' fill='#E74C3C'>${Math.round(total?((failed/total)*100):0)}%</text>
-      <text x='14' y='92' class='label'>${failed} de ${total}</text>
+      <text x='14' y='62' class='value' fill='#F39C12'>${Math.round(total?((inReview/total)*100):0)}%</text>
+      <text x='14' y='92' class='label'>${inReview} en revisión</text>
     </g>
 
     <g transform='translate(428,80)'>
@@ -1426,10 +1462,10 @@ function JiraModal({onImport,onClose,existingTests,darkMode}) {
         pasos: `1. Verificar: ${i.fields.summary}\n2. Validar criterios de aceptación\n3. Registrar resultado`,
         resultado: `La historia ${i.key} cumple con los criterios de aceptación definidos`,
         fechaAprobacion:"",fechaEjecucion:"",
-        estado:"No ejecutado",
+        estado:"Borrador",
         asignadoA: i.fields.assignee?.displayName||"",
         attachments:[],
-        historial:[{fecha:today(),de:"—",a:"No ejecutado",nota:`Importado desde Jira: ${i.key}`}],
+        historial:[{fecha:today(),de:"—",a:"Borrador",nota:`Importado desde Jira: ${i.key}`}],
         comentarios:[],
         jiraKey: i.key,
         jiraUrl: `${config.url}/browse/${i.key}`,
@@ -1576,7 +1612,7 @@ function parseCSVImport(text, existingTests) {
       asignadoA: cols[7]||"",
       fechaAprobacion: cols[8]||"",
       fechaEjecucion: cols[9]||"",
-      estado: cols[10]||"No ejecutado",
+      estado: normalizeTestStatus(cols[10]||"Borrador"),
       attachments:[],historial:[],comentarios:[],
     });
   }
@@ -1684,7 +1720,7 @@ function ProjectFormModal({initial,onSave,onClose,darkMode}) {
 
 function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
   const [form,setForm]=useState(() => {
-    const base = { ...EMPTY_TC, ...(initial || {}) };
+    const base = { ...EMPTY_TC, ...(initial || {}), estado: normalizeTestStatus(initial?.estado || EMPTY_TC.estado) };
     if (!base.proceso && project?.modules?.length) base.proceso = project.modules[0];
     if (!base.asignadoA && project?.testers?.length) base.asignadoA = project.testers[0];
     return base;
@@ -1748,7 +1784,7 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
             {steps.map((step,index)=>(
               <div key={step.id} style={{display:"grid",gridTemplateColumns:"110px 1fr auto",gap:8,alignItems:"center",background:darkMode?"#2A2A2D":"#fafafa",borderRadius:10,padding:10,border:`1px solid ${darkMode?"#444":"#eee"}`}}>
                 <select style={{...IS,minHeight:40}} value={step.status} onChange={e=>setSteps(s=>s.map((item,i)=>i===index?{...item,status:e.target.value}:item))}>
-                  {Object.keys(statusConfig).map(k=><option key={k} value={k}>{k}</option>)}
+                  {Object.keys(cycleStatusConfig).map(k=><option key={k} value={k}>{k}</option>)}
                 </select>
                 <input style={{...IS,minHeight:40}} value={step.text} onChange={e=>setSteps(s=>s.map((item,i)=>i===index?{...item,text:e.target.value}:item))} placeholder={`Paso ${index+1}`} />
                 <button onClick={()=>setSteps(s=>s.filter((_,i)=>i!==index))} style={{background:"#f3f3f3",border:"none",borderRadius:8,padding:"8px 10px",cursor:"pointer",fontSize:14}}>✕</button>
@@ -1839,7 +1875,7 @@ function ObservationModal({tc,initialText,onClose,onSave,darkMode}) {
 
 // ─── TC DETAIL MODAL ──────────────────────────────────────────────────────────
 function TcDetailModal({tc,onClose,onEdit,onDelete,onDuplicate,onAddComment}) {
-  const sc=statusConfig[tc.estado]||statusConfig["No ejecutado"];
+  const sc=statusConfig[normalizeTestStatus(tc.estado)]||statusConfig["Borrador"];
   const [comment,setComment]=useState("");
   const parsedSteps=useMemo(()=>parseSteps(tc.pasos),[tc.pasos]);
   return (
@@ -1879,8 +1915,8 @@ function TcDetailModal({tc,onClose,onEdit,onDelete,onDuplicate,onAddComment}) {
         <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Pasos</div>
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {parsedSteps.map((step,index)=>(
-            <div key={`${step.status}-${index}`} style={{display:"flex",gap:10,alignItems:"flex-start",background:"#f8f8f8",borderRadius:8,padding:10,borderLeft:`4px solid ${statusConfig[step.status]?.color || BRAND}`}}>
-              <div style={{minWidth:120}}><Badge label={step.status} color={statusConfig[step.status]?.color || BRAND} bg={statusConfig[step.status]?.bg || BRAND_LIGHT}/></div>
+            <div key={`${step.status}-${index}`} style={{display:"flex",gap:10,alignItems:"flex-start",background:"#f8f8f8",borderRadius:8,padding:10,borderLeft:`4px solid ${cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || BRAND}`}}>
+              <div style={{minWidth:120}}><Badge label={normalizeCycleExecutionStatus(step.status)} color={cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || BRAND} bg={cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.bg || BRAND_LIGHT}/></div>
               <div style={{fontSize:13,color:"#444",lineHeight:1.6,flex:1}}>{step.text || "Sin detalle"}</div>
             </div>
           ))}
@@ -2422,6 +2458,10 @@ export default function App() {
   const [editCiclo,setEditCiclo]=useState(null);
   const [expandedCiclos,setExpandedCiclos]=useState({});
   const [bulkTcSelection,setBulkTcSelection]=useState({});
+  const [testViewMode,setTestViewMode]=useState("expandida");
+  const [selectedTestIds,setSelectedTestIds]=useState([]);
+  const [bulkTestStatus,setBulkTestStatus]=useState("");
+  const [bulkTestAssignee,setBulkTestAssignee]=useState("");
   const [showJira,setShowJira]=useState(false);
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [storageWarn,setStorageWarn]=useState(false);
@@ -2518,11 +2558,13 @@ export default function App() {
     };
     setProjects(ps=>ps.map(p=>{
       if(p.id!==activeProjectId)return p;
+      const nextStatus = normalizeTestStatus(normalizedForm.estado);
+      const finalForm = { ...normalizedForm, estado: nextStatus };
       if(editTc){
-        return{...p,tests:p.tests.map(t=>t.id===editTc.id?{...t,...normalizedForm,historial:histEntry?[...(t.historial||[]),histEntry]:(t.historial||[])}:t)};
+        return{...p,tests:p.tests.map(t=>t.id===editTc.id?{...t,...finalForm,historial:histEntry?[...(t.historial||[]),histEntry]:(t.historial||[])}:t)};
       }else{
         const newId=nextTcId(p.tests);
-        return{...p,tests:[...p.tests,{id:newId,...normalizedForm,historial:[{fecha:today(),de:"—",a:normalizedForm.estado,nota:"Creado"}],comentarios:[]}]};
+        return{...p,tests:[...p.tests,{id:newId,...finalForm,historial:[{fecha:today(),de:"—",a:finalForm.estado,nota:"Creado"}],comentarios:[]}]};
       }
     }));
     setShowTcForm(false);setEditTc(null);setViewTc(null);
@@ -2537,13 +2579,55 @@ export default function App() {
     setViewTc(null);
   }
   function updateTCStatus(id,estado){
+    const nextState = normalizeTestStatus(estado);
     setProjects(ps=>ps.map(p=>{
       if(p.id!==activeProjectId)return p;
       return{...p,tests:p.tests.map(t=>{
         if(t.id!==id)return t;
-        const entry={fecha:today(),de:t.estado,a:estado,nota:""};
-        return{...t,estado,historial:[...(t.historial||[]),entry]};
+        const entry={fecha:today(),de:t.estado,a:nextState,nota:""};
+        return{...t,estado:nextState,historial:[...(t.historial||[]),entry]};
       })};
+    }));
+  }
+  function toggleTestSelection(id){
+    setSelectedTestIds(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
+  }
+  function selectAllVisibleTests(ids){
+    setSelectedTestIds(prev=>Array.from(new Set([...prev,...ids])));
+  }
+  function clearSelectedTests(ids){
+    if(!ids?.length) return;
+    setSelectedTestIds(prev=>prev.filter(id=>!ids.includes(id)));
+  }
+  function applyBulkChangesToTests(){
+    if(!selectedTestIds.length) return;
+    const hasStatus = !!bulkTestStatus;
+    const hasAssignee = bulkTestAssignee.trim()!=="";
+    if(!hasStatus && !hasAssignee) return;
+
+    setProjects(ps=>ps.map(p=>{
+      if(p.id!==activeProjectId) return p;
+      return {
+        ...p,
+        tests:p.tests.map(t=>{
+          if(!selectedTestIds.includes(t.id)) return t;
+          let next={...t};
+          if(hasStatus){
+            const normalized = normalizeTestStatus(bulkTestStatus);
+            if(normalized!==t.estado){
+              next={
+                ...next,
+                estado:normalized,
+                historial:[...(next.historial||[]),{fecha:today(),de:t.estado,a:normalized,nota:"Cambio masivo"}]
+              };
+            }
+          }
+          if(hasAssignee){
+            next={...next,asignadoA:bulkTestAssignee.trim()};
+          }
+          return next;
+        })
+      };
     }));
   }
   function handleApplyAiProposal(proposal){
@@ -2656,24 +2740,76 @@ export default function App() {
       })};
     }));
   }
+  function updateStepEstado(tcId, stepIndex, estado) {
+    setProjects(ps=>ps.map(p=>{
+      if(p.id!==activeProjectId)return p;
+      const updatedTests = p.tests.map(tc=>{
+        if(tc.id!==tcId)return tc;
+        const steps = parseSteps(tc.pasos || "");
+        const normalizedEstado = normalizeCycleExecutionStatus(estado);
+        const nextSteps = steps.map((step,index)=>index===stepIndex?{...step,status:normalizedEstado}:step);
+        if (normalizedEstado !== "En Progreso" && normalizedEstado !== "No ejecutado" && stepIndex + 1 < nextSteps.length) {
+          const nextStep = nextSteps[stepIndex + 1];
+          if (normalizeCycleExecutionStatus(nextStep.status) === "No ejecutado") {
+            nextSteps[stepIndex + 1] = { ...nextStep, status: "En Progreso" };
+          }
+        }
+        const nextPasos = serializeSteps(nextSteps);
+        return {...tc,pasos:nextPasos};
+      });
+      const updatedTc = updatedTests.find(tc=>tc.id===tcId);
+      const derivedState = summarizeCycleStepStatuses(parseSteps(updatedTc?.pasos || ""));
+      return {
+        ...p,
+        tests: updatedTests,
+        ciclos: (p.ciclos||[]).map(c=>({
+          ...c,
+          ejecuciones: (c.ejecuciones||[]).map(e=>e.tcId!==tcId?e:{...e,estado:derivedState,fechaEjecucion:derivedState!=="No ejecutado"?(e.fechaEjecucion||today()):e.fechaEjecucion})
+        }))
+      };
+    }));
+  }
+  function iniciarEjecucion(cicloId, tcId) {
+    setProjects(ps=>ps.map(p=>{
+      if(p.id!==activeProjectId)return p;
+      const updatedTests = p.tests.map(tc=>{
+        if(tc.id!==tcId)return tc;
+        const steps = parseSteps(tc.pasos || "").map((step,index)=>{
+          const currentStatus = normalizeCycleExecutionStatus(step.status);
+          if (index === 0 && currentStatus === "No ejecutado") {
+            return { ...step, status: "En Progreso" };
+          }
+          return step;
+        });
+        return {...tc,pasos:serializeSteps(steps)};
+      });
+      const updatedTc = updatedTests.find(tc=>tc.id===tcId);
+      const derivedState = summarizeCycleStepStatuses(parseSteps(updatedTc?.pasos || ""));
+      return {
+        ...p,
+        tests: updatedTests,
+        ciclos: (p.ciclos||[]).map(c=>c.id!==cicloId?c:{...c,ejecuciones:(c.ejecuciones||[]).map(e=>e.tcId!==tcId?e:{...e,estado:derivedState,fechaEjecucion:derivedState!=="No ejecutado"?(e.fechaEjecucion||today()):e.fechaEjecucion})})
+      };
+    }));
+  }
   // Promover fallidos a nuevo ciclo
   function promoverFallidos(cicloId){
     const ciclo=(proj.ciclos||[]).find(c=>c.id===cicloId);
     if(!ciclo)return;
     const ejecs=ciclo.ejecuciones||[];
-    const fallidos=ejecs.filter(e=>e.estado==="Fallido");
-    if(!fallidos.length){alert("No hay casos fallidos en este ciclo.");return;}
+    const enProgreso=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="En Progreso");
+    if(!enProgreso.length){alert("No hay casos en progreso en este ciclo.");return;}
     const num=(proj.ciclos||[]).length+1;
     const newCiclo={
       id:`ciclo-${Date.now()}`,
       nombre:`Ciclo ${num}`,
       modulo:ciclo.modulo,
       fechaInicio:"",fechaFin:"",
-      descripcion:`Re-ejecución de ${fallidos.length} caso(s) fallidos del ${ciclo.nombre}`,
-      ejecuciones:fallidos.map(e=>({tcId:e.tcId,estado:"No ejecutado",fechaEjecucion:"",nota:`Promovido desde ${ciclo.nombre}`}))
+      descripcion:`Re-ejecución de ${enProgreso.length} caso(s) en progreso del ${ciclo.nombre}`,
+      ejecuciones:enProgreso.map(e=>({tcId:e.tcId,estado:"No ejecutado",fechaEjecucion:"",nota:`Promovido desde ${ciclo.nombre}`}))
     };
     setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,ciclos:[...(p.ciclos||[]),newCiclo]}));
-    alert(`✅ Ciclo ${num} creado con ${fallidos.length} caso(s) fallidos del ${ciclo.nombre}.`);
+    alert(`✅ Ciclo ${num} creado con ${enProgreso.length} caso(s) en progreso del ${ciclo.nombre}.`);
   }
 
   // Import CSV
@@ -2705,7 +2841,7 @@ export default function App() {
     </div>
   );
 
-  const tests=proj.tests;
+  const tests = useMemo(() => (proj.tests || []).map(tc => ({ ...tc, estado: normalizeTestStatus(tc.estado) })), [proj.tests]);
   const issues=proj.issues;
 
   const asignadosList=useMemo(()=>{const s=new Set(tests.map(t=>t.asignadoA).filter(Boolean));return["Todos",...s];},[tests]);
@@ -2730,7 +2866,7 @@ export default function App() {
     return mE&&mM;
   }),[issues,filterIssueEstado,filterModulo]);
 
-  const filteredTestStats=useMemo(()=>{const c={};Object.keys(statusConfig).forEach(k=>c[k]=0);filteredTests.forEach(t=>{if(c[t.estado]!==undefined)c[t.estado]++;});return c;},[filteredTests]);
+  const filteredTestStats=useMemo(()=>{const c={};Object.keys(statusConfig).forEach(k=>c[k]=0);filteredTests.forEach(t=>{const normalizedStatus=normalizeTestStatus(t.estado);if(c[normalizedStatus]!==undefined)c[normalizedStatus]++;});return c;},[filteredTests]);
   const filteredIssueStats=useMemo(()=>({open:filteredIssues.filter(i=>i.estado==="Open").length,closed:filteredIssues.filter(i=>i.estado==="Closed").length,inProg:filteredIssues.filter(i=>i.estado==="In Progress").length,blocked:filteredIssues.filter(i=>i.estado==="Blocked").length,total:filteredIssues.length}),[filteredIssues]);
 
   const filteredTimelineData=useMemo(()=>{
@@ -2743,8 +2879,9 @@ export default function App() {
   const timelineMap = useMemo(()=>{
     const m={};
     filteredTests.filter(t=>t.fechaEjecucion).forEach(t=>{
-      if(!m[t.fechaEjecucion]) m[t.fechaEjecucion]={Aprobado:0,Fallido:0,total:0};
-      m[t.fechaEjecucion][t.estado] = (m[t.fechaEjecucion][t.estado]||0) + 1;
+      const normalized = normalizeTestStatus(t.estado);
+      if(!m[t.fechaEjecucion]) m[t.fechaEjecucion]={Aprobado:0,Revisión:0,Borrador:0,total:0};
+      m[t.fechaEjecucion][normalized] = (m[t.fechaEjecucion][normalized]||0) + 1;
       m[t.fechaEjecucion].total = (m[t.fechaEjecucion].total||0) + 1;
     });
     return m;
@@ -2753,7 +2890,7 @@ export default function App() {
   const timelineKeys = useMemo(()=>Object.keys(timelineMap).sort(),[timelineMap]);
 
   const sparkApproved = timelineKeys.map(d=>({label:d, value: timelineMap[d].Aprobado||0}));
-  const sparkFailed = timelineKeys.map(d=>({label:d, value: timelineMap[d].Fallido||0}));
+  const sparkReview = timelineKeys.map(d=>({label:d, value: timelineMap[d].Revisión||0}));
   const sparkExecuted = timelineKeys.map(d=>({label:d, value: timelineMap[d].total||0}));
 
   // Issues spark (by creation date)
@@ -2763,22 +2900,28 @@ export default function App() {
   const issueKeys = useMemo(()=>Object.keys(issuesByDate).sort(),[issuesByDate]);
   const sparkIssues = issueKeys.map(d=>({label:d, value: issuesByDate[d]||0}));
 
+  useEffect(()=>{
+    setSelectedTestIds(prev=>prev.filter(id=>tests.some(t=>t.id===id)));
+  },[tests]);
+
+  const visibleTestIds=useMemo(()=>filteredTests.map(t=>t.id),[filteredTests]);
+  const selectedVisibleCount=useMemo(()=>visibleTestIds.filter(id=>selectedTestIds.includes(id)).length,[visibleTestIds,selectedTestIds]);
+  const allVisibleSelected=visibleTestIds.length>0&&selectedVisibleCount===visibleTestIds.length;
+
   const pct=(n,total=filteredTests.length)=>total?Math.round((n/total)*100):0;
-  const execPct=pct(filteredTestStats["Aprobado"]+filteredTestStats["No aplica"]);
+  const execPct=pct(filteredTestStats["Aprobado"]);
 
   // Stats per module (proceso field)
   const moduleStats=useMemo(()=>{
     const modules={};
     filteredTests.forEach(t=>{
       const mod=t.proceso||"Sin módulo";
+      const normalized = normalizeTestStatus(t.estado);
       if(!modules[mod]) modules[mod]={total:0,aprobado:0,enProgreso:0,fallido:0,noEjecutado:0,noAplica:0,bloqueante:0};
       modules[mod].total++;
-      if(t.estado==="Aprobado") modules[mod].aprobado++;
-      else if(t.estado==="En Progreso") modules[mod].enProgreso++;
-      else if(t.estado==="Fallido") modules[mod].fallido++;
-      else if(t.estado==="No ejecutado") modules[mod].noEjecutado++;
-      else if(t.estado==="No aplica") modules[mod].noAplica++;
-      else if(t.estado==="Bloqueante") modules[mod].bloqueante++;
+      if(normalized==="Aprobado") modules[mod].aprobado++;
+      else if(normalized==="Revisión") modules[mod].enProgreso++;
+      else if(normalized==="Borrador") modules[mod].noEjecutado++;
     });
     return modules;
   },[filteredTests]);
@@ -2923,9 +3066,9 @@ export default function App() {
                   </div>
                   <div style={{background:DM.card,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 8px #0000000a",border:`1px solid ${DM.cardBorder}`,minWidth:160}}>
                     <div style={{fontSize:11,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>Tasa Fallos</div>
-                    <div style={{fontSize:22,fontWeight:800,color:'#E74C3C',lineHeight:1.1}}>{pct(filteredTestStats["Fallido"]) }%</div>
-                    <div style={{marginTop:8}}><Sparkline data={sparkFailed} color="#E74C3C" width={140} height={36}/></div>
-                    <div style={{fontSize:11,color:DM.sub,marginTop:6}}>Porcentaje de casos con fallo</div>
+                    <div style={{fontSize:22,fontWeight:800,color:'#F39C12',lineHeight:1.1}}>{pct(filteredTestStats["Revisión"]) }%</div>
+                    <div style={{marginTop:8}}><Sparkline data={sparkReview} color="#F39C12" width={140} height={36}/></div>
+                    <div style={{fontSize:11,color:DM.sub,marginTop:6}}>Porcentaje de casos en revisión</div>
                   </div>
                   <div style={{background:DM.card,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 8px #0000000a",border:`1px solid ${DM.cardBorder}`,minWidth:160}}>
                     <div style={{fontSize:11,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>Ejecutados</div>
@@ -2943,7 +3086,7 @@ export default function App() {
 
                 {/* stat chips */}
                 <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                  {[{label:"Total",value:filteredTests.length,color:DM.text},{label:"Aprobado",value:filteredTestStats["Aprobado"],color:"#27AE60"},{label:"En Progreso",value:filteredTestStats["En Progreso"],color:"#F39C12"},{label:"Fallido",value:filteredTestStats["Fallido"],color:"#E74C3C"},{label:"No ejecutado",value:filteredTestStats["No ejecutado"],color:"#95A5A6"},{label:"No aplica",value:filteredTestStats["No aplica"],color:"#BDC3C7"},{label:"Bloqueante",value:filteredTestStats["Bloqueante"],color:"#8E44AD"}].map(s=>( 
+                  {[{label:"Total",value:filteredTests.length,color:DM.text},{label:"Aprobado",value:filteredTestStats["Aprobado"],color:"#27AE60"},{label:"Revisión",value:filteredTestStats["Revisión"],color:"#F39C12"},{label:"Borrador",value:filteredTestStats["Borrador"],color:"#95A5A6"}].map(s=>( 
                     <div key={s.label} style={{background:DM.card,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 8px #0000000a",border:`1px solid ${DM.cardBorder}`,minWidth:90}}>
                       <div style={{fontSize:10,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{s.label}</div>
                       <div style={{fontSize:28,fontWeight:800,color:s.color,lineHeight:1.1}}>{s.value}</div>
@@ -2956,11 +3099,11 @@ export default function App() {
                   <div style={{display:"grid",gridTemplateColumns:"minmax(300px, 1fr) minmax(320px, 1fr)",gap:18}}>
                     <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                       <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:16}}>Distribución de Estados</div>
-                      <Donut data={[{label:"Aprobado",value:filteredTestStats["Aprobado"],color:"#27AE60"},{label:"En Progreso",value:filteredTestStats["En Progreso"],color:"#F39C12"},{label:"Fallido",value:filteredTestStats["Fallido"],color:"#E74C3C"},{label:"No ejecutado",value:filteredTestStats["No ejecutado"],color:"#bbb"},{label:"No aplica",value:filteredTestStats["No aplica"],color:"#ddd"},{label:"Bloqueante",value:filteredTestStats["Bloqueante"],color:"#8E44AD"}]}/>
+                      <Donut data={[{label:"Aprobado",value:filteredTestStats["Aprobado"],color:"#27AE60"},{label:"Revisión",value:filteredTestStats["Revisión"],color:"#F39C12"},{label:"Borrador",value:filteredTestStats["Borrador"],color:"#95A5A6"}]}/>
                     </div>
                     <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                       <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:14}}>Test Plan Evolution general</div>
-                      {[{label:"Ejecutado (Aprobado + N/A)",value:pct(filteredTestStats["Aprobado"]+filteredTestStats["No aplica"]),color:"#27AE60"},{label:"En Progreso",value:pct(filteredTestStats["En Progreso"]),color:"#F39C12"},{label:"No ejecutado",value:pct(filteredTestStats["No ejecutado"]),color:"#95A5A6"},{label:"Fallido",value:pct(filteredTestStats["Fallido"]),color:"#E74C3C"}].map((r,i)=>(
+                      {[{label:"Aprobados",value:pct(filteredTestStats["Aprobado"]),color:"#27AE60"},{label:"En revisión",value:pct(filteredTestStats["Revisión"]),color:"#F39C12"},{label:"Borradores",value:pct(filteredTestStats["Borrador"]),color:"#95A5A6"}].map((r,i)=>(
                         <div key={i} style={{marginBottom:12}}>
                           <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:DM.sub}}>{r.label}</span><span style={{fontSize:11,fontWeight:700,color:r.color}}>{r.value}%</span></div>
                           <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}><div style={{width:`${r.value}%`,height:"100%",background:r.color,borderRadius:4,transition:"width 0.6s"}}/></div>
@@ -2976,17 +3119,13 @@ export default function App() {
                         .map(([mod,m])=>{
                           const moduleData=[
                             {label:"Aprobado",value:m.aprobado,color:"#27AE60"},
-                            {label:"En Progreso",value:m.enProgreso,color:"#F39C12"},
-                            {label:"Fallido",value:m.fallido,color:"#E74C3C"},
-                            {label:"No ejecutado",value:m.noEjecutado,color:"#95A5A6"},
-                            {label:"No aplica",value:m.noAplica,color:"#BDC3C7"},
-                            {label:"Bloqueante",value:m.bloqueante,color:"#8E44AD"},
+                            {label:"Revisión",value:m.enProgreso,color:"#F39C12"},
+                            {label:"Borrador",value:m.noEjecutado,color:"#95A5A6"},
                           ].filter(d=>d.value>0);
                           const states=[
-                            {label:"Ejecutado",value:m.total?Math.round(((m.aprobado+m.noAplica)/m.total)*100):0,color:"#27AE60"},
-                            {label:"En progreso",value:m.total?Math.round((m.enProgreso/m.total)*100):0,color:"#F39C12"},
-                            {label:"No ejecutado",value:m.total?Math.round((m.noEjecutado/m.total)*100):0,color:"#95A5A6"},
-                            {label:"Fallido",value:m.total?Math.round((m.fallido/m.total)*100):0,color:"#E74C3C"},
+                            {label:"Aprobados",value:m.total?Math.round((m.aprobado/m.total)*100):0,color:"#27AE60"},
+                            {label:"En revisión",value:m.total?Math.round((m.enProgreso/m.total)*100):0,color:"#F39C12"},
+                            {label:"Borradores",value:m.total?Math.round((m.noEjecutado/m.total)*100):0,color:"#95A5A6"},
                           ];
                           return (
                             <div key={mod} style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
@@ -3050,7 +3189,7 @@ export default function App() {
                     <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:16}}>📦 Métricas por Módulo</div>
                     <div style={{display:"flex",flexDirection:"column",gap:14}}>
                       {Object.entries(moduleStats).map(([mod,m])=>{
-                        const modExecPct=m.total?Math.round(((m.aprobado+m.noAplica)/m.total)*100):0;
+                        const modExecPct=m.total?Math.round((m.aprobado/m.total)*100):0;
                         const semC=modExecPct>=70?"#27AE60":modExecPct>=40?"#F39C12":"#E74C3C";
                         return(
                           <div key={mod} style={{border:`1px solid ${DM.cardBorder}`,borderRadius:10,overflow:"hidden"}}>
@@ -3071,11 +3210,8 @@ export default function App() {
                             <div style={{padding:"12px 16px",display:"flex",gap:10,flexWrap:"wrap"}}>
                               {[
                                 {label:"Aprobado",value:m.aprobado,color:"#27AE60"},
-                                {label:"En Progreso",value:m.enProgreso,color:"#F39C12"},
-                                {label:"Fallido",value:m.fallido,color:"#E74C3C"},
-                                {label:"No ejecutado",value:m.noEjecutado,color:"#95A5A6"},
-                                {label:"No aplica",value:m.noAplica,color:"#BDC3C7"},
-                                {label:"Bloqueante",value:m.bloqueante,color:"#8E44AD"},
+                                {label:"Revisión",value:m.enProgreso,color:"#F39C12"},
+                                {label:"Borrador",value:m.noEjecutado,color:"#95A5A6"},
                               ].filter(s=>s.value>0).map(s=>(
                                 <div key={s.label} style={{display:"flex",alignItems:"center",gap:5,background:s.color+"15",border:`1px solid ${s.color}30`,borderRadius:8,padding:"5px 10px"}}>
                                   <div style={{width:7,height:7,borderRadius:"50%",background:s.color}}/>
@@ -3098,13 +3234,13 @@ export default function App() {
                     <div style={{display:"flex",flexDirection:"column",gap:12}}>
                       {(proj.ciclos||[]).map(ciclo=>{
                         const ejecs=(ciclo.ejecuciones||[]).filter(e=>filteredTests.some(t=>t.id===e.tcId));
-                        const ap=ejecs.filter(e=>e.estado==="Aprobado").length;
-                        const fa=ejecs.filter(e=>e.estado==="Fallido").length;
-                        const ep=ejecs.filter(e=>e.estado==="En Progreso").length;
-                        const ne=ejecs.filter(e=>e.estado==="No ejecutado").length;
-                        const na=ejecs.filter(e=>e.estado==="No aplica").length;
-                        const bl=ejecs.filter(e=>e.estado==="Bloqueante").length;
-                        const cp=ejecs.length?Math.round(((ap+na)/ejecs.length)*100):0;
+                        const ap=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Aprobado").length;
+                        const ep=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="En Progreso").length;
+                        const ne=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="No ejecutado").length;
+                        const fa=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Fallido").length;
+                        const na=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="No aplica").length;
+                        const bl=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Bloqueante").length;
+                        const cp=ejecs.length?Math.round((ap/ejecs.length)*100):0;
                         const cc=cp>=70?"#27AE60":cp>=40?"#F39C12":"#E74C3C";
                         return(
                           <div key={ciclo.id} style={{border:`1px solid ${DM.cardBorder}`,borderRadius:10,overflow:"hidden"}}>
@@ -3130,10 +3266,7 @@ export default function App() {
                                   {[
                                     {label:"Aprobado",value:ap,color:"#27AE60"},
                                     {label:"En Progreso",value:ep,color:"#F39C12"},
-                                    {label:"Fallido",value:fa,color:"#E74C3C"},
                                     {label:"No ejecutado",value:ne,color:"#95A5A6"},
-                                    {label:"No aplica",value:na,color:"#BDC3C7"},
-                                    {label:"Bloqueante",value:bl,color:"#8E44AD"},
                                   ].filter(s=>s.value>0).map(s=>(
                                     <div key={s.label} style={{display:"flex",alignItems:"center",gap:5,background:s.color+"15",border:`1px solid ${s.color}30`,borderRadius:8,padding:"5px 10px"}}>
                                       <div style={{width:7,height:7,borderRadius:"50%",background:s.color}}/>
@@ -3155,9 +3288,9 @@ export default function App() {
                                     <div key={i} style={{flex:s.value,background:s.color,transition:"flex 0.6s"}}/>
                                   ))}
                                 </div>
-                                {fa>0&&(
-                                  <div style={{marginTop:8,fontSize:11,color:"#E74C3C",fontWeight:600}}>
-                                    ⚠️ {fa} caso(s) fallido(s) — considera promoverlos al siguiente ciclo
+                                {ep>0&&(
+                                  <div style={{marginTop:8,fontSize:11,color:"#F39C12",fontWeight:600}}>
+                                    ⚠️ {ep} caso(s) en progreso — considera promoverlos al siguiente ciclo
                                   </div>
                                 )}
                               </div>
@@ -3185,6 +3318,8 @@ export default function App() {
                     <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>{filteredTests.length} casos · ⠿ arrastra para reordenar · clic para ver</p>
                   </div>
                   <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                    <Btn small variant={testViewMode==="compacta"?"primary":"ghost"} onClick={()=>setTestViewMode("compacta")}>Vista compacta</Btn>
+                    <Btn small variant={testViewMode==="expandida"?"primary":"ghost"} onClick={()=>setTestViewMode("expandida")}>Vista expandida</Btn>
                     <Btn small onClick={()=>{setEditTc(null);setShowTcForm(true);}}>+ Nuevo TC</Btn>
                     <Btn small variant="ghost" onClick={()=>setShowJira(true)} style={{background:"#0052CC",color:"#fff"}}>🔗 Importar de Jira</Btn>
                     <Btn small variant="ghost" onClick={()=>importRef.current.click()}>⬆ Importar CSV</Btn>
@@ -3214,40 +3349,65 @@ export default function App() {
                     {(filterFechaDesde||filterFechaHasta)&&<button onClick={()=>{setFilterFechaDesde("");setFilterFechaHasta("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#aaa"}}>✕</button>}
                   </div>
                 </div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",padding:"10px 12px",borderRadius:10,background:darkMode?"#1a1f28":"#f7faff",border:`1px solid ${darkMode?"#2d3b4f":"#e3eeff"}`}}>
+                  <span style={{fontSize:11,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>Selección masiva</span>
+                  <span style={{fontSize:12,color:DM.text,fontWeight:700}}>{selectedVisibleCount}/{visibleTestIds.length} visibles</span>
+                  <Btn small variant="ghost" onClick={()=>selectAllVisibleTests(visibleTestIds)} disabled={!visibleTestIds.length||allVisibleSelected}>Seleccionar visibles</Btn>
+                  <Btn small variant="ghost" onClick={()=>clearSelectedTests(visibleTestIds)} disabled={!selectedVisibleCount}>Limpiar visibles</Btn>
+                  <select value={bulkTestStatus} onChange={e=>setBulkTestStatus(e.target.value)} style={{...inputStyle,width:140,padding:"6px 10px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #dbe7ff"}}>
+                    <option value="">Sin cambio de estado</option>
+                    {Object.keys(statusConfig).map(k=><option key={k} value={k}>{k}</option>)}
+                  </select>
+                  <select value={bulkTestAssignee} onChange={e=>setBulkTestAssignee(e.target.value)} style={{...inputStyle,width:180,padding:"6px 10px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #dbe7ff"}}>
+                    <option value="">Sin cambio de responsable</option>
+                    {[...new Set(tests.map(t=>t.asignadoA).filter(Boolean))].map(a=><option key={a} value={a}>{a}</option>)}
+                  </select>
+                  <Btn small onClick={applyBulkChangesToTests} disabled={!selectedTestIds.length}>Aplicar a seleccionados</Btn>
+                </div>
                 <div style={{background:DM.card,borderRadius:12,overflow:"hidden",border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                   <div style={{overflowX:"auto"}}>
-                    <table style={{width:"100%",minWidth:1100,borderCollapse:"collapse",fontSize:12}}>
+                    <table style={{width:"100%",minWidth:testViewMode==="compacta"?930:1100,borderCollapse:"collapse",fontSize:12}}>
                     <thead>
                       <tr style={{background:proj.color,color:"#fff"}}>
+                        <th style={{padding:"9px 6px",width:28,textAlign:"center"}}>
+                          <input type="checkbox" checked={allVisibleSelected} onChange={e=>e.target.checked?selectAllVisibleTests(visibleTestIds):clearSelectedTests(visibleTestIds)} onClick={e=>e.stopPropagation()} title="Seleccionar visibles"/>
+                        </th>
                         <th style={{padding:"9px 6px",width:20}}></th>
-                        {["ID","Escenario","Módulo","Pasos","Descripción","Responsable","Estado","Adj.","Observación"].map(h=>(
+                        {["ID","Escenario","Módulo",...(testViewMode==="expandida"?["Pasos","Descripción"]:[]),"Responsable","Estado","Adj.","Observación"].map(h=>(
                           <th key={h} style={{padding:"9px 10px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:"0.05em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTests.length===0&&(<tr><td colSpan={10} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin resultados.</td></tr>)}
+                      {filteredTests.length===0&&(<tr><td colSpan={testViewMode==="expandida"?11:9} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin resultados.</td></tr>)}
                       {filteredTests.map((t,i)=>{
-                        const sc=statusConfig[t.estado]||statusConfig["No ejecutado"];
+                        const sc=statusConfig[normalizeTestStatus(t.estado)]||statusConfig["Borrador"];
                         const realIndex=proj.tests.findIndex(x=>x.id===t.id);
                         const pasosPreview=parseSteps(t.pasos);
+                        const isSelected=selectedTestIds.includes(t.id);
+                        const commentsCount=(t.comentarios||[]).length;
                         return (
                           <tr key={t.id} draggable
                             onDragStart={()=>{dragIndex.current=realIndex;}}
                             onDragOver={e=>{e.preventDefault();dragOverIndex.current=realIndex;}}
                             onDrop={()=>{if(dragIndex.current!==null&&dragIndex.current!==dragOverIndex.current)reorderTests(dragIndex.current,dragOverIndex.current);dragIndex.current=null;dragOverIndex.current=null;}}
                             onClick={()=>{setViewTc(t); setSelectedAiTc(t);}}
-                            style={{background:i%2===0?DM.tableRow0:DM.tableRow1,cursor:"pointer",borderBottom:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
+                            style={{background:isSelected?(darkMode?"#1d2a3c":"#ecf5ff"):(i%2===0?DM.tableRow0:DM.tableRow1),cursor:"pointer",borderBottom:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
                             onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
-                            onMouseLeave={e=>e.currentTarget.style.background=i%2===0?DM.tableRow0:DM.tableRow1}>
+                            onMouseLeave={e=>e.currentTarget.style.background=isSelected?(darkMode?"#1d2a3c":"#ecf5ff"):(i%2===0?DM.tableRow0:DM.tableRow1)}>
+                            <td style={{padding:"8px 6px",textAlign:"center"}} onClick={e=>e.stopPropagation()}>
+                              <input type="checkbox" checked={isSelected} onChange={()=>toggleTestSelection(t.id)} />
+                            </td>
                             <td style={{padding:"8px 6px",textAlign:"center",color:"#ccc",cursor:"grab",fontSize:14}} onClick={e=>e.stopPropagation()} title="Arrastrar">⠿</td>
                             <td style={{padding:"8px 10px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",fontSize:11}}>{t.id}</td>
                             <td style={{padding:"8px 10px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:180,maxWidth:240,letterSpacing:"0.05px",background:darkMode?"#202b3b":"#f7faff",borderRadius:6,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff",fontSize:11}}>{t.escenario}</td>
                             <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.proceso}</td>
-                            <td style={{padding:"8px 10px",color:"#666",minWidth:260,maxWidth:320,whiteSpace:"normal",lineHeight:1.35,fontSize:10,verticalAlign:"top"}}>
-                              {pasosPreview.length ? pasosPreview.map((s,idx)=><div key={idx} style={{marginBottom:idx===pasosPreview.length-1?0:4}}>{`${idx+1}. ${s.text || "Sin detalle"}`}</div>) : "—"}
-                            </td>
-                            <td style={{padding:"8px 10px",color:"#888",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10}}>{t.descripcion}</td>
+                            {testViewMode==="expandida"&&(
+                              <td style={{padding:"8px 10px",color:"#666",minWidth:260,maxWidth:320,whiteSpace:"normal",lineHeight:1.35,fontSize:10,verticalAlign:"top"}}>
+                                {pasosPreview.length ? pasosPreview.map((s,idx)=><div key={idx} style={{marginBottom:idx===pasosPreview.length-1?0:4}}>{`${idx+1}. ${s.text || "Sin detalle"}`}</div>) : "—"}
+                              </td>
+                            )}
+                            {testViewMode==="expandida"&&<td style={{padding:"8px 10px",color:"#888",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10}}>{t.descripcion}</td>}
                             <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:10}}>{t.asignadoA||"—"}</td>
                             <td style={{padding:"8px 10px"}} onClick={e=>e.stopPropagation()}>
                               <select value={t.estado} onChange={e=>updateTCStatus(t.id,e.target.value)}
@@ -3260,7 +3420,7 @@ export default function App() {
                               {(t.comentarios||[]).length>0&&<span style={{fontSize:11,marginLeft:3}} title={`${t.comentarios.length} comentario(s)`}>💬{t.comentarios.length}</span>}
                             </td>
                             <td style={{padding:"8px 10px",textAlign:"center",whiteSpace:"nowrap"}} onClick={e=>e.stopPropagation()}>
-                              <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTc(t);}} style={{padding:"4px 8px",fontSize:11}}>📝</Btn>
+                              <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTc(t);}} title="Agregar novedad u observación" style={{padding:"4px 8px",fontSize:11,color:commentsCount>0?"#C0392B":undefined,fontWeight:commentsCount>0?800:700}}>📝{commentsCount>0?` ${commentsCount}`:""}</Btn>
                             </td>
                           </tr>
                         );
@@ -3300,13 +3460,13 @@ export default function App() {
                 {ciclos.map(ciclo=>{
                   const isExpanded=expandedCiclos[ciclo.id]!==false; // default expanded
                   const ejecs=ciclo.ejecuciones||[];
-                  const aprobados=ejecs.filter(e=>e.estado==="Aprobado").length;
-                  const fallidos=ejecs.filter(e=>e.estado==="Fallido").length;
-                  const enProgreso=ejecs.filter(e=>e.estado==="En Progreso").length;
-                  const noEjec=ejecs.filter(e=>e.estado==="No ejecutado").length;
-                  const noAplica=ejecs.filter(e=>e.estado==="No aplica").length;
-                  const bloqueante=ejecs.filter(e=>e.estado==="Bloqueante").length;
-                  const execPctC=ejecs.length?Math.round(((aprobados+noAplica)/ejecs.length)*100):0;
+                  const aprobados=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Aprobado").length;
+                  const enProgreso=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="En Progreso").length;
+                  const noEjec=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="No ejecutado").length;
+                  const fa=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Fallido").length;
+                  const na=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="No aplica").length;
+                  const bl=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Bloqueante").length;
+                  const execPctC=ejecs.length?Math.round((aprobados/ejecs.length)*100):0;
                   // TCs disponibles para agregar (que no estén ya en este ciclo)
                   const tcsDisponibles=tests.filter(t=>!ejecs.find(e=>e.tcId===t.id));
                   const selectedForCycle=bulkTcSelection[ciclo.id]||[];
@@ -3326,10 +3486,10 @@ export default function App() {
                             <div style={{width:`${execPctC}%`,height:"100%",background:"#fff",borderRadius:3}}/>
                           </div>
                           <span style={{fontSize:13,fontWeight:800,color:"#fff"}}>{execPctC}%</span>
-                          {fallidos>0&&(
+                          {enProgreso>0&&(
                             <button onClick={()=>promoverFallidos(ciclo.id)}
-                              style={{background:"#E74C3C",border:"none",borderRadius:7,color:"#fff",padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>
-                              ⬆ Promover {fallidos} fallido(s) →
+                              style={{background:"#F39C12",border:"none",borderRadius:7,color:"#fff",padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                              ⬆ Promover {enProgreso} en progreso →
                             </button>
                           )}
                           <button onClick={()=>{setEditCiclo(ciclo);setShowCicloForm(true);}} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:6,color:"#fff",padding:"5px 10px",cursor:"pointer",fontSize:12}}>✏️ Editar</button>
@@ -3347,7 +3507,7 @@ export default function App() {
                       {/* Stats chips */}
                       <div style={{padding:"10px 20px",display:"flex",gap:8,flexWrap:"wrap",borderBottom:`1px solid ${DM.cardBorder}`,alignItems:"center"}}>
                         <span style={{fontSize:12,color:DM.sub}}><strong style={{color:DM.text}}>{ejecs.length}</strong> TCs</span>
-                        {[{l:"Aprobado",v:aprobados,c:"#27AE60"},{l:"En Progreso",v:enProgreso,c:"#F39C12"},{l:"Fallido",v:fallidos,c:"#E74C3C"},{l:"No ejecutado",v:noEjec,c:"#95A5A6"},{l:"No aplica",v:noAplica,c:"#BDC3C7"},{l:"Bloqueante",v:bloqueante,c:"#8E44AD"}].filter(s=>s.v>0).map(s=>(
+                        {[{l:"Aprobado",v:aprobados,c:"#27AE60"},{l:"En Progreso",v:enProgreso,c:"#F39C12"},{l:"No ejecutado",v:noEjec,c:"#95A5A6"}].filter(s=>s.v>0).map(s=>(
                           <div key={s.l} style={{display:"flex",alignItems:"center",gap:4,background:s.c+"15",border:`1px solid ${s.c}30`,borderRadius:7,padding:"3px 9px"}}>
                             <div style={{width:6,height:6,borderRadius:"50%",background:s.c}}/><span style={{fontSize:11,color:s.c,fontWeight:700}}>{s.v} {s.l}</span>
                           </div>
@@ -3385,7 +3545,7 @@ export default function App() {
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                           <thead>
                             <tr style={{background:darkMode?"#1a1a1a":"#f8f8f8"}}>
-                              {["TC","Escenario","Módulo","Responsable","Fecha Ejec.","Estado en este ciclo","Nota",""].map(h=>(
+                              {["TC","Escenario",""] .map(h=>(
                                 <th key={h} style={{padding:"8px 14px",textAlign:"left",fontSize:10,fontWeight:700,color:DM.sub,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
                               ))}
                             </tr>
@@ -3394,31 +3554,53 @@ export default function App() {
                             {ejecs.map((ejec)=>{
                               const tc=tests.find(t=>t.id===ejec.tcId);
                               if(!tc)return null;
-                              const sc=statusConfig[ejec.estado]||statusConfig["No ejecutado"];
+                              const sc=cycleStatusConfig[normalizeCycleExecutionStatus(ejec.estado)]||cycleStatusConfig["No ejecutado"];
+                              const parsedSteps = parseSteps(tc.pasos || "");
+                              const generalState = summarizeCycleStepStatuses(parsedSteps);
+                              const generalSc = cycleStatusConfig[normalizeCycleExecutionStatus(generalState)] || cycleStatusConfig["No ejecutado"];
                               return(
-                                <tr key={ejec.tcId} style={{borderTop:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
-                                  onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
-                                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                                  <td style={{padding:"8px 14px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap"}}>{tc.id}</td>
-                                  <td style={{padding:"8px 14px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:220,maxWidth:320,letterSpacing:"0.08px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>
-                                    <div>{tc.escenario}</div>
-                                    <div style={{marginTop:4,display:"inline-flex",alignItems:"center",padding:"2px 8px",borderRadius:999,background:proj.color+"15",color:proj.color,fontSize:10,fontWeight:700}}>{tc.proceso || "Sin módulo"}</div>
-                                  </td>
-                                  <td style={{padding:"8px 14px",color:DM.sub,fontSize:11}}>{tc.proceso || "Sin módulo"}</td>
-                                  <td style={{padding:"8px 14px",color:DM.sub,fontSize:11}}>{tc.asignadoA||"—"}</td>
-                                  <td style={{padding:"8px 14px",color:DM.sub,fontFamily:"monospace",fontSize:11,whiteSpace:"nowrap"}}>{ejec.fechaEjecucion||"—"}</td>
-                                  <td style={{padding:"8px 14px"}}>
-                                    <select value={ejec.estado} onChange={e=>updateEjecucionEstado(ciclo.id,tc.id,e.target.value)}
-                                      style={{border:`1px solid ${sc.color}50`,borderRadius:10,padding:"3px 8px",fontSize:11,fontWeight:700,color:sc.color,background:sc.bg,cursor:"pointer",outline:"none"}}>
-                                      {Object.keys(statusConfig).map(k=><option key={k} value={k}>{k}</option>)}
-                                    </select>
-                                  </td>
-                                  <td style={{padding:"8px 14px",color:DM.sub,fontSize:11,fontStyle:"italic"}}>{ejec.nota||""}</td>
-                                  <td style={{padding:"8px 14px"}}>
-                                    <button onClick={()=>removeTcFromCiclo(ciclo.id,tc.id)} title="Quitar del ciclo"
-                                      style={{background:"none",border:"none",cursor:"pointer",color:"#E74C3C",fontSize:14,padding:"2px 4px"}}>✕</button>
-                                  </td>
-                                </tr>
+                                <>
+                                  <tr key={ejec.tcId} style={{borderTop:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
+                                    onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
+                                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                    <td style={{padding:"8px 14px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",verticalAlign:"top"}}>
+                                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                                        <div>{tc.id}</div>
+                                        <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTc(tc);}} title="Agregar novedad u observación" style={{padding:"4px 9px",fontSize:10,color:BRAND,border:`1px solid ${BRAND}2a`,background:BRAND_LIGHT,borderRadius:999,boxShadow:"0 1px 4px rgba(0,0,0,0.04)"}}>📝 Novedad</Btn>
+                                      </div>
+                                      <div style={{marginTop:8,display:"inline-flex",alignItems:"center",gap:6}}>
+                                        <Badge label={generalState} color={generalSc.color} bg={generalSc.bg} />
+                                      </div>
+                                    </td>
+                                    <td style={{padding:"8px 14px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:320,maxWidth:520,letterSpacing:"0.08px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff",verticalAlign:"top"}}>
+                                      <div>{tc.escenario}</div>
+                                      <div style={{marginTop:8,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                                        <span style={{fontSize:10,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>Estado general</span>
+                                        <Badge label={generalState} color={generalSc.color} bg={generalSc.bg} />
+                                      </div>
+                                      <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:6,maxHeight:190,overflowY:"auto",paddingRight:4}}>
+                                        {parsedSteps.map((step,index)=>(
+                                          <div key={`${tc.id}-${index}`} onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",gap:6,background:darkMode?"#141b24":"#fff",borderRadius:11,padding:"8px 10px",border:`1px solid ${darkMode?"#31445b":"#eaf1f8"}`,borderLeft:`4px solid ${cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub}`,boxShadow:darkMode?"0 1px 4px rgba(0,0,0,0.14)":"0 1px 4px rgba(17,24,39,0.05)"}}>
+                                            <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                                              <span style={{fontSize:9,color:DM.sub,fontWeight:800,whiteSpace:"nowrap",textTransform:"uppercase",letterSpacing:"0.05em"}}>Paso {index+1}</span>
+                                              <Badge label={normalizeCycleExecutionStatus(step.status)} color={cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub} bg={cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.bg || "#f4f4f4"} />
+                                              <select value={normalizeCycleExecutionStatus(step.status)} onChange={e=>updateStepEstado(tc.id,index,e.target.value)} title="Cambiar estado del paso" style={{marginLeft:"auto",border:`1px solid ${cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub}30`,borderRadius:7,padding:"2px 7px",fontSize:9,fontWeight:700,color:cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub,background:cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.bg || "#f4f4f4",cursor:"pointer",outline:"none",minWidth:98}}>
+                                                {Object.keys(cycleStatusConfig).map(k=><option key={k} value={k}>{k}</option>)}
+                                              </select>
+                                            </div>
+                                            <span style={{fontSize:9.5,color:darkMode?"#dce6f5":"#4b5563",lineHeight:1.35,whiteSpace:"normal"}}>{step.text || "Sin detalle"}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </td>
+                                    <td style={{padding:"8px 14px"}}>
+                                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6}} onClick={e=>e.stopPropagation()}>
+                                        <button onClick={()=>removeTcFromCiclo(ciclo.id,tc.id)} title="Quitar del ciclo"
+                                          style={{background:"none",border:"none",cursor:"pointer",color:"#E74C3C",fontSize:14,padding:"2px 4px"}}>✕</button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                </>
                               );
                             })}
                           </tbody>
@@ -3458,7 +3640,7 @@ export default function App() {
                               {ciclos.map(c=>{
                                 const ejec=(c.ejecuciones||[]).find(e=>e.tcId===tc.id);
                                 if(!ejec)return<td key={c.id} style={{padding:"8px 14px",textAlign:"center",color:"#ccc"}}>—</td>;
-                                const sc=statusConfig[ejec.estado]||statusConfig["No ejecutado"];
+                                const sc=cycleStatusConfig[normalizeCycleExecutionStatus(ejec.estado)]||cycleStatusConfig["No ejecutado"];
                                 return(
                                   <td key={c.id} style={{padding:"8px 14px",textAlign:"center"}}>
                                     <span style={{background:sc.bg,color:sc.color,border:`1px solid ${sc.color}30`,borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>{ejec.estado}</span>

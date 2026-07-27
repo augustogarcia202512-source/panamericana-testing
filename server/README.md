@@ -4,6 +4,24 @@ Usage
 - Install dependencies: `npm install` (run inside the `server` folder)
 - Start: `npm start` (defaults to port 3001)
 
+Real AI providers
+- The proxy can call a real model API when credentials are configured.
+- Provider priority: `Azure OpenAI` -> `OpenAI` -> `LOCAL_MODEL_CMD` -> `mock`.
+
+OpenAI setup
+- `OPENAI_API_KEY=...`
+- Optional: `OPENAI_MODEL=gpt-4o-mini`
+
+Azure OpenAI setup
+- `AZURE_OPENAI_API_KEY=...`
+- `AZURE_OPENAI_ENDPOINT=https://<resource-name>.openai.azure.com`
+- `AZURE_OPENAI_DEPLOYMENT=<deployment-name>`
+- Optional: `AZURE_OPENAI_API_VERSION=2024-10-21`
+
+Health check
+- `GET /api/ai/health`
+- Returns active mode (`azure-openai`, `openai`, `local-cli`, `mock`) and whether a real provider is active.
+
 By default the server returns a simple mock response. To connect to a local model CLI, set the `LOCAL_MODEL_CMD` environment variable to the executable and arguments.
 
 Supported patterns:
@@ -19,4 +37,4 @@ Cache
 	- `CACHE_TTL_SECONDS` (default `300`) — TTL for cache entries in seconds.
 	- `CACHE_MAX_ENTRIES` (default `200`) — maximum number of cached prompts.
 
-The React app calls `/api/ai/generate` for development when `VITE_USE_LOCAL_MOCK=true`.
+The React app calls `/api/ai/generate` through Vite proxy in development.
