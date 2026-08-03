@@ -26,17 +26,73 @@ const issueStatusConfig = {
 };
 const severityConfig = { "Critical":"#C0392B","High":"#E74C3C","Medium":"#F39C12","Low":"#27AE60" };
 const COLORS = ["#C0392B","#2980B9","#16A085","#8E44AD","#D35400","#2C3E50","#27AE60","#F39C12"];
-const EMPTY_TC = { area:"",proceso:"",escenario:"",descripcion:"",pasos:"",resultado:"",fechaAprobacion:"",fechaEjecucion:"",estado:"Borrador",asignadoA:"",attachments:[],historial:[],comentarios:[] };
+const EMPTY_TC = { area:"",proceso:"",escenario:"",descripcion:"",pasos:"",resultado:"",fechaAprobacion:"",fechaEjecucion:"",estado:"Borrador",asignadoRol:"QA / Pruebas",asignadoA:"",tipoPrueba:"",nivelPrueba:"",attachments:[],historial:[],comentarios:[] };
 const EMPTY_ISSUE = { testId:"",escenario:"",formulario:"",observacion:"",modulo:"",estado:"Open",severidad:"Medium",prioridad:"Medium",fechaCreacion:"",fechaSolucion:"",attachments:[] };
 const EMPTY_CICLO = { nombre:"",modulo:"",fechaInicio:"",fechaFin:"",descripcion:"",ejecuciones:[] };
-const EMPTY_PROJECT = { name:"",description:"",color:COLORS[0],modules:[],testers:[] };
+const EMPTY_PROJECT = { name:"",description:"",color:COLORS[0],modules:[],scrumTeam:{productOwner:"",scrumMaster:"",developers:[],qa:[]},scrumTestTypes:["Funcionales","Regresión","Integración","Aceptación"],scrumLevels:["Unitarias","Integración","Sistema","Aceptación","Regresión"] };
 // ejecucion: { tcId, estado, fechaEjecucion, nota }
+
+function normalizeMemberList(list) {
+  return Array.from(new Set((Array.isArray(list) ? list : []).map(value => String(value || "").trim()).filter(Boolean)));
+}
+
+function normalizeScrumTeam(team) {
+  const source = team && typeof team === "object" ? team : {};
+  return {
+    productOwner: String(source.productOwner || "").trim(),
+    scrumMaster: String(source.scrumMaster || "").trim(),
+    developers: normalizeMemberList(source.developers),
+    qa: normalizeMemberList(source.qa),
+  };
+}
+
+function normalizeProjectList(value) {
+  return normalizeMemberList(value);
+}
+
+function getScrumTeamMembers(project) {
+  const team = normalizeScrumTeam(project?.scrumTeam);
+  return normalizeMemberList([
+    team.productOwner,
+    team.scrumMaster,
+    ...team.developers,
+    ...team.qa,
+  ]);
+}
+
+function getScrumRoleMembers(project, role) {
+  const team = normalizeScrumTeam(project?.scrumTeam);
+  const normalizedRole = String(role || "").trim();
+  if (normalizedRole === "Product Owner") return team.productOwner ? [team.productOwner] : [];
+  if (normalizedRole === "Scrum Master") return team.scrumMaster ? [team.scrumMaster] : [];
+  if (normalizedRole === "Developers") return team.developers;
+  if (normalizedRole === "QA / Pruebas") return team.qa;
+  return getScrumTeamMembers(project);
+}
+
+function inferScrumRole(project, member) {
+  const team = normalizeScrumTeam(project?.scrumTeam);
+  const value = String(member || "").trim();
+  if (!value) return "QA / Pruebas";
+  if (team.productOwner && team.productOwner === value) return "Product Owner";
+  if (team.scrumMaster && team.scrumMaster === value) return "Scrum Master";
+  if (team.developers.includes(value)) return "Developers";
+  if (team.qa.includes(value)) return "QA / Pruebas";
+  return "QA / Pruebas";
+}
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 const seedProjects = [{
   id:"proj-1", name:"Panamericana – SAP Compras", description:"Pruebas funcionales módulo Compras a Pago", color:"#C0392B", createdAt:"01/06/2026",
   modules:["Compras","Logística","Pagos"],
-  testers:["Carlos Pérez","María Gómez","Andrés Rojas"],
+  scrumTeam:{
+    productOwner:"Laura Torres",
+    scrumMaster:"Carlos Pérez",
+    developers:["María Gómez","Andrés Rojas"],
+    qa:["Sofía Ramírez"],
+  },
+  scrumTestTypes:["Funcionales","Regresión","Integración","Aceptación"],
+  scrumLevels:["Unitarias","Integración","Sistema","Aceptación","Regresión"],
   tests:[
     { id:"TC-01",area:"Compras a pago",proceso:"Compras",escenario:"Modificación",descripcion:"Modificación de ítems o condiciones específicas en una orden de compra",pasos:"1. Ingresar al sistema\n2. Buscar la orden de compra\n3. Validar estado de la orden\n4. Seleccionar ítem a modificar\n5. Realizar cambios\n6. Guardar cambios",resultado:"La orden de compra se actualiza correctamente",fechaAprobacion:"29/04/2026",fechaEjecucion:"",estado:"Aprobado",asignadoA:"Carlos Pérez",attachments:[],historial:[{fecha:"29/04/2026",de:"—",a:"Aprobado",nota:"Estado inicial"}],comentarios:[] },
     { id:"TC-02",area:"Compras a pago",proceso:"Logística",escenario:"Recepción de mercancía",descripcion:"Recepción conforme a orden de compra",pasos:"1. Ingresar al sistema\n2. Verificar estado de la orden\n3. Recibir mercancía\n4. Validar orden vs factura\n5. Registrar recepción",resultado:"La mercancía es recibida y registrada en inventario",fechaAprobacion:"21/05/2026",fechaEjecucion:"21/05/2026",estado:"Aprobado",asignadoA:"",attachments:[],historial:[{fecha:"21/05/2026",de:"—",a:"Aprobado",nota:""}],comentarios:[] },
@@ -1683,22 +1739,79 @@ function CicloFormModal({initial,cicloId,modulosList,onSave,onClose,darkMode}) {
 
 // ─── FORM MODALS ──────────────────────────────────────────────────────────────
 function ProjectFormModal({initial,onSave,onClose,darkMode}) {
-  const [form,setForm]=useState({ ...EMPTY_PROJECT, ...(initial||{}) });
+  const [form,setForm]=useState(() => {
+    const initialTeam = normalizeScrumTeam(initial?.scrumTeam);
+    const legacyTeam = normalizeMemberList(initial?.testers);
+    return {
+      ...EMPTY_PROJECT,
+      ...(initial || {}),
+      scrumTeam: {
+        ...EMPTY_PROJECT.scrumTeam,
+        ...initialTeam,
+        qa: initialTeam.qa.length ? initialTeam.qa : legacyTeam,
+      },
+      scrumTestTypes: normalizeProjectList(initial?.scrumTestTypes || EMPTY_PROJECT.scrumTestTypes),
+      scrumLevels: normalizeProjectList(initial?.scrumLevels || EMPTY_PROJECT.scrumLevels),
+    };
+  });
   const [moduleInput,setModuleInput]=useState("");
-  const [testerInput,setTesterInput]=useState("");
+  const [devInput,setDevInput]=useState("");
+  const [qaInput,setQaInput]=useState("");
+  const [testTypeInput,setTestTypeInput]=useState("");
+  const [levelInput,setLevelInput]=useState("");
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const IS=darkMode?inputStyleDark:inputStyle;
   function addItem(field, inputValue, setter) {
     const value = String(inputValue||"").trim();
     if(!value) return;
-    const items = Array.isArray(form[field]) ? form[field] : [];
+    const items = field === "modules"
+      ? (Array.isArray(form.modules) ? form.modules : [])
+      : normalizeMemberList(form.scrumTeam?.[field]);
     const next = [...items, ...value.split(",").map(v=>v.trim()).filter(Boolean)];
-    set(field, next.filter((item, index) => next.indexOf(item) === index));
+    const deduped = next.filter((item, index) => next.indexOf(item) === index);
+    if (field === "modules") {
+      set("modules", deduped);
+    } else {
+      set("scrumTeam", {
+        ...(form.scrumTeam || EMPTY_PROJECT.scrumTeam),
+        [field]: deduped,
+      });
+    }
     setter("");
   }
   function removeItem(field, item) {
-    const items = Array.isArray(form[field]) ? form[field] : [];
-    set(field, items.filter(i=>i!==item));
+    if (field === "modules") {
+      const items = Array.isArray(form.modules) ? form.modules : [];
+      set("modules", items.filter(i=>i!==item));
+      return;
+    }
+    const items = normalizeMemberList(form.scrumTeam?.[field]);
+    set("scrumTeam", {
+      ...(form.scrumTeam || EMPTY_PROJECT.scrumTeam),
+      [field]: items.filter(i=>i!==item),
+    });
+  }
+  function updateTeam(field, value) {
+    setForm(prev => ({
+      ...prev,
+      scrumTeam: {
+        ...(prev.scrumTeam || EMPTY_PROJECT.scrumTeam),
+        [field]: String(value || "").trim(),
+      },
+    }));
+  }
+  function addListItem(field, inputValue, setter) {
+    const value = String(inputValue || "").trim();
+    if (!value) return;
+    const items = normalizeProjectList(form[field]);
+    const next = [...items, ...value.split(",").map(v => v.trim()).filter(Boolean)];
+    const deduped = next.filter((item, index) => next.indexOf(item) === index);
+    set(field, deduped);
+    setter("");
+  }
+  function removeListItem(field, item) {
+    const items = normalizeProjectList(form[field]);
+    set(field, items.filter(entry => entry !== item));
   }
   return (
     <Modal onClose={onClose} preventOutsideClose>
@@ -1722,31 +1835,95 @@ function ProjectFormModal({initial,onSave,onClose,darkMode}) {
             </div>
           )}
         </Field>
-        <Field label="Personas para pruebas">
-          <div style={{display:"flex",gap:8}}>
-            <input style={IS} value={testerInput} onChange={e=>setTesterInput(e.target.value)} placeholder="Ej: Ana, Luis" onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addItem("testers",testerInput,setTesterInput);}}}/>
-            <Btn small variant="ghost" onClick={()=>addItem("testers",testerInput,setTesterInput)}>Agregar</Btn>
-          </div>
-          {(form.testers||[]).length>0&&(
-            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
-              {(form.testers||[]).map(person=>(
-                <span key={person} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#f4f4f4",color:darkMode?"#eee":"#444",fontSize:12}}>
-                  {person}
-                  <button type="button" onClick={()=>removeItem("testers",person)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12}}>✕</button>
-                </span>
-              ))}
+        <Field label="Equipo Scrum">
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,marginBottom:6,color:darkMode?"#aaa":"#666"}}>Product Owner</div>
+              <input style={IS} value={form.scrumTeam?.productOwner||""} onChange={e=>updateTeam("productOwner",e.target.value)} placeholder="Ej: Ana López" />
             </div>
-          )}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,marginBottom:6,color:darkMode?"#aaa":"#666"}}>Scrum Master</div>
+              <input style={IS} value={form.scrumTeam?.scrumMaster||""} onChange={e=>updateTeam("scrumMaster",e.target.value)} placeholder="Ej: Luis Torres" />
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:10}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,marginBottom:6,color:darkMode?"#aaa":"#666"}}>Developers</div>
+              <div style={{display:"flex",gap:8}}>
+                <input style={IS} value={devInput} onChange={e=>setDevInput(e.target.value)} placeholder="Ej: Carlos, María" onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addItem("developers",devInput,setDevInput);}}}/>
+                <Btn small variant="ghost" onClick={()=>addItem("developers",devInput,setDevInput)}>Agregar</Btn>
+              </div>
+              {(form.scrumTeam?.developers||[]).length>0&&(
+                <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
+                  {(form.scrumTeam?.developers||[]).map(person=>(
+                    <span key={person} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#f4f4f4",color:darkMode?"#eee":"#444",fontSize:12}}>
+                      {person}
+                      <button type="button" onClick={()=>removeItem("developers",person)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12}}>✕</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,marginBottom:6,color:darkMode?"#aaa":"#666"}}>QA / Pruebas</div>
+              <div style={{display:"flex",gap:8}}>
+                <input style={IS} value={qaInput} onChange={e=>setQaInput(e.target.value)} placeholder="Ej: Sofía, Pedro" onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addItem("qa",qaInput,setQaInput);}}}/>
+                <Btn small variant="ghost" onClick={()=>addItem("qa",qaInput,setQaInput)}>Agregar</Btn>
+              </div>
+              {(form.scrumTeam?.qa||[]).length>0&&(
+                <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
+                  {(form.scrumTeam?.qa||[]).map(person=>(
+                    <span key={person} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#f4f4f4",color:darkMode?"#eee":"#444",fontSize:12}}>
+                      {person}
+                      <button type="button" onClick={()=>removeItem("qa",person)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12}}>✕</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </Field>
         <Field label="Color">
           <div style={{display:"flex",gap:10}}>
             {COLORS.map(c=><div key={c} onClick={()=>set("color",c)} style={{width:28,height:28,borderRadius:6,background:c,cursor:"pointer",border:form.color===c?"3px solid #fff":"3px solid transparent",transition:"border 0.15s"}}/>)}
           </div>
         </Field>
+        <Field label="Tipos de pruebas">
+          <div style={{display:"flex",gap:8}}>
+            <input style={IS} value={testTypeInput} onChange={e=>setTestTypeInput(e.target.value)} placeholder="Ej: Funcionales, Regresión" onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addListItem("scrumTestTypes",testTypeInput,setTestTypeInput);}}}/>
+            <Btn small variant="ghost" onClick={()=>addListItem("scrumTestTypes",testTypeInput,setTestTypeInput)}>Agregar</Btn>
+          </div>
+          {(form.scrumTestTypes||[]).length>0&&(
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
+              {(form.scrumTestTypes||[]).map(item=>(
+                <span key={item} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#f4f4f4",color:darkMode?"#eee":"#444",fontSize:12}}>
+                  {item}
+                  <button type="button" onClick={()=>removeListItem("scrumTestTypes",item)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12}}>✕</button>
+                </span>
+              ))}
+            </div>
+          )}
+        </Field>
+        <Field label="Niveles de prueba">
+          <div style={{display:"flex",gap:8}}>
+            <input style={IS} value={levelInput} onChange={e=>setLevelInput(e.target.value)} placeholder="Ej: Sistema, Aceptación" onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addListItem("scrumLevels",levelInput,setLevelInput);}}}/>
+            <Btn small variant="ghost" onClick={()=>addListItem("scrumLevels",levelInput,setLevelInput)}>Agregar</Btn>
+          </div>
+          {(form.scrumLevels||[]).length>0&&(
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
+              {(form.scrumLevels||[]).map(item=>(
+                <span key={item} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#f4f4f4",color:darkMode?"#eee":"#444",fontSize:12}}>
+                  {item}
+                  <button type="button" onClick={()=>removeListItem("scrumLevels",item)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12}}>✕</button>
+                </span>
+              ))}
+            </div>
+          )}
+        </Field>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:20}}>
         <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
-        <Btn onClick={()=>{if(!form.name.trim())return alert("El nombre es requerido");onSave({...form,modules:(form.modules||[]).filter(Boolean),testers:(form.testers||[]).filter(Boolean)});}}>💾 Guardar</Btn>
+        <Btn onClick={()=>{if(!form.name.trim())return alert("El nombre es requerido");const scrumTeam=normalizeScrumTeam(form.scrumTeam);onSave({...form,modules:(form.modules||[]).filter(Boolean),scrumTeam,scrumTestTypes:normalizeProjectList(form.scrumTestTypes),scrumLevels:normalizeProjectList(form.scrumLevels),testers:getScrumTeamMembers({scrumTeam})});}}>💾 Guardar</Btn>
       </div>
     </Modal>
   );
@@ -1754,27 +1931,43 @@ function ProjectFormModal({initial,onSave,onClose,darkMode}) {
 
 function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
   const [form,setForm]=useState(() => {
-    const base = { ...EMPTY_TC, ...(initial || {}), estado: normalizeTestStatus(initial?.estado || EMPTY_TC.estado) };
+    const inferredRole = inferScrumRole(project, initial?.asignadoA);
+    const base = { ...EMPTY_TC, ...(initial || {}), estado: normalizeTestStatus(initial?.estado || EMPTY_TC.estado), asignadoRol: initial?.asignadoRol || inferredRole };
+    const scrumMembers = getScrumTeamMembers(project);
     if (!base.proceso && project?.modules?.length) base.proceso = project.modules[0];
-    if (!base.asignadoA && project?.testers?.length) base.asignadoA = project.testers[0];
+    const roleMembers = getScrumRoleMembers(project, base.asignadoRol);
+    if (!base.asignadoA && roleMembers.length) base.asignadoA = roleMembers[0];
+    if (!base.asignadoA && scrumMembers.length) base.asignadoA = scrumMembers[0];
+    if (!base.tipoPrueba) base.tipoPrueba = normalizeProjectList(project?.scrumTestTypes)[0] || "";
+    if (!base.nivelPrueba) base.nivelPrueba = normalizeProjectList(project?.scrumLevels)[0] || "";
     return base;
   });
   const [steps,setSteps]=useState(()=>parseSteps(initial?.pasos||""));
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const IS=darkMode?inputStyleDark:inputStyle;
 
+  const scrumRoleOptions = ["Product Owner", "Scrum Master", "Developers", "QA / Pruebas"];
+  const scrumAssignees = getScrumRoleMembers(project, form.asignadoRol);
+
   useEffect(() => {
+    const scrumMembers = getScrumTeamMembers(project);
+    const roleMembers = getScrumRoleMembers(project, form.asignadoRol);
+    const projectTypes = normalizeProjectList(project?.scrumTestTypes);
+    const projectLevels = normalizeProjectList(project?.scrumLevels);
     setForm((current) => ({
       ...current,
       ...(current.proceso ? {} : { proceso: project?.modules?.[0] || "" }),
-      ...(current.asignadoA ? {} : { asignadoA: project?.testers?.[0] || "" }),
+      asignadoRol: current.asignadoRol || "QA / Pruebas",
+      ...(current.asignadoA && roleMembers.includes(current.asignadoA) ? {} : { asignadoA: roleMembers[0] || scrumMembers[0] || "" }),
+      ...(current.tipoPrueba || !projectTypes.length ? {} : { tipoPrueba: projectTypes[0] }),
+      ...(current.nivelPrueba || !projectLevels.length ? {} : { nivelPrueba: projectLevels[0] }),
     }));
-  }, [project?.modules, project?.testers]);
+  }, [project?.modules, project?.scrumTeam, project?.scrumTestTypes, project?.scrumLevels, form.asignadoRol]);
 
   return (
     <Modal onClose={onClose} wide preventOutsideClose>
       <ModalHeader title={initial?`Editar ${tcId}`:"Nuevo Caso de Prueba"} sub={initial?"Modifica y guarda":"Completa los datos del escenario"} onClose={onClose}/>
-      {(project?.modules?.length || project?.testers?.length) > 0 && (
+      {(project?.modules?.length || getScrumTeamMembers(project).length) > 0 && (
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14,padding:"12px 14px",borderRadius:12,background:darkMode?"#242427":"#f8fafc",border:`1px solid ${darkMode?"#3a3a3d":"#e5e7eb"}`}}>
           <div>
             <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Módulos del proyecto</div>
@@ -1783,9 +1976,15 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
             </div>
           </div>
           <div>
-            <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Personas para pruebas</div>
+            <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Equipo Scrum</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-              {(project?.testers||[]).length>0 ? (project.testers||[]).map(person=><span key={person} style={{fontSize:11,padding:"4px 8px",borderRadius:999,background:darkMode?"#2C2C2E":"#ecfdf5",color:darkMode?"#eee":"#047857"}}>{person}</span>) : <span style={{fontSize:11,color:"#888"}}>Sin personas definidas</span>}
+              {(() => {
+                const team = normalizeScrumTeam(project?.scrumTeam);
+                const members = getScrumTeamMembers({ scrumTeam: team });
+                return members.length > 0
+                  ? members.map(person => <span key={person} style={{fontSize:11,padding:"4px 8px",borderRadius:999,background:darkMode?"#2C2C2E":"#ecfdf5",color:darkMode?"#eee":"#047857"}}>{person}</span>)
+                  : <span style={{fontSize:11,color:"#888"}}>Sin equipo definido</span>;
+              })()}
             </div>
           </div>
         </div>
@@ -1796,8 +1995,27 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
           <SuggestionInput value={form.proceso} onChange={v=>set("proceso",v)} options={project?.modules||[]} placeholder="Selecciona o escribe un módulo" darkMode={darkMode} />
         </Field>
         <Field label="Área"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} /></Field>
-        <Field label="Persona que prueba">
-          <SuggestionInput value={form.asignadoA||""} onChange={v=>set("asignadoA",v)} options={project?.testers||[]} placeholder="Selecciona o escribe una persona" darkMode={darkMode} />
+        <Field label="Rol Scrum">
+          <select style={IS} value={form.asignadoRol||"QA / Pruebas"} onChange={e=>setForm(current=>{
+            const nextRol = e.target.value;
+            const members = getScrumRoleMembers(project, nextRol);
+            return {
+              ...current,
+              asignadoRol: nextRol,
+              asignadoA: members.includes(current.asignadoA) ? current.asignadoA : (members[0] || current.asignadoA || ""),
+            };
+          })}>
+            {scrumRoleOptions.map(role=><option key={role} value={role}>{role}</option>)}
+          </select>
+        </Field>
+        <Field label="Miembro asignado">
+          <SuggestionInput value={form.asignadoA||""} onChange={v=>set("asignadoA",v)} options={scrumAssignees} placeholder="Selecciona o escribe un miembro del rol" darkMode={darkMode} />
+        </Field>
+        <Field label="Tipo de prueba">
+          <SuggestionInput value={form.tipoPrueba||""} onChange={v=>set("tipoPrueba",v)} options={project?.scrumTestTypes||EMPTY_PROJECT.scrumTestTypes} placeholder="Selecciona o escribe un tipo" darkMode={darkMode} />
+        </Field>
+        <Field label="Nivel de prueba">
+          <SuggestionInput value={form.nivelPrueba||""} onChange={v=>set("nivelPrueba",v)} options={project?.scrumLevels||EMPTY_PROJECT.scrumLevels} placeholder="Selecciona o escribe un nivel" darkMode={darkMode} />
         </Field>
         <Field label="Estado">
           <select style={IS} value={form.estado} onChange={e=>set("estado",e.target.value)}>
@@ -1831,7 +2049,7 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
       </div>
       <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:8}}>
         <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
-        <Btn onClick={()=>{if(!form.escenario.trim())return alert("El escenario es requerido");const pasos=serializeSteps(steps);set("pasos",pasos);onSave({...form,pasos});}}>💾 Guardar</Btn>
+        <Btn onClick={()=>{if(!form.escenario.trim())return alert("El escenario es requerido");const pasos=serializeSteps(steps);set("pasos",pasos);onSave({...form,pasos,tipoPrueba:String(form.tipoPrueba||"").trim(),nivelPrueba:String(form.nivelPrueba||"").trim()});}}>💾 Guardar</Btn>
       </div>
     </Modal>
   );
@@ -1934,7 +2152,7 @@ function TcDetailModal({tc,onClose,onEdit,onDelete,onDuplicate,onAddComment}) {
         </div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:11,marginBottom:14}}>
-        {[["Área",tc.area],["Proceso",tc.proceso],["Escenario",tc.escenario],["Asignado a",tc.asignadoA||"—"],["Fecha Aprob.",tc.fechaAprobacion||"—"],["Fecha Ejec.",tc.fechaEjecucion||"—"]].map(([l,v])=>(
+        {[ ["Área",tc.area],["Proceso",tc.proceso],["Escenario",tc.escenario],["Rol Scrum",tc.asignadoRol||inferScrumRole(proj, tc.asignadoA)],["Tipo de prueba",tc.tipoPrueba||"—"],["Nivel de prueba",tc.nivelPrueba||"—"],["Asignado a",tc.asignadoA||"—"],["Fecha Aprob.",tc.fechaAprobacion||"—"],["Fecha Ejec.",tc.fechaEjecucion||"—"]].map(([l,v])=>(
           <div key={l} style={{background:"#f8f8f8",borderRadius:8,padding:"9px 12px"}}>
             <div style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:3}}>{l}</div>
             <div style={{fontSize:13,color:"#333",fontWeight:600}}>{v}</div>
@@ -2459,7 +2677,17 @@ export default function App() {
       return parsed.map(p=>({
         ...p,
         modules: Array.isArray(p.modules) ? p.modules : [],
-        testers: Array.isArray(p.testers) ? p.testers : [],
+        scrumTeam: normalizeScrumTeam(
+          p.scrumTeam || {
+            productOwner: "",
+            scrumMaster: "",
+            developers: [],
+            qa: Array.isArray(p.testers) ? p.testers : [],
+          }
+        ),
+        scrumTestTypes: normalizeProjectList(p.scrumTestTypes || EMPTY_PROJECT.scrumTestTypes),
+        scrumLevels: normalizeProjectList(p.scrumLevels || EMPTY_PROJECT.scrumLevels),
+        testers: Array.isArray(p.testers) ? p.testers : getScrumTeamMembers(p),
         ciclos:(p.ciclos||[]).map(c=>({
           ...c,
           ejecuciones:c.ejecuciones||[]
@@ -2473,6 +2701,8 @@ export default function App() {
   const [filterIssueEstado,setFilterIssueEstado]=useState("Todos");
   const [filterAsignado,setFilterAsignado]=useState("Todos");
   const [filterProceso,setFilterProceso]=useState("Todos");
+  const [filterTipoPrueba,setFilterTipoPrueba]=useState("Todos");
+  const [filterNivelPrueba,setFilterNivelPrueba]=useState("Todos");
   const [filterModulo,setFilterModulo]=useState("Todos");
   const [filterFechaDesde,setFilterFechaDesde]=useState("");
   const [filterFechaHasta,setFilterFechaHasta]=useState("");
@@ -2500,6 +2730,8 @@ export default function App() {
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [storageWarn,setStorageWarn]=useState(false);
   const [selectedAiTc,setSelectedAiTc]=useState(null);
+  const [scrumTestTypeInput,setScrumTestTypeInput]=useState("");
+  const [scrumLevelInput,setScrumLevelInput]=useState("");
   const dragIndex=useRef(null);
   const dragOverIndex=useRef(null);
   const dragIssueIndex=useRef(null);
@@ -2570,11 +2802,29 @@ export default function App() {
 
   // project CRUD
   function saveProject(form){
-    if(editProj){setProjects(ps=>ps.map(p=>p.id===editProj.id?{...p,...form}:p));setEditProj(null);}
-    else{const np={id:`proj-${Date.now()}`,createdAt:today(),tests:[],issues:[],...form};setProjects(ps=>[...ps,np]);setActiveProjectId(np.id);}
+    const scrumTeam = normalizeScrumTeam(form.scrumTeam);
+    const testers = getScrumTeamMembers({ scrumTeam });
+    const payload = { ...form, modules: normalizeProjectList(form.modules), scrumTeam, scrumTestTypes: normalizeProjectList(form.scrumTestTypes), scrumLevels: normalizeProjectList(form.scrumLevels), testers };
+    if(editProj){setProjects(ps=>ps.map(p=>p.id===editProj.id?{...p,...payload}:p));setEditProj(null);}
+    else{const np={id:`proj-${Date.now()}`,createdAt:today(),tests:[],issues:[],...payload};setProjects(ps=>[...ps,np]);setActiveProjectId(np.id);}
     setShowProjForm(false);
   }
   function deleteProject(id){const r=projects.filter(p=>p.id!==id);setProjects(r);setActiveProjectId(r[0]?.id||null);setConfirmDelete(null);}
+  function updateProjectListField(field, nextItems) {
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,[field]:normalizeProjectList(nextItems)}));
+  }
+  function addProjectListItem(field, inputValue, setter) {
+    const value = String(inputValue || "").trim();
+    if (!value) return;
+    const currentItems = normalizeProjectList(proj?.[field]);
+    const nextItems = [...currentItems, ...value.split(",").map(item => item.trim()).filter(Boolean)];
+    updateProjectListField(field, nextItems.filter((item, index) => nextItems.indexOf(item) === index));
+    setter("");
+  }
+  function removeProjectListItem(field, item) {
+    const currentItems = normalizeProjectList(proj?.[field]);
+    updateProjectListField(field, currentItems.filter(entry => entry !== item));
+  }
 
   // TC CRUD
   function saveTC(form){
@@ -2585,6 +2835,9 @@ export default function App() {
       ...form,
       proceso: form.proceso?.trim() || "",
       asignadoA: form.asignadoA?.trim() || "",
+      asignadoRol: form.asignadoRol?.trim() || inferScrumRole(proj, form.asignadoA),
+      tipoPrueba: form.tipoPrueba?.trim() || "",
+      nivelPrueba: form.nivelPrueba?.trim() || "",
       area: form.area?.trim() || "",
       escenario: form.escenario?.trim() || "",
       descripcion: form.descripcion?.trim() || "",
@@ -2880,6 +3133,14 @@ export default function App() {
 
   const asignadosList=useMemo(()=>{const s=new Set(tests.map(t=>t.asignadoA).filter(Boolean));return["Todos",...s];},[tests]);
   const procesosList=useMemo(()=>{const s=new Set(tests.map(t=>t.proceso).filter(Boolean));return["Todos",...s];},[tests]);
+  const tiposPruebaList=useMemo(()=>{
+    const values = new Set([...(proj?.scrumTestTypes||[]), ...tests.map(t=>t.tipoPrueba).filter(Boolean)]);
+    return ["Todos", ...values];
+  },[proj?.scrumTestTypes, tests]);
+  const nivelesPruebaList=useMemo(()=>{
+    const values = new Set([...(proj?.scrumLevels||[]), ...tests.map(t=>t.nivelPrueba).filter(Boolean)]);
+    return ["Todos", ...values];
+  },[proj?.scrumLevels, tests]);
   const modulosList=useMemo(()=>{const s=new Set(issues.map(i=>i.modulo).filter(Boolean));return["Todos",...s];},[issues]);
 
   function parseDate(str){if(!str)return null;const[d,m,y]=str.split("/");return new Date(`${y}-${m}-${d}`);}
@@ -2889,10 +3150,12 @@ export default function App() {
     const mS=!search||[t.id,t.escenario,t.proceso,t.area].join(" ").toLowerCase().includes(search.toLowerCase());
     const mA=filterAsignado==="Todos"||t.asignadoA===filterAsignado;
     const mP=filterProceso==="Todos"||t.proceso===filterProceso;
+    const mT=filterTipoPrueba==="Todos"||String(t.tipoPrueba||"").trim()===filterTipoPrueba;
+    const mN=filterNivelPrueba==="Todos"||String(t.nivelPrueba||"").trim()===filterNivelPrueba;
     const mD=!filterFechaDesde||!t.fechaEjecucion||(parseDate(t.fechaEjecucion)>=parseDate(filterFechaDesde));
     const mH=!filterFechaHasta||!t.fechaEjecucion||(parseDate(t.fechaEjecucion)<=parseDate(filterFechaHasta));
-    return mE&&mS&&mA&&mP&&mD&&mH;
-  }),[tests,filterEstado,search,filterAsignado,filterProceso,filterFechaDesde,filterFechaHasta]);
+    return mE&&mS&&mA&&mP&&mT&&mN&&mD&&mH;
+  }),[tests,filterEstado,search,filterAsignado,filterProceso,filterTipoPrueba,filterNivelPrueba,filterFechaDesde,filterFechaHasta]);
 
   const filteredIssues=useMemo(()=>issues.filter(i=>{
     const mE=filterIssueEstado==="Todos"||i.estado===filterIssueEstado;
@@ -2959,7 +3222,7 @@ export default function App() {
     });
     return modules;
   },[filteredTests]);
-  const tabs=[{id:"dashboard",label:"📊 Dashboard"},{id:"tests",label:"🧪 Casos de Prueba"},{id:"ciclos",label:"🔄 Ciclos"},{id:"issues",label:"🐛 Issues"},{id:"documentador",label:"🗂️ Documentador"}];
+  const tabs=[{id:"dashboard",label:"📊 Dashboard"},{id:"scrum",label:"👥 Scrum"},{id:"tests",label:"🧪 Casos de Prueba"},{id:"ciclos",label:"🔄 Ciclos"},{id:"issues",label:"🐛 Issues"},{id:"documentador",label:"🗂️ Documentador"}];
 
   return (
     <div style={{fontFamily:"'Poppins', 'Segoe UI', Arial, sans-serif",background:DM.bg,minHeight:"100vh",color:DM.text,letterSpacing:"0.2px"}}>
@@ -3037,6 +3300,179 @@ export default function App() {
               <DocumentadorPanel darkMode={darkMode} />
             )}
 
+            {tab==="scrum"&&(
+              <div style={{display:"flex",flexDirection:"column",gap:18}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+                  <div>
+                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Scrum & Testing Blueprint</h2>
+                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>Equipo Scrum, módulos y estrategia de pruebas del proyecto · {proj.name}</p>
+                  </div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    <Btn small variant="ghost" onClick={()=>{setEditProj(proj);setShowProjForm(true);}}>Editar equipo y módulos</Btn>
+                    <Btn small variant="ghost" onClick={()=>setTab("dashboard")}>Volver al dashboard</Btn>
+                  </div>
+                </div>
+
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))",gap:12}}>
+                  {(() => {
+                    const team = normalizeScrumTeam(proj.scrumTeam);
+                    const sections = [
+                      { title: "Product Owner", value: team.productOwner, color: "#2980B9", hint: "Prioriza valor y aprueba alcance" },
+                      { title: "Scrum Master", value: team.scrumMaster, color: "#8E44AD", hint: "Facilita el proceso y desbloquea impedimentos" },
+                      { title: "Developers", value: team.developers, color: "#16A085", hint: "Implementan y corrigen" },
+                      { title: "QA / Pruebas", value: team.qa, color: "#27AE60", hint: "Diseñan y ejecutan validaciones" },
+                    ];
+                    return sections.map(section => {
+                      const members = Array.isArray(section.value) ? section.value : (section.value ? [section.value] : []);
+                      return (
+                        <div key={section.title} style={{padding:16,borderRadius:16,background:DM.card,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                          <div style={{fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em",color:section.color,marginBottom:8}}>{section.title}</div>
+                          <div style={{fontSize:12,color:DM.sub,marginBottom:10}}>{section.hint}</div>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                            {members.length > 0 ? members.map(member => <span key={member} style={{fontSize:11,padding:"5px 9px",borderRadius:999,background:`${section.color}15`,color:section.color,fontWeight:700}}>{member}</span>) : <span style={{fontSize:11,color:DM.sub}}>Sin definir</span>}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
+                  <div style={{background:DM.card,borderRadius:16,padding:18,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                    <div style={{fontSize:13,fontWeight:800,color:DM.text,marginBottom:14}}>Módulos del proyecto</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                      {(proj.modules||[]).length>0
+                        ? proj.modules.map(mod => <span key={mod} style={{fontSize:12,padding:"7px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#eef2ff",color:darkMode?"#eee":"#4c51bf",fontWeight:700}}>{mod}</span>)
+                        : <span style={{fontSize:12,color:DM.sub}}>Sin módulos definidos</span>}
+                    </div>
+                  </div>
+
+                  <div style={{background:DM.card,borderRadius:16,padding:18,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                    <div style={{fontSize:13,fontWeight:800,color:DM.text,marginBottom:14}}>Cobertura por módulo</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                      {(proj.modules||[]).length>0 ? proj.modules.map(mod => {
+                        const testsInModule = tests.filter(t => t.proceso === mod);
+                        const approvedCount = testsInModule.filter(t => normalizeTestStatus(t.estado) === "Aprobado").length;
+                        const coverage = testsInModule.length ? Math.round((approvedCount / testsInModule.length) * 100) : 0;
+                        const coverageColor = coverage >= 70 ? "#27AE60" : coverage >= 40 ? "#F39C12" : "#E74C3C";
+                        return (
+                          <div key={mod} style={{padding:"10px 12px",borderRadius:12,background:darkMode?"#1f1f22":"#fafafa",border:`1px solid ${DM.cardBorder}`}}>
+                            <div style={{display:"flex",justifyContent:"space-between",gap:10,marginBottom:6}}>
+                              <span style={{fontSize:12,fontWeight:700,color:DM.text}}>{mod}</span>
+                              <span style={{fontSize:11,color:coverageColor,fontWeight:800}}>{coverage}%</span>
+                            </div>
+                            <div style={{height:7,background:"#e5e7eb",borderRadius:999,overflow:"hidden"}}>
+                              <div style={{width:`${coverage}%`,height:"100%",background:coverageColor,borderRadius:999}} />
+                            </div>
+                            <div style={{fontSize:11,color:DM.sub,marginTop:6}}>{testsInModule.length} caso(s) vinculados</div>
+                          </div>
+                        );
+                      }) : <span style={{fontSize:12,color:DM.sub}}>Sin módulos definidos</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
+                  <div style={{background:DM.card,borderRadius:16,padding:18,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:14}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:800,color:DM.text}}>Tipos de pruebas</div>
+                        <div style={{fontSize:11,color:DM.sub,marginTop:3}}>Edita esta taxonomía directamente desde Scrum.</div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                      <input
+                        style={{...inputStyle,...(darkMode?inputStyleDark:{}) , flex:1, minWidth: 180}}
+                        value={scrumTestTypeInput}
+                        onChange={e=>setScrumTestTypeInput(e.target.value)}
+                        placeholder="Ej: Exploratorias, Seguridad"
+                        onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addProjectListItem("scrumTestTypes",scrumTestTypeInput,setScrumTestTypeInput);}}}
+                      />
+                      <Btn small variant="ghost" onClick={()=>addProjectListItem("scrumTestTypes",scrumTestTypeInput,setScrumTestTypeInput)}>Agregar</Btn>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(170px, 1fr))",gap:10}}>
+                      {(proj.scrumTestTypes?.length ? proj.scrumTestTypes : EMPTY_PROJECT.scrumTestTypes).map((item,index) => (
+                        <div key={item} style={{padding:14,borderRadius:12,background:darkMode?"#1f1f22":"#fafafa",border:`1px solid ${DM.cardBorder}`}}>
+                          <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"start",marginBottom:8}}>
+                            <div style={{fontSize:11,fontWeight:800,textTransform:"uppercase",color:["#2980B9","#8E44AD","#16A085","#27AE60"][index % 4]}}>{item}</div>
+                            <button type="button" onClick={()=>removeProjectListItem("scrumTestTypes",item)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12,fontWeight:700}}>✕</button>
+                          </div>
+                          <div style={{fontSize:12,color:DM.sub,lineHeight:1.45}}>{
+                            item === "Funcionales" ? "Validan el flujo de negocio y reglas principales." :
+                            item === "Regresión" ? "Confirman que los cambios no rompen escenarios previos." :
+                            item === "Integración" ? "Verifican interacción entre módulos y componentes." :
+                            item === "Aceptación" ? "Validan si el negocio aprueba el escenario." :
+                            "Describe una categoría concreta de pruebas que aplica al proyecto."
+                          }</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{background:DM.card,borderRadius:16,padding:18,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:14}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:800,color:DM.text}}>Niveles de prueba</div>
+                        <div style={{fontSize:11,color:DM.sub,marginTop:3}}>Define los niveles que tu equipo aprobará.</div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                      <input
+                        style={{...inputStyle,...(darkMode?inputStyleDark:{}), flex:1, minWidth: 180}}
+                        value={scrumLevelInput}
+                        onChange={e=>setScrumLevelInput(e.target.value)}
+                        placeholder="Ej: E2E, UAT"
+                        onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addProjectListItem("scrumLevels",scrumLevelInput,setScrumLevelInput);}}}
+                      />
+                      <Btn small variant="ghost" onClick={()=>addProjectListItem("scrumLevels",scrumLevelInput,setScrumLevelInput)}>Agregar</Btn>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {(proj.scrumLevels?.length ? proj.scrumLevels : EMPTY_PROJECT.scrumLevels).map((item,index) => (
+                        <div key={item} style={{display:"grid",gridTemplateColumns:"120px 120px 1fr",gap:10,alignItems:"start",padding:"10px 12px",borderRadius:12,background:darkMode?"#1f1f22":"#fafafa",border:`1px solid ${DM.cardBorder}`}}>
+                          <div>
+                            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"start"}}>
+                              <div style={{fontSize:11,fontWeight:800,color:["#2980B9","#16A085","#8E44AD","#27AE60","#F39C12"][index % 5]}}>{item}</div>
+                              <button type="button" onClick={()=>removeProjectListItem("scrumLevels",item)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12,fontWeight:700}}>✕</button>
+                            </div>
+                            <div style={{fontSize:10,color:DM.sub,marginTop:4}}>{
+                              item === "Unitarias" ? "Developers" :
+                              item === "Integración" ? "Developers + QA" :
+                              item === "Sistema" ? "QA / Pruebas" :
+                              item === "Aceptación" ? "Product Owner" :
+                              item === "Regresión" ? "QA / Pruebas" :
+                              "Equipo Scrum"
+                            }</div>
+                          </div>
+                          <div style={{fontSize:11,color:DM.sub,fontWeight:700}}>Nivel</div>
+                          <div style={{fontSize:12,color:DM.text,lineHeight:1.45}}>{
+                            item === "Unitarias" ? "Validación de lógica puntual y componentes aislados." :
+                            item === "Integración" ? "Interacción entre módulos, APIs y datos." :
+                            item === "Sistema" ? "Flujo end-to-end sobre el sistema completo." :
+                            item === "Aceptación" ? "Validación de negocio contra criterios de aceptación." :
+                            item === "Regresión" ? "Re-ejecución de escenarios críticos luego de cambios." :
+                            "Define un nivel de prueba aplicable al flujo del proyecto."
+                          }</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{background:DM.card,borderRadius:16,padding:18,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                  <div style={{fontSize:13,fontWeight:800,color:DM.text,marginBottom:14}}>Cómo se relaciona con tus casos de prueba</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))",gap:12}}>
+                    {[
+                      "Cada TC puede alinearse a un rol Scrum específico y a un nivel de prueba.",
+                      "Los módulos del proyecto sirven para filtrar la cobertura y detectar vacíos.",
+                      "Los niveles de prueba ayudan a separar ejecución técnica, validación funcional y aceptación.",
+                    ].map((text,index) => (
+                      <div key={index} style={{padding:14,borderRadius:12,background:darkMode?"#1f1f22":"#fafafa",border:`1px solid ${DM.cardBorder}`,fontSize:12,color:DM.text,lineHeight:1.5}}>{text}</div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {tab==="dashboard"&&(
                 <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
@@ -3051,6 +3487,41 @@ export default function App() {
                     <div style={{fontSize:12,color:darkMode?"#aaa":"#6b7280",marginTop:2}}>Captura pasos, adjunta evidencia y compártela desde un solo lugar.</div>
                   </div>
                   <button onClick={()=>setTab("documentador")} style={{background:"linear-gradient(135deg, #C0392B 0%, #E74C3C 100%)",color:"#fff",border:"none",borderRadius:999,padding:"9px 14px",cursor:"pointer",fontSize:12,fontWeight:800,boxShadow:"0 8px 20px rgba(192,57,43,0.18)"}}>Abrir documentador</button>
+                </div>
+                <div style={{marginTop:14,padding:18,borderRadius:16,background:DM.card,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                  {(() => {
+                    const team = normalizeScrumTeam(proj.scrumTeam);
+                    const roles = [
+                      { title: "Product Owner", value: team.productOwner, color: "#2980B9" },
+                      { title: "Scrum Master", value: team.scrumMaster, color: "#8E44AD" },
+                      { title: "Developers", value: team.developers, color: "#16A085" },
+                      { title: "QA / Pruebas", value: team.qa, color: "#27AE60" },
+                    ];
+                    return (
+                      <div>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:800,color:DM.text}}>👥 Scrum Team</div>
+                            <div style={{fontSize:12,color:DM.sub,marginTop:2}}>Roles y miembros asociados al proyecto.</div>
+                          </div>
+                          <span style={{fontSize:11,padding:"4px 10px",borderRadius:999,background:`${proj.color}18`,color:proj.color,fontWeight:800}}>Equipo activo</span>
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))",gap:12}}>
+                          {roles.map(role => {
+                            const members = Array.isArray(role.value) ? role.value : (role.value ? [role.value] : []);
+                            return (
+                              <div key={role.title} style={{padding:12,borderRadius:12,background:darkMode?"#1f1f22":"#fafafa",border:`1px solid ${DM.cardBorder}`}}>
+                                <div style={{fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em",color:role.color,marginBottom:8}}>{role.title}</div>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                                  {members.length > 0 ? members.map(member => <span key={member} style={{fontSize:11,padding:"5px 9px",borderRadius:999,background:`${role.color}15`,color:role.color,fontWeight:700}}>{member}</span>) : <span style={{fontSize:11,color:DM.sub}}>Sin definir</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginTop:18}}>
                   <div>
