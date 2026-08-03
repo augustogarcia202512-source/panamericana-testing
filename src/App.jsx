@@ -3845,6 +3845,12 @@ export default function App() {
                   <select value={filterProceso} onChange={e=>setFilterProceso(e.target.value)} style={{...inputStyle,width:150,padding:"7px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
                     {procesosList.map(p=><option key={p} value={p}>{p==="Todos"?"Todos los módulos":p}</option>)}
                   </select>
+                  <select value={filterTipoPrueba} onChange={e=>setFilterTipoPrueba(e.target.value)} style={{...inputStyle,width:150,padding:"7px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
+                    {tiposPruebaList.map(t=><option key={t} value={t}>{t==="Todos"?"Todos los tipos":t}</option>)}
+                  </select>
+                  <select value={filterNivelPrueba} onChange={e=>setFilterNivelPrueba(e.target.value)} style={{...inputStyle,width:150,padding:"7px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
+                    {nivelesPruebaList.map(n=><option key={n} value={n}>{n==="Todos"?"Todos los niveles":n}</option>)}
+                  </select>
                   {filterProceso!=="Todos"&&<button onClick={()=>setFilterProceso("Todos")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#aaa"}}>✕ Módulo</button>}
                   <div style={{display:"flex",alignItems:"center",gap:5}}>
                     <span style={{fontSize:11,color:DM.sub}}>Ejec. desde</span>
@@ -3871,20 +3877,20 @@ export default function App() {
                 </div>
                 <div style={{background:DM.card,borderRadius:12,overflow:"hidden",border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                   <div style={{overflowX:"auto"}}>
-                    <table style={{width:"100%",minWidth:testViewMode==="compacta"?930:1100,borderCollapse:"collapse",fontSize:12}}>
+                    <table style={{width:"100%",minWidth:testViewMode==="compacta"?1080:1240,borderCollapse:"collapse",fontSize:12}}>
                     <thead>
                       <tr style={{background:proj.color,color:"#fff"}}>
                         <th style={{padding:"9px 6px",width:28,textAlign:"center"}}>
                           <input type="checkbox" checked={allVisibleSelected} onChange={e=>e.target.checked?selectAllVisibleTests(visibleTestIds):clearSelectedTests(visibleTestIds)} onClick={e=>e.stopPropagation()} title="Seleccionar visibles"/>
                         </th>
                         <th style={{padding:"9px 6px",width:20}}></th>
-                        {["ID","Escenario","Módulo",...(testViewMode==="expandida"?["Pasos","Descripción"]:[]),"Responsable","Estado","Adj.","Observación"].map(h=>(
+                        {["ID","Escenario","Módulo","Tipo","Nivel",...(testViewMode==="expandida"?["Pasos","Descripción"]:[]),"Responsable","Estado","Adj.","Observación"].map(h=>(
                           <th key={h} style={{padding:"9px 10px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:"0.05em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTests.length===0&&(<tr><td colSpan={testViewMode==="expandida"?11:9} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin resultados.</td></tr>)}
+                      {filteredTests.length===0&&(<tr><td colSpan={testViewMode==="expandida"?13:11} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin resultados.</td></tr>)}
                       {filteredTests.map((t,i)=>{
                         const sc=statusConfig[normalizeTestStatus(t.estado)]||statusConfig["Borrador"];
                         const realIndex=proj.tests.findIndex(x=>x.id===t.id);
@@ -3907,6 +3913,8 @@ export default function App() {
                             <td style={{padding:"8px 10px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",fontSize:11}}>{t.id}</td>
                             <td style={{padding:"8px 10px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:180,maxWidth:240,letterSpacing:"0.05px",background:darkMode?"#202b3b":"#f7faff",borderRadius:6,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff",fontSize:11}}>{t.escenario}</td>
                             <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.proceso}</td>
+                            <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.tipoPrueba||"—"}</td>
+                            <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.nivelPrueba||"—"}</td>
                             {testViewMode==="expandida"&&(
                               <td style={{padding:"8px 10px",color:"#666",minWidth:260,maxWidth:320,whiteSpace:"normal",lineHeight:1.35,fontSize:10,verticalAlign:"top"}}>
                                 {pasosPreview.length ? pasosPreview.map((s,idx)=><div key={idx} style={{marginBottom:idx===pasosPreview.length-1?0:4}}>{`${idx+1}. ${s.text || "Sin detalle"}`}</div>) : "—"}
