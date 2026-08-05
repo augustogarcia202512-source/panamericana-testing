@@ -19,19 +19,6 @@ const cycleStatusConfig = {
 };
 const statusConfig = testStatusConfig;
 const issueStatusConfig = {
-<<<<<<< HEAD
-  "Open":        { color: "#E74C3C", bg: "#FDEDEC" },
-  "Closed":      { color: "#27AE60", bg: "#EAFAF1" },
-  "In Progress": { color: "#F39C12", bg: "#FEF9E7" },
-  "Blocked":     { color: "#8E44AD", bg: "#F5EEF8" },
-};
-const severityConfig = { "Critical":"#C0392B","High":"#E74C3C","Medium":"#F39C12","Low":"#27AE60" };
-const COLORS = ["#C0392B","#2980B9","#16A085","#8E44AD","#D35400","#2C3E50","#27AE60","#F39C12"];
-const EMPTY_TC = { area:"",proceso:"",escenario:"",descripcion:"",pasos:"",resultado:"",fechaAprobacion:"",fechaEjecucion:"",estado:"Borrador",asignadoRol:"QA / Pruebas",asignadoA:"",tipoPrueba:"",nivelPrueba:"",attachments:[],historial:[],comentarios:[] };
-const EMPTY_ISSUE = { testId:"",escenario:"",formulario:"",observacion:"",modulo:"",estado:"Open",severidad:"Medium",prioridad:"Medium",fechaCreacion:"",fechaSolucion:"",attachments:[] };
-const EMPTY_CICLO = { nombre:"",modulo:"",fechaInicio:"",fechaFin:"",descripcion:"",ejecuciones:[] };
-const EMPTY_PROJECT = { name:"",description:"",color:COLORS[0],modules:[],scrumTeam:{productOwner:"",scrumMaster:"",developers:[],qa:[]},scrumTestTypes:["Funcionales","Regresión","Integración","Aceptación"],scrumLevels:["Unitarias","Integración","Sistema","Aceptación","Regresión"] };
-=======
   "Open": { color: "#E74C3C", bg: "#FDEDEC" },
   "Ready for Retest": { color: "#3498DB", bg: "#EAF4FF" },
   "Closed": { color: "#27AE60", bg: "#EAFAF1" },
@@ -53,7 +40,6 @@ const EMPTY_TC = { area: "", proceso: "", escenario: "", descripcion: "", pasos:
 const EMPTY_ISSUE = { testId: "", escenario: "", formulario: "", observacion: "", modulo: "", estado: "Open", severidad: "Medium", prioridad: "Medium", fechaCreacion: "", fechaSolucion: "", asignadoA: "", attachments: [], bitacora: [] };
 const EMPTY_CICLO = { nombre: "", modulo: "", fechaInicio: "", fechaFin: "", descripcion: "", ejecuciones: [] };
 const EMPTY_PROJECT = { name: "", description: "", color: COLORS[0], modules: [], scrumTeam: { productOwner: "", scrumMaster: "", developers: [], qa: [] }, scrumTestTypes: ["Funcionales", "Regresión", "Integración", "Aceptación"], scrumLevels: ["Unitarias", "Integración", "Sistema", "Aceptación", "Regresión"] };
->>>>>>> d738720 (Guardar cambios locales antes del pull)
 // ejecucion: { tcId, estado, fechaEjecucion, nota }
 
 function normalizeMemberList(list) {
@@ -152,10 +138,7 @@ function normalizeTestStatus(status) {
   if (["Aprobado", "Approved", "Closed"].includes(value)) return "Aprobado";
   return Object.prototype.hasOwnProperty.call(testStatusConfig, value) ? value : "Borrador";
 }
-<<<<<<< HEAD
-=======
 
->>>>>>> d738720 (Guardar cambios locales antes del pull)
 function normalizeCycleExecutionStatus(status) {
   const value = String(status || "").trim();
   if (!value) return "No ejecutado";
@@ -167,25 +150,17 @@ function normalizeCycleExecutionStatus(status) {
   if (["Aprobado", "Approved", "Closed"].includes(value)) return "Aprobado";
   return Object.prototype.hasOwnProperty.call(cycleStatusConfig, value) ? value : "No ejecutado";
 }
-<<<<<<< HEAD
-=======
 
->>>>>>> d738720 (Guardar cambios locales antes del pull)
 function nextTcId(tests) {
   if (!tests.length) return "TC-01";
   const nums = tests.map(t => parseInt(t.id.replace("TC-",""))||0);
   return `TC-${String(Math.max(...nums)+1).padStart(2,"0")}`;
 }
-<<<<<<< HEAD
-=======
 
->>>>>>> d738720 (Guardar cambios locales antes del pull)
 function today() {
   const d = new Date();
   return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
 }
-<<<<<<< HEAD
-=======
 
 function buildIssueLogEntry(detail, estado = "Open", fecha = today(), tipo = "actualizacion") {
   const trimmed = String(detail || "").trim();
@@ -237,7 +212,6 @@ function issueBitacoraSummary(issue) {
   return `${latest.fecha || today()} - ${latest.detalle}`;
 }
 
->>>>>>> d738720 (Guardar cambios locales antes del pull)
 function SuggestionInput({ value, onChange, options = [], placeholder, darkMode }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value || "");
@@ -400,14 +374,6 @@ function ModalHeader({title,sub,onClose}) {
 }
 
 // ─── ATTACHMENT ZONE ──────────────────────────────────────────────────────────
-<<<<<<< HEAD
-function AttachmentZone({attachments,onChange}) {
-  const fileRef=useRef();
-  const [dragging,setDragging]=useState(false);
-  async function handleFiles(files) {
-    const arr=Array.from(files).filter(f=>{ const ext=f.name.split(".").pop().toLowerCase(); return ["png","jpg","jpeg","gif","webp","doc","docx","pdf"].includes(ext); });
-    const processed=await Promise.all(arr.map(async f=>({name:f.name,type:f.type,size:f.size,data:await readFileAsDataURL(f)})));
-=======
 function AttachmentZone({attachments,onChange,imagesOnly}) {
   const fileRef=useRef();
   const [dragging,setDragging]=useState(false);
@@ -416,7 +382,6 @@ function AttachmentZone({attachments,onChange,imagesOnly}) {
     const arr=Array.from(files).filter(f=>{ const ext=f.name.split(".").pop().toLowerCase(); return exts.includes(ext); });
     const limited=imagesOnly?arr.slice(0,Math.max(0,5-attachments.length)):arr;
     const processed=await Promise.all(limited.map(async f=>({name:f.name,type:f.type,size:f.size,data:await readFileAsDataURL(f)})));
->>>>>>> d738720 (Guardar cambios locales antes del pull)
     onChange([...attachments,...processed]);
   }
   function remove(i){onChange(attachments.filter((_,idx)=>idx!==i));}
@@ -424,21 +389,12 @@ function AttachmentZone({attachments,onChange,imagesOnly}) {
   return (
     <div>
       <div onClick={()=>fileRef.current.click()} onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);handleFiles(e.dataTransfer.files);}}
-<<<<<<< HEAD
-        style={{border:`2px dashed ${dragging?BRAND:"#ddd"}`,borderRadius:10,padding:"16px 14px",textAlign:"center",cursor:"pointer",background:dragging?BRAND_LIGHT:"#fafafa",transition:"all 0.2s"}}>
-        <div style={{fontSize:20}}>📎</div>
-        <div style={{fontSize:12,color:"#888",marginTop:3}}>Arrastra o haz clic para adjuntar</div>
-        <div style={{fontSize:11,color:"#bbb",marginTop:2}}>Imágenes · Word · PDF</div>
-      </div>
-      <input ref={fileRef} type="file" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.pdf" style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
-=======
         style={{border:`2px dashed ${dragging?BRAND:"#555"}`,borderRadius:8,padding:"18px 14px",textAlign:"center",cursor:"pointer",background:dragging?BRAND_LIGHT:"transparent",transition:"all 0.2s"}}>
         {imagesOnly
           ?<div style={{fontSize:11,color:"#888",letterSpacing:"0.06em",textTransform:"uppercase"}}>Clic para adjuntar capturas (PNG/JPG, máx. 5 imágenes)</div>
           :(<><div style={{fontSize:20}}>📎</div><div style={{fontSize:12,color:"#888",marginTop:3}}>Arrastra o haz clic para adjuntar</div><div style={{fontSize:11,color:"#bbb",marginTop:2}}>Imágenes · Word · PDF</div></>)}
       </div>
       <input ref={fileRef} type="file" multiple accept={imagesOnly?".png,.jpg,.jpeg":".png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.pdf"} style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
->>>>>>> d738720 (Guardar cambios locales antes del pull)
       {attachments.length>0&&(
         <div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:7}}>
           {attachments.map((att,i)=>{
@@ -1302,13 +1258,8 @@ function exportToCSV(proj, tests = proj.tests) {
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${proj.name}_TCs.csv`;a.click();
 }
 function exportIssuesToCSV(proj, issuesList = proj.issues) {
-<<<<<<< HEAD
-  const headers = ["ID","TC","Escenario","Descripción de la novedad","Módulo","Observación","Estado","Severidad","Prioridad","Fecha Creación"];
-  const rows = issuesList.map(i=>[i.id,i.testId,i.escenario,i.formulario,i.modulo,i.observacion,i.estado,i.severidad,i.prioridad,i.fechaCreacion]);
-=======
   const headers = ["ID","TC","Escenario","Descripción de la novedad","Módulo","Observación","Estado","Severidad","Prioridad","Fecha Creación","Última actualización bitácora"];
   const rows = issuesList.map(i=>[i.id,i.testId,i.escenario,i.formulario,i.modulo,i.observacion,i.estado,i.severidad,i.prioridad,i.fechaCreacion,issueBitacoraSummary(i)]);
->>>>>>> d738720 (Guardar cambios locales antes del pull)
   const csv = [headers,...rows].map(r=>r.map(c=>`"${(c||"").toString().replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${proj.name}_Issues.csv`;a.click();
@@ -2171,57 +2122,11 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
 }
 
 function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
-<<<<<<< HEAD
-  const [form,setForm]=useState({ ...EMPTY_ISSUE, ...(initial||{}), fechaCreacion: initial?.fechaCreacion || today(), fechaSolucion: initial?.fechaSolucion || "" });
-=======
   const [form,setForm]=useState({ ...EMPTY_ISSUE, ...(initial||{}), fechaCreacion: initial?.fechaCreacion || today(), fechaSolucion: initial?.fechaSolucion || "", bitacoraNota: "", asignadoA: initial?.asignadoA || "" });
->>>>>>> d738720 (Guardar cambios locales antes del pull)
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const IS=darkMode?inputStyleDark:inputStyle;
   return (
     <Modal onClose={onClose} wide preventOutsideClose>
-<<<<<<< HEAD
-      <ModalHeader title={initial?`Editar Issue #${issueId}`:"Nuevo Issue"} sub="Registra la novedad encontrada" onClose={onClose}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
-        <Field label="Caso de Prueba">
-          <select style={{...IS,minHeight:44}} value={form.testId} onChange={e=>set("testId",e.target.value)}>
-            <option value="">-- Seleccionar --</option>
-            {testIds.map(id=><option key={id} value={id}>{id}</option>)}
-          </select>
-        </Field>
-        <Field label="Módulo"><input style={{...IS,minHeight:44}} value={form.modulo} onChange={e=>set("modulo",e.target.value)} placeholder="Compras a pagos"/></Field>
-        <Field label="Escenario"><textarea style={{...IS,minHeight:120,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.escenario} onChange={e=>set("escenario",e.target.value)} placeholder="Nombre del escenario"/></Field>
-        <Field label="Descripción de la novedad"><textarea style={{...IS,minHeight:90,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.formulario} onChange={e=>set("formulario",e.target.value)} placeholder="Descripción de la novedad"/></Field>
-        <Field label="Estado">
-          <select style={{...IS,minHeight:44}} value={form.estado} onChange={e=>set("estado",e.target.value)}>
-            {Object.keys(issueStatusConfig).map(k=><option key={k} value={k}>{k}</option>)}
-          </select>
-        </Field>
-        <Field label="Severidad">
-          <select style={{...IS,minHeight:44}} value={form.severidad} onChange={e=>set("severidad",e.target.value)}>
-            {Object.keys(severityConfig).map(k=><option key={k} value={k}>{k}</option>)}
-          </select>
-        </Field>
-        <Field label="Prioridad">
-          <select style={{...IS,minHeight:44}} value={form.prioridad} onChange={e=>set("prioridad",e.target.value)}>
-            {["Critical","High","Medium","Low"].map(k=><option key={k} value={k}>{k}</option>)}
-          </select>
-        </Field>
-        <Field label="Fecha Creación">
-          <input type="date" style={{...IS,minHeight:44}} value={toInputDate(form.fechaCreacion)} onChange={e=>set("fechaCreacion",toDisplayDate(e.target.value))}/>
-        </Field>
-        <Field label="Fecha Solución">
-          <input type="date" style={{...IS,minHeight:44}} value={toInputDate(form.fechaSolucion)} onChange={e=>set("fechaSolucion",toDisplayDate(e.target.value))}/>
-        </Field>
-      </div>
-      <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:14}}>
-        <Field label="Observación"><textarea style={{...IS,minHeight:220,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.observacion} onChange={e=>set("observacion",e.target.value)} placeholder="Describe la novedad..."/></Field>
-        <Field label="Adjuntos – imágenes, Word, PDF"><AttachmentZone attachments={form.attachments||[]} onChange={v=>set("attachments",v)}/></Field>
-      </div>
-      <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:8}}>
-        <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
-        <Btn onClick={()=>{if(!form.observacion.trim())return alert("La observación es requerida");onSave(form);}}>💾 Guardar</Btn>
-=======
       <ModalHeader title={initial?`Editar Issue #${issueId}`:"Registrar issue"} sub="Registra la novedad encontrada" onClose={onClose}/>
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
@@ -2270,7 +2175,6 @@ function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
       <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}>
         <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
         <Btn onClick={()=>{if(!form.observacion.trim())return alert("La observación es requerida");onSave(form);}}>Guardar issue</Btn>
->>>>>>> d738720 (Guardar cambios locales antes del pull)
       </div>
     </Modal>
   );
@@ -2392,16 +2296,10 @@ function TcDetailModal({tc,onClose,onEdit,onDelete,onDuplicate,onAddComment}) {
 function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
   const sc=issueStatusConfig[issue.estado]||issueStatusConfig["Open"];
   const sev=severityConfig[issue.severidad]||"#888";
-<<<<<<< HEAD
-  return (
-    <Modal onClose={onClose} wide>
-      <ModalHeader title={issue.escenario} sub={`Issue #${issue.id} · ${issue.testId}`} onClose={onClose}/>
-=======
   const bitacora = normalizeIssueBitacora(issue.bitacora, issue);
   return (
     <Modal onClose={onClose} wide>
       <ModalHeader title={issue.escenario} sub={`Issue #${issue.id} · ${issue.testId} · ${bitacora.length} eventos`} onClose={onClose}/>
->>>>>>> d738720 (Guardar cambios locales antes del pull)
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,flexWrap:"wrap",marginBottom:20}}>
         <Btn small onClick={onEdit}>✏️ Editar</Btn>
         <Btn small danger onClick={onDelete}>🗑️</Btn>
@@ -2423,8 +2321,6 @@ function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
         <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Observación</div>
         <div style={{background:"#FEF9E7",borderRadius:8,padding:14,fontSize:13,color:"#555",lineHeight:1.8,borderLeft:"3px solid #F39C12"}}>{issue.observacion}</div>
       </div>
-<<<<<<< HEAD
-=======
       <div style={{marginBottom:14}}>
         <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Bitácora</div>
         {bitacora.length===0 && <div style={{fontSize:12,color:"#bbb"}}>Sin eventos registrados.</div>}
@@ -2442,7 +2338,6 @@ function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
           </div>
         )}
       </div>
->>>>>>> d738720 (Guardar cambios locales antes del pull)
       <div>
         <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:8}}>Adjuntos</div>
         <AttachmentViewer attachments={issue.attachments}/>
@@ -2885,14 +2780,11 @@ export default function App() {
         scrumTestTypes: normalizeProjectList(p.scrumTestTypes || EMPTY_PROJECT.scrumTestTypes),
         scrumLevels: normalizeProjectList(p.scrumLevels || EMPTY_PROJECT.scrumLevels),
         testers: Array.isArray(p.testers) ? p.testers : getScrumTeamMembers(p),
-<<<<<<< HEAD
-=======
         issues: (p.issues || []).map(issue => ({
           ...EMPTY_ISSUE,
           ...issue,
           bitacora: normalizeIssueBitacora(issue?.bitacora, issue),
         })),
->>>>>>> d738720 (Guardar cambios locales antes del pull)
         ciclos:(p.ciclos||[]).map(c=>({
           ...c,
           ejecuciones:c.ejecuciones||[]
@@ -2908,11 +2800,8 @@ export default function App() {
   const [filterProceso,setFilterProceso]=useState("Todos");
   const [filterTipoPrueba,setFilterTipoPrueba]=useState("Todos");
   const [filterNivelPrueba,setFilterNivelPrueba]=useState("Todos");
-<<<<<<< HEAD
-=======
   const [issueViewMode,setIssueViewMode]=useState("table");
   const [issueSearch,setIssueSearch]=useState("");
->>>>>>> d738720 (Guardar cambios locales antes del pull)
   const [filterModulo,setFilterModulo]=useState("Todos");
   const [filterFechaDesde,setFilterFechaDesde]=useState("");
   const [filterFechaHasta,setFilterFechaHasta]=useState("");
@@ -2928,10 +2817,6 @@ export default function App() {
   const [showIssueForm,setShowIssueForm]=useState(false);
   const [editIssue,setEditIssue]=useState(null);
   const [viewIssue,setViewIssue]=useState(null);
-<<<<<<< HEAD
-=======
-  const [previewImg,setPreviewImg]=useState(null);
->>>>>>> d738720 (Guardar cambios locales antes del pull)
   const [showCicloForm,setShowCicloForm]=useState(false);
   const [editCiclo,setEditCiclo]=useState(null);
   const [expandedCiclos,setExpandedCiclos]=useState({});
@@ -3189,12 +3074,6 @@ export default function App() {
 
   // Issue CRUD
   function saveIssue(form){
-<<<<<<< HEAD
-    setProjects(ps=>ps.map(p=>{
-      if(p.id!==activeProjectId)return p;
-      if(editIssue){return{...p,issues:p.issues.map(i=>i.id===editIssue.id?{...i,...form}:i)};}
-      else{const newId=(p.issues.length?Math.max(...p.issues.map(i=>i.id)):0)+1;return{...p,issues:[...p.issues,{id:newId,...form}]};}
-=======
     const manualLog = String(form?.bitacoraNota || "").trim();
     const cleanedForm = { ...form };
     delete cleanedForm.bitacoraNota;
@@ -3229,7 +3108,6 @@ export default function App() {
         if (noteEntry) initialBitacora.push(noteEntry);
       }
       return{...p,issues:[...p.issues,{...createdIssue,bitacora:initialBitacora}]};
->>>>>>> d738720 (Guardar cambios locales antes del pull)
     }));
     setShowIssueForm(false);setEditIssue(null);setViewIssue(null);
   }
@@ -3411,13 +3289,6 @@ export default function App() {
   const filteredIssues=useMemo(()=>issues.filter(i=>{
     const mE=filterIssueEstado==="Todos"||i.estado===filterIssueEstado;
     const mM=filterModulo==="Todos"||i.modulo===filterModulo;
-<<<<<<< HEAD
-    return mE&&mM;
-  }),[issues,filterIssueEstado,filterModulo]);
-
-  const filteredTestStats=useMemo(()=>{const c={};Object.keys(statusConfig).forEach(k=>c[k]=0);filteredTests.forEach(t=>{const normalizedStatus=normalizeTestStatus(t.estado);if(c[normalizedStatus]!==undefined)c[normalizedStatus]++;});return c;},[filteredTests]);
-  const filteredIssueStats=useMemo(()=>({open:filteredIssues.filter(i=>i.estado==="Open").length,closed:filteredIssues.filter(i=>i.estado==="Closed").length,inProg:filteredIssues.filter(i=>i.estado==="In Progress").length,blocked:filteredIssues.filter(i=>i.estado==="Blocked").length,total:filteredIssues.length}),[filteredIssues]);
-=======
     const searchText = issueSearch.trim().toLowerCase();
     const mS=!searchText||[
       i.testId,
@@ -3453,7 +3324,6 @@ export default function App() {
     const timeLabel = new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     return `${dateLabel}, ${timeLabel}`;
   },[issues]);
->>>>>>> d738720 (Guardar cambios locales antes del pull)
 
   const filteredTimelineData=useMemo(()=>{
     const map={};
@@ -4463,69 +4333,6 @@ export default function App() {
             {/* ── ISSUES ── */}
             {tab==="issues"&&(
               <div style={{display:"flex",flexDirection:"column",gap:18}}>
-<<<<<<< HEAD
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-                  <div>
-                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Issue List</h2>
-                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>{filteredIssues.length} issues registrados</p>
-                  </div>
-                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                    {[{l:"Open",v:filteredIssueStats.open,c:"#E74C3C"},{l:"In Progress",v:filteredIssueStats.inProg,c:"#F39C12"},{l:"Closed",v:filteredIssueStats.closed,c:"#27AE60"}].map(s=>(
-                      <div key={s.l} style={{background:s.c+"15",border:`1px solid ${s.c}30`,borderRadius:7,padding:"4px 10px",fontSize:11,display:"flex",gap:5}}>
-                        <span style={{color:s.c,fontWeight:800}}>{s.v}</span><span style={{color:"#666"}}>{s.l}</span>
-                      </div>
-                    ))}
-                    <select value={filterIssueEstado} onChange={e=>setFilterIssueEstado(e.target.value)} style={{...inputStyle,width:140,padding:"7px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
-                      <option value="Todos">Todos</option>
-                      {Object.keys(issueStatusConfig).map(k=><option key={k} value={k}>{k}</option>)}
-                    </select>
-                    <select value={filterModulo} onChange={e=>setFilterModulo(e.target.value)} style={{...inputStyle,width:150,padding:"7px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
-                      {modulosList.map(m=><option key={m} value={m}>{m==="Todos"?"Todos los módulos":m}</option>)}
-                    </select>
-                    {filterModulo!=="Todos"&&<button onClick={()=>setFilterModulo("Todos")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#aaa"}}>✕ Módulo</button>}
-                    <Btn onClick={()=>{setEditIssue(null);setShowIssueForm(true);}}>+ Nuevo Issue</Btn>
-                    <Btn variant="ghost" small onClick={()=>exportIssuesToCSV(proj, filteredIssues)}>⬇ Exportar</Btn>
-                  </div>
-                </div>
-                <div style={{background:DM.card,borderRadius:12,overflow:"hidden",border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-                    <thead>
-                      <tr style={{background:proj.color,color:"#fff"}}>
-                        <th style={{padding:"11px 8px",width:24}}></th>
-                        {['TC','Escenario','Descripción de la novedad','Módulo','Observación'].map(h=>(
-                          <th key={h} style={{padding:"11px 13px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredIssues.length===0&&(<tr><td colSpan={6} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin issues registrados.</td></tr>)}
-                      {filteredIssues.map((issue,i)=>{
-                        const realIndex=proj.issues.findIndex(x=>x.id===issue.id);
-                        return (
-                          <tr key={issue.id} draggable
-                            onDragStart={()=>{dragIssueIndex.current=realIndex;}}
-                            onDragOver={e=>{e.preventDefault();dragOverIssueIndex.current=realIndex;}}
-                            onDrop={()=>{if(dragIssueIndex.current!==null&&dragIssueIndex.current!==dragOverIssueIndex.current)reorderIssues(dragIssueIndex.current,dragOverIssueIndex.current);dragIssueIndex.current=null;dragOverIssueIndex.current=null;}}
-                            style={{background:i%2===0?DM.tableRow0:DM.tableRow1,cursor:"default",borderBottom:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
-                            onMouseEnter={e=>{e.currentTarget.style.background=DM.tableHover;}}
-                            onMouseLeave={e=>{e.currentTarget.style.background=i%2===0?DM.tableRow0:DM.tableRow1;}}>
-                            <td style={{padding:"9px 8px",textAlign:"center",color:"#ccc",cursor:"grab",fontSize:16}} onClick={e=>e.stopPropagation()} title="Arrastrar">⠿</td>
-                            <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap",fontSize:12,letterSpacing:"0.02em"}}>{issue.testId||"—"}</td>
-                            <td style={{padding:"9px 13px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:240,maxWidth:420,letterSpacing:"0.1px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff"}}>{issue.escenario}</td>
-                            <td style={{padding:"9px 13px",color:DM.sub,maxWidth:220,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4}}>{issue.formulario||"—"}</td>
-                            <td style={{padding:"9px 13px",color:DM.sub,whiteSpace:"nowrap"}}>{issue.modulo||"—"}</td>
-                            <td style={{padding:"9px 13px",whiteSpace:"nowrap"}}>
-                              <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setViewIssue(issue);}}>Ver observación</Btn>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-=======
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
                   <div>
                     <div style={{fontSize:10,color:"#F5B041",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.2em",marginBottom:5}}>Panamericana · Módulo Activos Fijos</div>
@@ -4606,7 +4413,7 @@ export default function App() {
                                 <td style={{padding:"10px 13px",color:DM.sub,maxWidth:280,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4}}>{issue.observacion||"—"}</td>
                                 <td style={{padding:"10px 13px"}}>
                                   {firstImg
-                                    ?<img src={firstImg.data} alt="evidencia" onClick={e=>{e.stopPropagation();setPreviewImg(firstImg.data);}} style={{width:44,height:32,objectFit:"cover",borderRadius:4,display:"block",border:`1px solid ${DM.cardBorder}`,cursor:"zoom-in"}}/>
+                                    ?<img src={firstImg.data} alt="evidencia" style={{width:44,height:32,objectFit:"cover",borderRadius:4,display:"block",border:`1px solid ${DM.cardBorder}`}}/>
                                     :<span style={{fontSize:11,color:"#bbb"}}>—</span>}
                                 </td>
                                 <td style={{padding:"10px 13px",color:DM.text,whiteSpace:"nowrap"}}>{issue.severidad||"—"}</td>
@@ -4628,42 +4435,37 @@ export default function App() {
                 )}
 
                 {issueViewMode==="kanban" && (
-                  <div style={{overflowX:"auto",paddingBottom:4}}>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(6, minmax(190px, 1fr))",gap:10,minWidth:1140}}>
-                      {["Open","Blocked","Ready for Retest","In Progress","Closed","Re-Open"].map(status=>{
-                        const cards = filteredIssues.filter(issue=>issue.estado===status);
-                        const sc = issueStatusConfig[status] || { color: DM.sub, bg: DM.card };
-                        return (
-                          <div key={status} style={{background:darkMode?"#141b26":"#f0f2f5",border:`1px solid ${DM.cardBorder}`,borderRadius:10,padding:"10px 8px",minHeight:240}}>
-                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:8,borderBottom:`1px solid ${DM.cardBorder}`}}>
-                              <div style={{fontSize:11,fontWeight:800,color:darkMode?"#8a9bb0":"#555",textTransform:"uppercase",letterSpacing:"0.08em"}}>{status}</div>
-                              <span style={{fontSize:11,fontWeight:800,color:sc.color,background:darkMode?"#1e2a3a":"#e8edf4",borderRadius:999,padding:"1px 8px",minWidth:20,textAlign:"center"}}>{cards.length}</span>
-                            </div>
-                            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                              {cards.length===0 && <div style={{fontSize:13,color:DM.sub,padding:"4px 2px"}}>—</div>}
-                              {cards.map(issue=>{
-                                const firstImg=(issue.attachments||[]).find(a=>a.type&&a.type.startsWith("image/"));
-                                return (
-                                  <div key={issue.id} onClick={()=>setViewIssue(issue)} style={{border:`1px solid ${DM.cardBorder}`,borderLeft:`4px solid ${sc.color}`,borderRadius:8,overflow:"hidden",background:darkMode?"#1a2535":"#fff",cursor:"pointer",transition:"box-shadow 0.15s"}}
-                                    onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 18px #0003"}
-                                    onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
-                                    {firstImg && (
-                                      <img src={firstImg.data} alt="evidencia" onClick={e=>{e.stopPropagation();setPreviewImg(firstImg.data);}}
-                                        style={{width:"100%",height:110,objectFit:"cover",display:"block",cursor:"zoom-in"}}/>
-                                    )}
-                                    <div style={{padding:"8px 10px"}}>
-                                      <div style={{fontSize:11,fontWeight:800,color:proj.color,marginBottom:4,letterSpacing:"0.03em"}}>{issue.testId||"—"}</div>
-                                      <div style={{fontSize:13,fontWeight:700,color:DM.text,lineHeight:1.35,marginBottom:4}}>{issue.escenario||"—"}</div>
-                                      {issue.observacion && <div style={{fontSize:11,color:DM.sub,lineHeight:1.4}}>{issue.observacion}</div>}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3, minmax(250px, 1fr))",gap:12}}>
+                    {["Open","In Progress","Ready for Retest","Blocked","Re-Open","Closed"].map(status=>{
+                      const cards = filteredIssues.filter(issue=>issue.estado===status);
+                      const sc = issueStatusConfig[status] || { color: DM.sub, bg: DM.card };
+                      return (
+                        <div key={status} style={{background:DM.card,border:`1px solid ${DM.cardBorder}`,borderRadius:12,padding:10,minHeight:220}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:8,borderBottom:`1px solid ${DM.cardBorder}`}}>
+                            <div style={{fontSize:12,fontWeight:800,color:sc.color,textTransform:"uppercase",letterSpacing:"0.06em"}}>{status}</div>
+                            <div style={{fontSize:11,fontWeight:700,color:DM.sub}}>{cards.length}</div>
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                            {cards.length===0 && <div style={{fontSize:11,color:DM.sub}}>Sin issues en esta columna</div>}
+                            {cards.map(issue=>{
+                              const bitacora = normalizeIssueBitacora(issue.bitacora, issue);
+                              const latest = bitacora[bitacora.length-1];
+                              return (
+                                <div key={issue.id} style={{border:`1px solid ${DM.cardBorder}`,borderLeft:`4px solid ${sc.color}`,borderRadius:9,padding:"8px 9px",background:darkMode?"#15171a":"#fff"}}>
+                                  <div style={{fontSize:11,fontWeight:700,color:proj.color,marginBottom:4}}>{issue.testId || "—"}</div>
+                                  <div style={{fontSize:12,fontWeight:700,color:DM.text,lineHeight:1.35}}>{issue.escenario}</div>
+                                  <div style={{fontSize:11,color:DM.sub,marginTop:4}}>{issue.formulario || "Sin descripción"}</div>
+                                  {latest && <div style={{fontSize:10,color:DM.sub,marginTop:7}}>{latest.fecha}: {latest.detalle}</div>}
+                                  <div style={{marginTop:8}}>
+                                    <Btn small variant="ghost" onClick={()=>setViewIssue(issue)}>Ver detalle</Btn>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -4671,7 +4473,6 @@ export default function App() {
               </div>
             )}
 
->>>>>>> d738720 (Guardar cambios locales antes del pull)
           </div>
         </div>
       </div>
@@ -4692,15 +4493,6 @@ export default function App() {
           onAddComment={addComment}/>
       )}
       {showIssueForm&&<IssueFormModal initial={editIssue} issueId={editIssue?.id} testIds={tests.map(t=>t.id)} onSave={saveIssue} onClose={()=>{setShowIssueForm(false);setEditIssue(null);}} darkMode={darkMode}/>}
-<<<<<<< HEAD
-=======
-      {previewImg&&(
-        <div onClick={()=>setPreviewImg(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
-          <img src={previewImg} alt="evidencia" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:10,boxShadow:"0 8px 48px #000a",objectFit:"contain"}}/>
-          <button onClick={()=>setPreviewImg(null)} style={{position:"absolute",top:20,right:28,background:"transparent",border:"none",color:"#fff",fontSize:28,cursor:"pointer",lineHeight:1}}>✕</button>
-        </div>
-      )}
->>>>>>> d738720 (Guardar cambios locales antes del pull)
       {viewIssue&&!showIssueForm&&(
         <IssueDetailModal issue={viewIssue} onClose={()=>setViewIssue(null)}
           onEdit={()=>{setEditIssue(viewIssue);setViewIssue(null);setShowIssueForm(true);}}
