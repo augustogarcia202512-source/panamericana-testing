@@ -2031,7 +2031,8 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
   });
   const [steps,setSteps]=useState(()=>parseSteps(initial?.pasos||""));
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-  const IS=darkMode?inputStyleDark:inputStyle;
+  const IS={...inputStyleDark,background:"#1a2535",border:"1px solid #2a3a4a",color:"#e2e8f0",borderRadius:8};
+  const SEL={...IS,appearance:"auto"};
 
   const scrumRoleOptions = ["Product Owner", "Scrum Master", "Developers", "QA / Pruebas"];
   const scrumAssignees = getScrumRoleMembers(project, form.asignadoRol);
@@ -2052,25 +2053,25 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
   }, [project?.modules, project?.scrumTeam, project?.scrumTestTypes, project?.scrumLevels, form.asignadoRol]);
 
   return (
-    <Modal onClose={onClose} wide preventOutsideClose>
-      <ModalHeader title={initial?`Editar ${tcId}`:"Nuevo Caso de Prueba"} sub={initial?"Modifica y guarda":"Completa los datos del escenario"} onClose={onClose}/>
+    <Modal onClose={onClose} wide preventOutsideClose dark>
+      <ModalHeader title={initial?`Editar ${tcId}`:"Nuevo Caso de Prueba"} sub={initial?"Modifica y guarda":"Completa los datos del escenario"} onClose={onClose} dark/>
       {(project?.modules?.length || getScrumTeamMembers(project).length) > 0 && (
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14,padding:"12px 14px",borderRadius:12,background:darkMode?"#242427":"#f8fafc",border:`1px solid ${darkMode?"#3a3a3d":"#e5e7eb"}`}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14,padding:"12px 14px",borderRadius:12,background:"#1a2535",border:"1px solid #2a3a4a"}}>
           <div>
-            <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Módulos del proyecto</div>
+            <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Módulos del proyecto</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-              {(project?.modules||[]).length>0 ? (project.modules||[]).map(mod=><span key={mod} style={{fontSize:11,padding:"4px 8px",borderRadius:999,background:darkMode?"#2C2C2E":"#eef2ff",color:darkMode?"#eee":"#4c51bf"}}>{mod}</span>) : <span style={{fontSize:11,color:"#888"}}>Sin módulos definidos</span>}
+              {(project?.modules||[]).length>0 ? (project.modules||[]).map(mod=><span key={mod} style={{fontSize:11,padding:"4px 8px",borderRadius:999,background:"#243550",color:"#7ab3e0"}}>{mod}</span>) : <span style={{fontSize:11,color:"#5a7a9a"}}>Sin módulos definidos</span>}
             </div>
           </div>
           <div>
-            <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Equipo Scrum</div>
+            <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Equipo Scrum</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
               {(() => {
                 const team = normalizeScrumTeam(project?.scrumTeam);
                 const members = getScrumTeamMembers({ scrumTeam: team });
                 return members.length > 0
-                  ? members.map(person => <span key={person} style={{fontSize:11,padding:"4px 8px",borderRadius:999,background:darkMode?"#2C2C2E":"#ecfdf5",color:darkMode?"#eee":"#047857"}}>{person}</span>)
-                  : <span style={{fontSize:11,color:"#888"}}>Sin equipo definido</span>;
+                  ? members.map(person => <span key={person} style={{fontSize:11,padding:"4px 8px",borderRadius:999,background:"#1a3530",color:"#4ade80"}}>{person}</span>)
+                  : <span style={{fontSize:11,color:"#5a7a9a"}}>Sin equipo definido</span>;
               })()}
             </div>
           </div>
@@ -2079,11 +2080,11 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <Field label="Escenario"><textarea style={{...IS,minHeight:48,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.escenario} onChange={e=>set("escenario",e.target.value)} /></Field>
         <Field label="Módulo">
-          <SuggestionInput value={form.proceso} onChange={v=>set("proceso",v)} options={project?.modules||[]} placeholder="Selecciona o escribe un módulo" darkMode={darkMode} />
+          <SuggestionInput value={form.proceso} onChange={v=>set("proceso",v)} options={project?.modules||[]} placeholder="Selecciona o escribe un módulo" darkMode={true} />
         </Field>
         <Field label="Área"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} /></Field>
         <Field label="Rol Scrum">
-          <select style={IS} value={form.asignadoRol||"QA / Pruebas"} onChange={e=>setForm(current=>{
+          <select style={{...SEL}} value={form.asignadoRol||"QA / Pruebas"} onChange={e=>setForm(current=>{
             const nextRol = e.target.value;
             const members = getScrumRoleMembers(project, nextRol);
             return {
@@ -2096,16 +2097,16 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
           </select>
         </Field>
         <Field label="Miembro asignado">
-          <SuggestionInput value={form.asignadoA||""} onChange={v=>set("asignadoA",v)} options={scrumAssignees} placeholder="Selecciona o escribe un miembro del rol" darkMode={darkMode} />
+          <SuggestionInput value={form.asignadoA||""} onChange={v=>set("asignadoA",v)} options={scrumAssignees} placeholder="Selecciona o escribe un miembro del rol" darkMode={true} />
         </Field>
         <Field label="Tipo de prueba">
-          <SuggestionInput value={form.tipoPrueba||""} onChange={v=>set("tipoPrueba",v)} options={project?.scrumTestTypes||EMPTY_PROJECT.scrumTestTypes} placeholder="Selecciona o escribe un tipo" darkMode={darkMode} />
+          <SuggestionInput value={form.tipoPrueba||""} onChange={v=>set("tipoPrueba",v)} options={project?.scrumTestTypes||EMPTY_PROJECT.scrumTestTypes} placeholder="Selecciona o escribe un tipo" darkMode={true} />
         </Field>
         <Field label="Nivel de prueba">
-          <SuggestionInput value={form.nivelPrueba||""} onChange={v=>set("nivelPrueba",v)} options={project?.scrumLevels||EMPTY_PROJECT.scrumLevels} placeholder="Selecciona o escribe un nivel" darkMode={darkMode} />
+          <SuggestionInput value={form.nivelPrueba||""} onChange={v=>set("nivelPrueba",v)} options={project?.scrumLevels||EMPTY_PROJECT.scrumLevels} placeholder="Selecciona o escribe un nivel" darkMode={true} />
         </Field>
         <Field label="Estado">
-          <select style={IS} value={form.estado} onChange={e=>set("estado",e.target.value)}>
+          <select style={{...SEL}} value={form.estado} onChange={e=>set("estado",e.target.value)}>
             {Object.keys(statusConfig).map(k=><option key={k} value={k}>{k}</option>)}
           </select>
         </Field>
@@ -2121,12 +2122,12 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
               <Btn small variant="ghost" onClick={()=>setSteps(s=>[...s,{id:Date.now(),status:"No ejecutado",text:""}])}>+ Paso</Btn>
             </div>
             {steps.map((step,index)=>(
-              <div key={step.id} style={{display:"grid",gridTemplateColumns:"110px 1fr auto",gap:8,alignItems:"center",background:darkMode?"#2A2A2D":"#fafafa",borderRadius:10,padding:10,border:`1px solid ${darkMode?"#444":"#eee"}`}}>
-                <select style={{...IS,minHeight:40}} value={step.status} onChange={e=>setSteps(s=>s.map((item,i)=>i===index?{...item,status:e.target.value}:item))}>
+              <div key={step.id} style={{display:"grid",gridTemplateColumns:"110px 1fr auto",gap:8,alignItems:"center",background:"#1a2535",borderRadius:10,padding:10,border:"1px solid #2a3a4a"}}>
+                <select style={{...SEL,minHeight:40}} value={step.status} onChange={e=>setSteps(s=>s.map((item,i)=>i===index?{...item,status:e.target.value}:item))}>
                   {Object.keys(cycleStatusConfig).map(k=><option key={k} value={k}>{k}</option>)}
                 </select>
                 <input style={{...IS,minHeight:40}} value={step.text} onChange={e=>setSteps(s=>s.map((item,i)=>i===index?{...item,text:e.target.value}:item))} placeholder={`Paso ${index+1}`} />
-                <button onClick={()=>setSteps(s=>s.filter((_,i)=>i!==index))} style={{background:"#f3f3f3",border:"none",borderRadius:8,padding:"8px 10px",cursor:"pointer",fontSize:14}}>✕</button>
+                <button onClick={()=>setSteps(s=>s.filter((_,i)=>i!==index))} style={{background:"#243550",border:"1px solid #2a3a4a",borderRadius:8,padding:"8px 10px",cursor:"pointer",fontSize:14,color:"#e2e8f0"}}>✕</button>
               </div>
             ))}
           </div>
@@ -2134,9 +2135,9 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
         <Field label="Resultado Esperado"><textarea style={{...IS,minHeight:60,resize:"vertical"}} value={form.resultado} onChange={e=>set("resultado",e.target.value)} /></Field>
         <Field label="Adjuntos"><AttachmentZone attachments={form.attachments||[]} onChange={v=>set("attachments",v)}/></Field>
       </div>
-      <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:8}}>
-        <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
-        <Btn onClick={()=>{if(!form.escenario.trim())return alert("El escenario es requerido");const pasos=serializeSteps(steps);set("pasos",pasos);onSave({...form,pasos,tipoPrueba:String(form.tipoPrueba||"").trim(),nivelPrueba:String(form.nivelPrueba||"").trim()});}}>💾 Guardar</Btn>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}>
+        <button onClick={onClose} style={{background:"transparent",border:"1.5px solid #4a5568",color:"#8a9bb0",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Cancelar</button>
+        <button onClick={()=>{if(!form.escenario.trim())return alert("El escenario es requerido");const pasos=serializeSteps(steps);set("pasos",pasos);onSave({...form,pasos,tipoPrueba:String(form.tipoPrueba||"").trim(),nivelPrueba:String(form.nivelPrueba||"").trim()});}} style={{background:"#F5B041",border:"none",color:"#1a1a1a",borderRadius:8,padding:"9px 20px",fontSize:13,fontWeight:800,cursor:"pointer"}}>{initial?"Guardar cambios":"Guardar caso"}</button>
       </div>
     </Modal>
   );
@@ -2235,89 +2236,89 @@ function TcDetailModal({tc,onClose,onEdit,onDelete,onDuplicate,onAddComment}) {
   const sc=statusConfig[normalizeTestStatus(tc.estado)]||statusConfig["Borrador"];
   const [comment,setComment]=useState("");
   const parsedSteps=useMemo(()=>parseSteps(tc.pasos),[tc.pasos]);
+  const ISD={...inputStyleDark,background:"#1a2535",border:"1px solid #2a3a4a",color:"#e2e8f0",borderRadius:8};
   return (
-    <Modal onClose={onClose} wide>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
-        <div>
-          <div style={{fontFamily:"monospace",fontSize:12,color:BRAND,fontWeight:700,marginBottom:4}}>{tc.id}</div>
-          {/* Mostrar la última entrada del historial (si existe) para ver la sugerencia inmediatamente */}
-          {tc.historial && tc.historial.length>0 && (
-            (()=>{
-              const last = tc.historial[tc.historial.length-1];
-              return last && last.nota ? <div style={{fontSize:12,color:"#6b7280",marginBottom:6}}>Última sugerencia: <strong style={{color:BRAND}}>{last.nota}</strong> <span style={{color:"#aaa",marginLeft:8,fontSize:11}}>{last.fecha}</span></div> : null;
-            })()
-          )}
-          <h3 style={{margin:0,fontSize:17,fontWeight:800,color:"#1a1a1a"}}>{tc.descripcion}</h3>
-        </div>
-        <div style={{display:"flex",gap:7,flexWrap:"wrap",justifyContent:"flex-end"}}>
-          <Btn small onClick={onEdit}>✏️ Editar</Btn>
-          <Btn small variant="ghost" onClick={onDuplicate}>📋 Duplicar</Btn>
-          <Btn small danger onClick={onDelete}>🗑️</Btn>
-          <button onClick={onClose} style={{background:"#f0f0f0",border:"none",borderRadius:8,padding:"5px 11px",cursor:"pointer",fontSize:17}}>✕</button>
-        </div>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:11,marginBottom:14}}>
-        {[ ["Área",tc.area],["Proceso",tc.proceso],["Escenario",tc.escenario],["Rol Scrum",tc.asignadoRol||inferScrumRole(proj, tc.asignadoA)],["Tipo de prueba",tc.tipoPrueba||"—"],["Nivel de prueba",tc.nivelPrueba||"—"],["Asignado a",tc.asignadoA||"—"],["Fecha Aprob.",tc.fechaAprobacion||"—"],["Fecha Ejec.",tc.fechaEjecucion||"—"]].map(([l,v])=>(
-          <div key={l} style={{background:"#f8f8f8",borderRadius:8,padding:"9px 12px"}}>
-            <div style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:3}}>{l}</div>
-            <div style={{fontSize:13,color:"#333",fontWeight:600}}>{v}</div>
+    <Modal onClose={onClose} wide dark>
+      <ModalHeader title={tc.escenario||tc.descripcion||"Caso de Prueba"} sub={`${tc.id} · ${tc.proceso||"—"}`} onClose={onClose} dark/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+        {[["Área",tc.area],["Módulo",tc.proceso],["Tipo",tc.tipoPrueba||"—"],["Nivel",tc.nivelPrueba||"—"],["Asignado a",tc.asignadoA||"—"],["Rol Scrum",tc.asignadoRol||"—"],["Fecha Aprob.",tc.fechaAprobacion||"—"],["Fecha Ejec.",tc.fechaEjecucion||"—"]].map(([l,v])=>(
+          <div key={l} style={{background:"#1a2535",borderRadius:8,padding:"9px 12px",border:"1px solid #2a3a4a"}}>
+            <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:3}}>{l}</div>
+            <div style={{fontSize:13,color:"#e2e8f0",fontWeight:600}}>{v}</div>
           </div>
         ))}
-        <div style={{background:"#f8f8f8",borderRadius:8,padding:"9px 12px"}}>
-          <div style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Estado</div>
-          <Badge label={tc.estado} color={sc.color} bg={sc.bg}/>
+        <div style={{background:"#1a2535",borderRadius:8,padding:"9px 12px",border:"1px solid #2a3a4a"}}>
+          <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Estado</div>
+          <span style={{fontSize:11,fontWeight:800,color:sc.color,border:`1.5px solid ${sc.color}`,borderRadius:5,padding:"2px 9px",letterSpacing:"0.07em",textTransform:"uppercase"}}>{tc.estado}</span>
         </div>
       </div>
-      <div style={{marginBottom:12}}>
-        <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Pasos</div>
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {parsedSteps.map((step,index)=>(
-            <div key={`${step.status}-${index}`} style={{display:"flex",gap:10,alignItems:"flex-start",background:"#f8f8f8",borderRadius:8,padding:10,borderLeft:`4px solid ${cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || BRAND}`}}>
-              <div style={{minWidth:120}}><Badge label={normalizeCycleExecutionStatus(step.status)} color={cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || BRAND} bg={cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.bg || BRAND_LIGHT}/></div>
-              <div style={{fontSize:13,color:"#444",lineHeight:1.6,flex:1}}>{step.text || "Sin detalle"}</div>
-            </div>
-          ))}
-          {!parsedSteps.length && <div style={{background:"#f8f8f8",borderRadius:8,padding:14,fontSize:13,color:"#444"}}>Sin pasos registrados.</div>}
+      {parsedSteps.length>0&&(
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:8}}>Pasos</div>
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            {parsedSteps.map((step,index)=>{
+              const st=cycleStatusConfig[normalizeCycleExecutionStatus(step.status)];
+              return (
+                <div key={index} style={{display:"flex",gap:10,alignItems:"flex-start",background:"#1a2535",borderRadius:8,padding:"9px 12px",border:"1px solid #2a3a4a",borderLeft:`4px solid ${st?.color||BRAND}`}}>
+                  <span style={{fontSize:11,fontWeight:800,color:st?.color||BRAND,whiteSpace:"nowrap",minWidth:110}}>{normalizeCycleExecutionStatus(step.status)}</span>
+                  <span style={{fontSize:13,color:"#c8d8e8",lineHeight:1.6,flex:1}}>{step.text||"Sin detalle"}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
-      <div style={{marginBottom:12}}>
-        <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Resultado Esperado</div>
-        <div style={{background:"#EAFAF1",borderRadius:8,padding:14,fontSize:13,color:"#1E8449",lineHeight:1.75,borderLeft:"3px solid #27AE60"}}>{tc.resultado}</div>
-      </div>
-      {/* Historial */}
+      )}
+      {tc.resultado&&(
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Resultado Esperado</div>
+          <div style={{background:"#1a2535",borderRadius:8,padding:14,fontSize:13,color:"#c8d8e8",lineHeight:1.75,border:"1px solid #2a3a4a",borderLeft:"3px solid #4ade80"}}>{tc.resultado}</div>
+        </div>
+      )}
       {(tc.historial||[]).length>0&&(
-        <div style={{marginBottom:12}}>
-          <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Historial de Cambios</div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Historial</div>
           <div style={{display:"flex",flexDirection:"column",gap:5}}>
             {[...tc.historial].reverse().map((h,i)=>(
-              <div key={i} style={{display:"flex",gap:10,alignItems:"center",fontSize:12,color:"#666",background:"#f9f9f9",borderRadius:6,padding:"6px 10px"}}>
-                <span style={{fontFamily:"monospace",fontSize:10,color:"#bbb",whiteSpace:"nowrap"}}>{h.fecha}</span>
-                <span style={{color:"#E74C3C"}}>{h.de}</span>
-                <span style={{color:"#aaa"}}>→</span>
-                <span style={{color:"#27AE60",fontWeight:700}}>{h.a}</span>
-                {h.nota&&<span style={{color:"#aaa",marginLeft:4}}>· {h.nota}</span>}
+              <div key={i} style={{display:"flex",gap:10,alignItems:"center",fontSize:12,background:"#1a2535",borderRadius:6,padding:"6px 10px",border:"1px solid #2a3a4a"}}>
+                <span style={{fontFamily:"monospace",fontSize:10,color:"#5a7a9a",whiteSpace:"nowrap"}}>{h.fecha}</span>
+                <span style={{color:"#f87171"}}>{h.de}</span>
+                <span style={{color:"#5a7a9a"}}>→</span>
+                <span style={{color:"#4ade80",fontWeight:700}}>{h.a}</span>
+                {h.nota&&<span style={{color:"#7a9ab0",marginLeft:4}}>· {h.nota}</span>}
               </div>
             ))}
           </div>
         </div>
       )}
-      {/* Comentarios */}
-      <div style={{marginBottom:12}}>
-        <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Comentarios</div>
-        {(tc.comentarios||[]).length===0&&<div style={{fontSize:12,color:"#ccc",marginBottom:8}}>Sin comentarios aún</div>}
-        {(tc.comentarios||[]).map((c,i)=>(
-          <div key={i} style={{background:"#f8f8f8",borderRadius:8,padding:"8px 12px",marginBottom:6,fontSize:12,color:"#555"}}>
-            <span style={{fontFamily:"monospace",fontSize:10,color:"#bbb",marginRight:8}}>{c.fecha}</span>{c.texto}
-          </div>
-        ))}
-        <div style={{display:"flex",gap:8,marginTop:8}}>
-          <input value={comment} onChange={e=>setComment(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&comment.trim()){onAddComment(tc.id,comment.trim());setComment("");}}} placeholder="Escribe un comentario y presiona Enter..." style={{...inputStyle,flex:1,padding:"7px 12px"}}/>
-          <Btn small onClick={()=>{if(comment.trim()){onAddComment(tc.id,comment.trim());setComment("");}}} disabled={!comment.trim()}>Agregar</Btn>
+      {(tc.comentarios||[]).length>0&&(
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Comentarios</div>
+          {(tc.comentarios||[]).map((c,i)=>(
+            <div key={i} style={{background:"#1a2535",borderRadius:8,padding:"8px 12px",marginBottom:6,fontSize:12,color:"#c8d8e8",border:"1px solid #2a3a4a"}}>
+              <span style={{fontFamily:"monospace",fontSize:10,color:"#5a7a9a",marginRight:8}}>{c.fecha}</span>{c.texto}
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:8}}>Agregar comentario</div>
+        <div style={{display:"flex",gap:8}}>
+          <input value={comment} onChange={e=>setComment(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&comment.trim()){onAddComment(tc.id,comment.trim());setComment("");}}} placeholder="Escribe y presiona Enter..." style={{...ISD,flex:1,padding:"9px 12px"}}/>
+          <button onClick={()=>{if(comment.trim()){onAddComment(tc.id,comment.trim());setComment("");}}} disabled={!comment.trim()} style={{background:"#243550",border:"1px solid #2a3a4a",color:"#e2e8f0",borderRadius:8,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Agregar</button>
         </div>
       </div>
-      <div>
-        <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:8}}>Adjuntos</div>
-        <AttachmentViewer attachments={tc.attachments}/>
+      {(tc.attachments||[]).length>0&&(
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:8}}>Adjuntos</div>
+          <AttachmentViewer attachments={tc.attachments}/>
+        </div>
+      )}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:18}}>
+        <button onClick={onDelete} style={{background:"transparent",border:"1.5px solid #E74C3C",color:"#E74C3C",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Eliminar</button>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onDuplicate} style={{background:"transparent",border:"1.5px solid #4a5568",color:"#8a9bb0",borderRadius:8,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:"pointer"}}>📋 Duplicar</button>
+          <button onClick={onEdit} style={{background:"#F5B041",border:"none",color:"#1a1a1a",borderRadius:8,padding:"9px 20px",fontSize:13,fontWeight:800,cursor:"pointer"}}>✏️ Editar</button>
+        </div>
       </div>
     </Modal>
   );
@@ -4074,22 +4075,22 @@ export default function App() {
                   </select>
                   <Btn small onClick={applyBulkChangesToTests} disabled={!selectedTestIds.length}>Aplicar a seleccionados</Btn>
                 </div>
-                <div style={{background:DM.card,borderRadius:12,overflow:"hidden",border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                <div style={{background:DM.card,borderRadius:12,overflow:"hidden",border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000001a"}}>
                   <div style={{overflowX:"auto"}}>
                     <table style={{width:"100%",minWidth:testViewMode==="compacta"?1080:1240,borderCollapse:"collapse",fontSize:12}}>
                     <thead>
-                      <tr style={{background:proj.color,color:"#fff"}}>
-                        <th style={{padding:"9px 6px",width:28,textAlign:"center"}}>
+                      <tr style={{background:darkMode?"#1e2a3a":"#e8f0f8",color:darkMode?"#8a9bb0":"#4a6080"}}>
+                        <th style={{padding:"11px 6px",width:28,textAlign:"center",borderBottom:`1px solid ${DM.cardBorder}`}}>
                           <input type="checkbox" checked={allVisibleSelected} onChange={e=>e.target.checked?selectAllVisibleTests(visibleTestIds):clearSelectedTests(visibleTestIds)} onClick={e=>e.stopPropagation()} title="Seleccionar visibles"/>
                         </th>
-                        <th style={{padding:"9px 6px",width:20}}></th>
+                        <th style={{padding:"11px 6px",width:20,borderBottom:`1px solid ${DM.cardBorder}`}}></th>
                         {["ID","Escenario","Módulo","Tipo","Nivel",...(testViewMode==="expandida"?["Pasos","Descripción"]:[]),"Responsable","Estado","Adj.","Observación"].map(h=>(
-                          <th key={h} style={{padding:"9px 10px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:"0.05em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                          <th key={h} style={{padding:"11px 10px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:"0.07em",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:`1px solid ${DM.cardBorder}`}}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTests.length===0&&(<tr><td colSpan={testViewMode==="expandida"?13:11} style={{padding:32,textAlign:"center",color:"#bbb",fontSize:13}}>Sin resultados.</td></tr>)}
+                      {filteredTests.length===0&&(<tr><td colSpan={testViewMode==="expandida"?13:11} style={{padding:32,textAlign:"center",color:DM.sub,fontSize:13}}>Sin resultados.</td></tr>)}
                       {filteredTests.map((t,i)=>{
                         const sc=statusConfig[normalizeTestStatus(t.estado)]||statusConfig["Borrador"];
                         const realIndex=proj.tests.findIndex(x=>x.id===t.id);
@@ -4101,37 +4102,37 @@ export default function App() {
                             onDragStart={()=>{dragIndex.current=realIndex;}}
                             onDragOver={e=>{e.preventDefault();dragOverIndex.current=realIndex;}}
                             onDrop={()=>{if(dragIndex.current!==null&&dragIndex.current!==dragOverIndex.current)reorderTests(dragIndex.current,dragOverIndex.current);dragIndex.current=null;dragOverIndex.current=null;}}
-                            onClick={()=>{setViewTc(t); setSelectedAiTc(t);}}
+                            onClick={()=>{setEditTc(t);setShowTcForm(true);setSelectedAiTc(t);}}
                             style={{background:isSelected?(darkMode?"#1d2a3c":"#ecf5ff"):(i%2===0?DM.tableRow0:DM.tableRow1),cursor:"pointer",borderBottom:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
                             onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
                             onMouseLeave={e=>e.currentTarget.style.background=isSelected?(darkMode?"#1d2a3c":"#ecf5ff"):(i%2===0?DM.tableRow0:DM.tableRow1)}>
-                            <td style={{padding:"8px 6px",textAlign:"center"}} onClick={e=>e.stopPropagation()}>
+                            <td style={{padding:"9px 6px",textAlign:"center"}} onClick={e=>e.stopPropagation()}>
                               <input type="checkbox" checked={isSelected} onChange={()=>toggleTestSelection(t.id)} />
                             </td>
-                            <td style={{padding:"8px 6px",textAlign:"center",color:"#ccc",cursor:"grab",fontSize:14}} onClick={e=>e.stopPropagation()} title="Arrastrar">⠿</td>
-                            <td style={{padding:"8px 10px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",fontSize:11}}>{t.id}</td>
-                            <td style={{padding:"8px 10px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:180,maxWidth:240,letterSpacing:"0.05px",background:darkMode?"#202b3b":"#f7faff",borderRadius:6,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff",fontSize:11}}>{t.escenario}</td>
-                            <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.proceso}</td>
-                            <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.tipoPrueba||"—"}</td>
-                            <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.nivelPrueba||"—"}</td>
+                            <td style={{padding:"9px 6px",textAlign:"center",color:DM.sub,cursor:"grab",fontSize:14}} onClick={e=>e.stopPropagation()} title="Arrastrar">⠿</td>
+                            <td style={{padding:"9px 10px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",fontSize:11}}>{t.id}</td>
+                            <td style={{padding:"9px 10px",fontWeight:700,color:DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:180,maxWidth:240,fontSize:11,background:darkMode?"#1e2a3a":"#f0f5ff",borderRadius:6,border:darkMode?"1px solid #2a3a4a":"1px solid #d8e8ff"}}>{t.escenario}</td>
+                            <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.proceso}</td>
+                            <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.tipoPrueba||"—"}</td>
+                            <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.nivelPrueba||"—"}</td>
                             {testViewMode==="expandida"&&(
-                              <td style={{padding:"8px 10px",color:"#666",minWidth:260,maxWidth:320,whiteSpace:"normal",lineHeight:1.35,fontSize:10,verticalAlign:"top"}}>
+                              <td style={{padding:"9px 10px",color:DM.sub,minWidth:260,maxWidth:320,whiteSpace:"normal",lineHeight:1.35,fontSize:10,verticalAlign:"top"}}>
                                 {pasosPreview.length ? pasosPreview.map((s,idx)=><div key={idx} style={{marginBottom:idx===pasosPreview.length-1?0:4}}>{`${idx+1}. ${s.text || "Sin detalle"}`}</div>) : "—"}
                               </td>
                             )}
-                            {testViewMode==="expandida"&&<td style={{padding:"8px 10px",color:"#888",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10}}>{t.descripcion}</td>}
-                            <td style={{padding:"8px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:10}}>{t.asignadoA||"—"}</td>
-                            <td style={{padding:"8px 10px"}} onClick={e=>e.stopPropagation()}>
+                            {testViewMode==="expandida"&&<td style={{padding:"9px 10px",color:DM.sub,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10}}>{t.descripcion}</td>}
+                            <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:10}}>{t.asignadoA||"—"}</td>
+                            <td style={{padding:"9px 10px"}} onClick={e=>e.stopPropagation()}>
                               <select value={t.estado} onChange={e=>updateTCStatus(t.id,e.target.value)}
                                 style={{border:`1px solid ${sc.color}50`,borderRadius:10,padding:"2px 6px",fontSize:9,fontWeight:700,color:sc.color,background:sc.bg,cursor:"pointer",outline:"none"}}>
                                 {Object.keys(statusConfig).map(k=><option key={k} value={k}>{k}</option>)}
                               </select>
                             </td>
-                            <td style={{padding:"8px 10px",textAlign:"center",fontSize:11}}>
+                            <td style={{padding:"9px 10px",textAlign:"center",fontSize:11}}>
                               {(t.attachments||[]).length>0&&<span style={{fontSize:11}} title={`${t.attachments.length} adjunto(s)`}>📎{t.attachments.length}</span>}
                               {(t.comentarios||[]).length>0&&<span style={{fontSize:11,marginLeft:3}} title={`${t.comentarios.length} comentario(s)`}>💬{t.comentarios.length}</span>}
                             </td>
-                            <td style={{padding:"8px 10px",textAlign:"center",whiteSpace:"nowrap"}} onClick={e=>e.stopPropagation()}>
+                            <td style={{padding:"9px 10px",textAlign:"center",whiteSpace:"nowrap"}} onClick={e=>e.stopPropagation()}>
                               <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTc(t);}} title="Agregar novedad u observación" style={{padding:"4px 8px",fontSize:11,color:commentsCount>0?"#C0392B":undefined,fontWeight:commentsCount>0?800:700}}>📝{commentsCount>0?` ${commentsCount}`:""}</Btn>
                             </td>
                           </tr>
