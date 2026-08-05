@@ -19,6 +19,7 @@ const cycleStatusConfig = {
 };
 const statusConfig = testStatusConfig;
 const issueStatusConfig = {
+<<<<<<< HEAD
   "Open":        { color: "#E74C3C", bg: "#FDEDEC" },
   "Closed":      { color: "#27AE60", bg: "#EAFAF1" },
   "In Progress": { color: "#F39C12", bg: "#FEF9E7" },
@@ -30,6 +31,29 @@ const EMPTY_TC = { area:"",proceso:"",escenario:"",descripcion:"",pasos:"",resul
 const EMPTY_ISSUE = { testId:"",escenario:"",formulario:"",observacion:"",modulo:"",estado:"Open",severidad:"Medium",prioridad:"Medium",fechaCreacion:"",fechaSolucion:"",attachments:[] };
 const EMPTY_CICLO = { nombre:"",modulo:"",fechaInicio:"",fechaFin:"",descripcion:"",ejecuciones:[] };
 const EMPTY_PROJECT = { name:"",description:"",color:COLORS[0],modules:[],scrumTeam:{productOwner:"",scrumMaster:"",developers:[],qa:[]},scrumTestTypes:["Funcionales","Regresión","Integración","Aceptación"],scrumLevels:["Unitarias","Integración","Sistema","Aceptación","Regresión"] };
+=======
+  "Open": { color: "#E74C3C", bg: "#FDEDEC" },
+  "Ready for Retest": { color: "#3498DB", bg: "#EAF4FF" },
+  "Closed": { color: "#27AE60", bg: "#EAFAF1" },
+  "In Progress": { color: "#F39C12", bg: "#FEF9E7" },
+  "Blocked": { color: "#8E44AD", bg: "#F5EEF8" },
+  "Re-Open": { color: "#E67E22", bg: "#FEF5E7" },
+};
+const issueStatusLabel = {
+  "Open": "Abierto",
+  "Ready for Retest": "Listo para re-test",
+  "Closed": "Cerrado",
+  "In Progress": "En progreso",
+  "Blocked": "Bloqueado",
+  "Re-Open": "Reabierto",
+};
+const severityConfig = { "Critical": "#C0392B", "High": "#E74C3C", "Medium": "#F39C12", "Low": "#27AE60" };
+const COLORS = ["#C0392B", "#2980B9", "#16A085", "#8E44AD", "#D35400", "#2C3E50", "#27AE60", "#F39C12"];
+const EMPTY_TC = { area: "", proceso: "", escenario: "", descripcion: "", pasos: "", resultado: "", fechaAprobacion: "", fechaEjecucion: "", estado: "Borrador", asignadoRol: "QA / Pruebas", asignadoA: "", tipoPrueba: "", nivelPrueba: "", attachments: [], historial: [], comentarios: [] };
+const EMPTY_ISSUE = { testId: "", escenario: "", formulario: "", observacion: "", modulo: "", estado: "Open", severidad: "Medium", prioridad: "Medium", fechaCreacion: "", fechaSolucion: "", asignadoA: "", attachments: [], bitacora: [] };
+const EMPTY_CICLO = { nombre: "", modulo: "", fechaInicio: "", fechaFin: "", descripcion: "", ejecuciones: [] };
+const EMPTY_PROJECT = { name: "", description: "", color: COLORS[0], modules: [], scrumTeam: { productOwner: "", scrumMaster: "", developers: [], qa: [] }, scrumTestTypes: ["Funcionales", "Regresión", "Integración", "Aceptación"], scrumLevels: ["Unitarias", "Integración", "Sistema", "Aceptación", "Regresión"] };
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
 // ejecucion: { tcId, estado, fechaEjecucion, nota }
 
 function normalizeMemberList(list) {
@@ -128,6 +152,10 @@ function normalizeTestStatus(status) {
   if (["Aprobado", "Approved", "Closed"].includes(value)) return "Aprobado";
   return Object.prototype.hasOwnProperty.call(testStatusConfig, value) ? value : "Borrador";
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
 function normalizeCycleExecutionStatus(status) {
   const value = String(status || "").trim();
   if (!value) return "No ejecutado";
@@ -139,15 +167,77 @@ function normalizeCycleExecutionStatus(status) {
   if (["Aprobado", "Approved", "Closed"].includes(value)) return "Aprobado";
   return Object.prototype.hasOwnProperty.call(cycleStatusConfig, value) ? value : "No ejecutado";
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
 function nextTcId(tests) {
   if (!tests.length) return "TC-01";
   const nums = tests.map(t => parseInt(t.id.replace("TC-",""))||0);
   return `TC-${String(Math.max(...nums)+1).padStart(2,"0")}`;
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
 function today() {
   const d = new Date();
   return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
 }
+<<<<<<< HEAD
+=======
+
+function buildIssueLogEntry(detail, estado = "Open", fecha = today(), tipo = "actualizacion") {
+  const trimmed = String(detail || "").trim();
+  if (!trimmed) return null;
+  return { fecha, estado, tipo, detalle: trimmed };
+}
+
+function normalizeIssueBitacora(bitacora = [], issue = null) {
+  const rows = Array.isArray(bitacora)
+    ? bitacora.map((entry) => {
+        if (!entry || typeof entry !== "object") return null;
+        const item = {
+          fecha: String(entry.fecha || "").trim(),
+          estado: String(entry.estado || issue?.estado || "Open").trim() || "Open",
+          tipo: String(entry.tipo || "actualizacion").trim() || "actualizacion",
+          detalle: String(entry.detalle || entry.nota || "").trim(),
+        };
+        return item.detalle ? item : null;
+      }).filter(Boolean)
+    : [];
+  if (rows.length) return rows;
+  if (!issue) return [];
+  const defaultRows = [];
+  const createdDate = issue.fechaCreacion || today();
+  const creationEntry = buildIssueLogEntry("Issue registrado", issue.estado || "Open", createdDate, "creacion");
+  if (creationEntry) defaultRows.push(creationEntry);
+  if (issue.fechaSolucion) {
+    const closeEntry = buildIssueLogEntry("Issue marcado con fecha de solución", issue.estado || "Closed", issue.fechaSolucion, "cierre");
+    if (closeEntry) defaultRows.push(closeEntry);
+  }
+  return defaultRows;
+}
+
+function summarizeIssueChanges(previousIssue, nextIssue) {
+  if (!previousIssue || !nextIssue) return "";
+  const changes = [];
+  if ((previousIssue.estado || "") !== (nextIssue.estado || "")) changes.push(`Estado: ${issueStatusLabel[previousIssue.estado] || previousIssue.estado || "—"} -> ${issueStatusLabel[nextIssue.estado] || nextIssue.estado || "—"}`);
+  if ((previousIssue.severidad || "") !== (nextIssue.severidad || "")) changes.push(`Severidad: ${previousIssue.severidad || "—"} -> ${nextIssue.severidad || "—"}`);
+  if ((previousIssue.prioridad || "") !== (nextIssue.prioridad || "")) changes.push(`Prioridad: ${previousIssue.prioridad || "—"} -> ${nextIssue.prioridad || "—"}`);
+  if ((previousIssue.fechaSolucion || "") !== (nextIssue.fechaSolucion || "")) changes.push(`Fecha solución: ${nextIssue.fechaSolucion || "—"}`);
+  if ((previousIssue.modulo || "") !== (nextIssue.modulo || "")) changes.push(`Módulo actualizado: ${nextIssue.modulo || "—"}`);
+  return changes.join(" | ");
+}
+
+function issueBitacoraSummary(issue) {
+  const bitacora = normalizeIssueBitacora(issue?.bitacora, issue);
+  const latest = bitacora[bitacora.length - 1];
+  if (!latest) return "";
+  return `${latest.fecha || today()} - ${latest.detalle}`;
+}
+
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
 function SuggestionInput({ value, onChange, options = [], placeholder, darkMode }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value || "");
@@ -310,12 +400,23 @@ function ModalHeader({title,sub,onClose}) {
 }
 
 // ─── ATTACHMENT ZONE ──────────────────────────────────────────────────────────
+<<<<<<< HEAD
 function AttachmentZone({attachments,onChange}) {
   const fileRef=useRef();
   const [dragging,setDragging]=useState(false);
   async function handleFiles(files) {
     const arr=Array.from(files).filter(f=>{ const ext=f.name.split(".").pop().toLowerCase(); return ["png","jpg","jpeg","gif","webp","doc","docx","pdf"].includes(ext); });
     const processed=await Promise.all(arr.map(async f=>({name:f.name,type:f.type,size:f.size,data:await readFileAsDataURL(f)})));
+=======
+function AttachmentZone({attachments,onChange,imagesOnly}) {
+  const fileRef=useRef();
+  const [dragging,setDragging]=useState(false);
+  async function handleFiles(files) {
+    const exts=imagesOnly?["png","jpg","jpeg"]:["png","jpg","jpeg","gif","webp","doc","docx","pdf"];
+    const arr=Array.from(files).filter(f=>{ const ext=f.name.split(".").pop().toLowerCase(); return exts.includes(ext); });
+    const limited=imagesOnly?arr.slice(0,Math.max(0,5-attachments.length)):arr;
+    const processed=await Promise.all(limited.map(async f=>({name:f.name,type:f.type,size:f.size,data:await readFileAsDataURL(f)})));
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
     onChange([...attachments,...processed]);
   }
   function remove(i){onChange(attachments.filter((_,idx)=>idx!==i));}
@@ -323,12 +424,21 @@ function AttachmentZone({attachments,onChange}) {
   return (
     <div>
       <div onClick={()=>fileRef.current.click()} onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);handleFiles(e.dataTransfer.files);}}
+<<<<<<< HEAD
         style={{border:`2px dashed ${dragging?BRAND:"#ddd"}`,borderRadius:10,padding:"16px 14px",textAlign:"center",cursor:"pointer",background:dragging?BRAND_LIGHT:"#fafafa",transition:"all 0.2s"}}>
         <div style={{fontSize:20}}>📎</div>
         <div style={{fontSize:12,color:"#888",marginTop:3}}>Arrastra o haz clic para adjuntar</div>
         <div style={{fontSize:11,color:"#bbb",marginTop:2}}>Imágenes · Word · PDF</div>
       </div>
       <input ref={fileRef} type="file" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.pdf" style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
+=======
+        style={{border:`2px dashed ${dragging?BRAND:"#555"}`,borderRadius:8,padding:"18px 14px",textAlign:"center",cursor:"pointer",background:dragging?BRAND_LIGHT:"transparent",transition:"all 0.2s"}}>
+        {imagesOnly
+          ?<div style={{fontSize:11,color:"#888",letterSpacing:"0.06em",textTransform:"uppercase"}}>Clic para adjuntar capturas (PNG/JPG, máx. 5 imágenes)</div>
+          :(<><div style={{fontSize:20}}>📎</div><div style={{fontSize:12,color:"#888",marginTop:3}}>Arrastra o haz clic para adjuntar</div><div style={{fontSize:11,color:"#bbb",marginTop:2}}>Imágenes · Word · PDF</div></>)}
+      </div>
+      <input ref={fileRef} type="file" multiple accept={imagesOnly?".png,.jpg,.jpeg":".png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.pdf"} style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
       {attachments.length>0&&(
         <div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:7}}>
           {attachments.map((att,i)=>{
@@ -1192,8 +1302,13 @@ function exportToCSV(proj, tests = proj.tests) {
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${proj.name}_TCs.csv`;a.click();
 }
 function exportIssuesToCSV(proj, issuesList = proj.issues) {
+<<<<<<< HEAD
   const headers = ["ID","TC","Escenario","Descripción de la novedad","Módulo","Observación","Estado","Severidad","Prioridad","Fecha Creación"];
   const rows = issuesList.map(i=>[i.id,i.testId,i.escenario,i.formulario,i.modulo,i.observacion,i.estado,i.severidad,i.prioridad,i.fechaCreacion]);
+=======
+  const headers = ["ID","TC","Escenario","Descripción de la novedad","Módulo","Observación","Estado","Severidad","Prioridad","Fecha Creación","Última actualización bitácora"];
+  const rows = issuesList.map(i=>[i.id,i.testId,i.escenario,i.formulario,i.modulo,i.observacion,i.estado,i.severidad,i.prioridad,i.fechaCreacion,issueBitacoraSummary(i)]);
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
   const csv = [headers,...rows].map(r=>r.map(c=>`"${(c||"").toString().replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${proj.name}_Issues.csv`;a.click();
@@ -2056,11 +2171,16 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
 }
 
 function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
+<<<<<<< HEAD
   const [form,setForm]=useState({ ...EMPTY_ISSUE, ...(initial||{}), fechaCreacion: initial?.fechaCreacion || today(), fechaSolucion: initial?.fechaSolucion || "" });
+=======
+  const [form,setForm]=useState({ ...EMPTY_ISSUE, ...(initial||{}), fechaCreacion: initial?.fechaCreacion || today(), fechaSolucion: initial?.fechaSolucion || "", bitacoraNota: "", asignadoA: initial?.asignadoA || "" });
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const IS=darkMode?inputStyleDark:inputStyle;
   return (
     <Modal onClose={onClose} wide preventOutsideClose>
+<<<<<<< HEAD
       <ModalHeader title={initial?`Editar Issue #${issueId}`:"Nuevo Issue"} sub="Registra la novedad encontrada" onClose={onClose}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <Field label="Caso de Prueba">
@@ -2101,6 +2221,56 @@ function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
       <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:8}}>
         <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
         <Btn onClick={()=>{if(!form.observacion.trim())return alert("La observación es requerida");onSave(form);}}>💾 Guardar</Btn>
+=======
+      <ModalHeader title={initial?`Editar Issue #${issueId}`:"Registrar issue"} sub="Registra la novedad encontrada" onClose={onClose}/>
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <Field label="TEST ID">
+            <input style={{...IS,minHeight:44}} value={form.testId} onChange={e=>set("testId",e.target.value)} placeholder="Ej. Imagen 7"/>
+          </Field>
+          <Field label="MÓDULO">
+            <input style={{...IS,minHeight:44}} value={form.modulo} onChange={e=>set("modulo",e.target.value)} placeholder="Ej. Activos fijos"/>
+          </Field>
+        </div>
+        <Field label="ESCENARIO / FORMULARIO">
+          <input style={{...IS,minHeight:44}} value={form.escenario} onChange={e=>set("escenario",e.target.value)} placeholder="Ej. Registrar bajas"/>
+        </Field>
+        <Field label="OBSERVACIÓN">
+          <textarea style={{...IS,minHeight:90,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.observacion} onChange={e=>set("observacion",e.target.value)} placeholder="Describe el comportamiento encontrado..."/>
+        </Field>
+        <Field label="EVIDENCIA (IMAGEN)">
+          <AttachmentZone attachments={form.attachments||[]} onChange={v=>set("attachments",v)} imagesOnly/>
+        </Field>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <Field label="STATUS">
+            <select style={{...IS,minHeight:44}} value={form.estado} onChange={e=>set("estado",e.target.value)}>
+              {Object.keys(issueStatusConfig).map(k=><option key={k} value={k}>{k}</option>)}
+            </select>
+          </Field>
+          <Field label="SEVERITY">
+            <select style={{...IS,minHeight:44}} value={form.severidad} onChange={e=>set("severidad",e.target.value)}>
+              {Object.keys(severityConfig).map(k=><option key={k} value={k}>{k}</option>)}
+            </select>
+          </Field>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <Field label="PRIORITY">
+            <select style={{...IS,minHeight:44}} value={form.prioridad} onChange={e=>set("prioridad",e.target.value)}>
+              {["Critical","High","Medium","Low"].map(k=><option key={k} value={k}>{k}</option>)}
+            </select>
+          </Field>
+          <Field label="ASIGNADO A">
+            <input style={{...IS,minHeight:44}} value={form.asignadoA||""} onChange={e=>set("asignadoA",e.target.value)} placeholder="Nombre"/>
+          </Field>
+        </div>
+        <Field label="SOLUCIÓN / NOTAS">
+          <textarea style={{...IS,minHeight:90,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.bitacoraNota||""} onChange={e=>set("bitacoraNota",e.target.value)} placeholder="Opcional"/>
+        </Field>
+      </div>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}>
+        <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
+        <Btn onClick={()=>{if(!form.observacion.trim())return alert("La observación es requerida");onSave(form);}}>Guardar issue</Btn>
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
       </div>
     </Modal>
   );
@@ -2222,9 +2392,16 @@ function TcDetailModal({tc,onClose,onEdit,onDelete,onDuplicate,onAddComment}) {
 function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
   const sc=issueStatusConfig[issue.estado]||issueStatusConfig["Open"];
   const sev=severityConfig[issue.severidad]||"#888";
+<<<<<<< HEAD
   return (
     <Modal onClose={onClose} wide>
       <ModalHeader title={issue.escenario} sub={`Issue #${issue.id} · ${issue.testId}`} onClose={onClose}/>
+=======
+  const bitacora = normalizeIssueBitacora(issue.bitacora, issue);
+  return (
+    <Modal onClose={onClose} wide>
+      <ModalHeader title={issue.escenario} sub={`Issue #${issue.id} · ${issue.testId} · ${bitacora.length} eventos`} onClose={onClose}/>
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
       <div style={{display:"flex",justifyContent:"flex-end",gap:8,flexWrap:"wrap",marginBottom:20}}>
         <Btn small onClick={onEdit}>✏️ Editar</Btn>
         <Btn small danger onClick={onDelete}>🗑️</Btn>
@@ -2246,6 +2423,26 @@ function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
         <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Observación</div>
         <div style={{background:"#FEF9E7",borderRadius:8,padding:14,fontSize:13,color:"#555",lineHeight:1.8,borderLeft:"3px solid #F39C12"}}>{issue.observacion}</div>
       </div>
+<<<<<<< HEAD
+=======
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Bitácora</div>
+        {bitacora.length===0 && <div style={{fontSize:12,color:"#bbb"}}>Sin eventos registrados.</div>}
+        {bitacora.length>0 && (
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {[...bitacora].reverse().map((entry,index)=>(
+              <div key={`${entry.fecha}-${index}`} style={{background:"#f8f8f8",borderRadius:8,padding:"10px 12px",border:"1px solid #ececec"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:4}}>
+                  <span style={{fontSize:10,fontFamily:"monospace",color:"#999"}}>{entry.fecha || "—"}</span>
+                  <span style={{fontSize:10,color:sc.color,fontWeight:700}}>{issueStatusLabel[entry.estado] || entry.estado || "Abierto"}</span>
+                </div>
+                <div style={{fontSize:12,color:"#555",lineHeight:1.5}}>{entry.detalle}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
       <div>
         <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:8}}>Adjuntos</div>
         <AttachmentViewer attachments={issue.attachments}/>
@@ -2688,6 +2885,14 @@ export default function App() {
         scrumTestTypes: normalizeProjectList(p.scrumTestTypes || EMPTY_PROJECT.scrumTestTypes),
         scrumLevels: normalizeProjectList(p.scrumLevels || EMPTY_PROJECT.scrumLevels),
         testers: Array.isArray(p.testers) ? p.testers : getScrumTeamMembers(p),
+<<<<<<< HEAD
+=======
+        issues: (p.issues || []).map(issue => ({
+          ...EMPTY_ISSUE,
+          ...issue,
+          bitacora: normalizeIssueBitacora(issue?.bitacora, issue),
+        })),
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
         ciclos:(p.ciclos||[]).map(c=>({
           ...c,
           ejecuciones:c.ejecuciones||[]
@@ -2703,6 +2908,11 @@ export default function App() {
   const [filterProceso,setFilterProceso]=useState("Todos");
   const [filterTipoPrueba,setFilterTipoPrueba]=useState("Todos");
   const [filterNivelPrueba,setFilterNivelPrueba]=useState("Todos");
+<<<<<<< HEAD
+=======
+  const [issueViewMode,setIssueViewMode]=useState("table");
+  const [issueSearch,setIssueSearch]=useState("");
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
   const [filterModulo,setFilterModulo]=useState("Todos");
   const [filterFechaDesde,setFilterFechaDesde]=useState("");
   const [filterFechaHasta,setFilterFechaHasta]=useState("");
@@ -2718,6 +2928,10 @@ export default function App() {
   const [showIssueForm,setShowIssueForm]=useState(false);
   const [editIssue,setEditIssue]=useState(null);
   const [viewIssue,setViewIssue]=useState(null);
+<<<<<<< HEAD
+=======
+  const [previewImg,setPreviewImg]=useState(null);
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
   const [showCicloForm,setShowCicloForm]=useState(false);
   const [editCiclo,setEditCiclo]=useState(null);
   const [expandedCiclos,setExpandedCiclos]=useState({});
@@ -2975,10 +3189,47 @@ export default function App() {
 
   // Issue CRUD
   function saveIssue(form){
+<<<<<<< HEAD
     setProjects(ps=>ps.map(p=>{
       if(p.id!==activeProjectId)return p;
       if(editIssue){return{...p,issues:p.issues.map(i=>i.id===editIssue.id?{...i,...form}:i)};}
       else{const newId=(p.issues.length?Math.max(...p.issues.map(i=>i.id)):0)+1;return{...p,issues:[...p.issues,{id:newId,...form}]};}
+=======
+    const manualLog = String(form?.bitacoraNota || "").trim();
+    const cleanedForm = { ...form };
+    delete cleanedForm.bitacoraNota;
+
+    setProjects(ps=>ps.map(p=>{
+      if(p.id!==activeProjectId)return p;
+      if(editIssue){
+        return{
+          ...p,
+          issues:p.issues.map(i=>{
+            if(i.id!==editIssue.id) return i;
+            const nextIssue = { ...i, ...cleanedForm };
+            const nextBitacora = [...normalizeIssueBitacora(i.bitacora, i)];
+            const changes = summarizeIssueChanges(i, nextIssue);
+            if (changes) {
+              const autoEntry = buildIssueLogEntry(changes, nextIssue.estado || "Open");
+              if (autoEntry) nextBitacora.push(autoEntry);
+            }
+            if (manualLog) {
+              const noteEntry = buildIssueLogEntry(manualLog, nextIssue.estado || "Open", today(), "nota");
+              if (noteEntry) nextBitacora.push(noteEntry);
+            }
+            return { ...nextIssue, bitacora: nextBitacora };
+          })
+        };
+      }
+      const newId=(p.issues.length?Math.max(...p.issues.map(i=>i.id)):0)+1;
+      const createdIssue = { id:newId, ...cleanedForm, fechaCreacion: cleanedForm.fechaCreacion || today() };
+      const initialBitacora = normalizeIssueBitacora(cleanedForm.bitacora, createdIssue);
+      if (manualLog) {
+        const noteEntry = buildIssueLogEntry(manualLog, createdIssue.estado || "Open", today(), "nota");
+        if (noteEntry) initialBitacora.push(noteEntry);
+      }
+      return{...p,issues:[...p.issues,{...createdIssue,bitacora:initialBitacora}]};
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
     }));
     setShowIssueForm(false);setEditIssue(null);setViewIssue(null);
   }
@@ -3160,11 +3411,49 @@ export default function App() {
   const filteredIssues=useMemo(()=>issues.filter(i=>{
     const mE=filterIssueEstado==="Todos"||i.estado===filterIssueEstado;
     const mM=filterModulo==="Todos"||i.modulo===filterModulo;
+<<<<<<< HEAD
     return mE&&mM;
   }),[issues,filterIssueEstado,filterModulo]);
 
   const filteredTestStats=useMemo(()=>{const c={};Object.keys(statusConfig).forEach(k=>c[k]=0);filteredTests.forEach(t=>{const normalizedStatus=normalizeTestStatus(t.estado);if(c[normalizedStatus]!==undefined)c[normalizedStatus]++;});return c;},[filteredTests]);
   const filteredIssueStats=useMemo(()=>({open:filteredIssues.filter(i=>i.estado==="Open").length,closed:filteredIssues.filter(i=>i.estado==="Closed").length,inProg:filteredIssues.filter(i=>i.estado==="In Progress").length,blocked:filteredIssues.filter(i=>i.estado==="Blocked").length,total:filteredIssues.length}),[filteredIssues]);
+=======
+    const searchText = issueSearch.trim().toLowerCase();
+    const mS=!searchText||[
+      i.testId,
+      i.formulario,
+      i.escenario,
+      i.modulo,
+      i.observacion,
+      issueBitacoraSummary(i),
+    ].filter(Boolean).join(" ").toLowerCase().includes(searchText);
+    return mE&&mM&&mS;
+  }),[issues,filterIssueEstado,filterModulo,issueSearch]);
+
+  const filteredTestStats=useMemo(()=>{const c={};Object.keys(statusConfig).forEach(k=>c[k]=0);filteredTests.forEach(t=>{const normalizedStatus=normalizeTestStatus(t.estado);if(c[normalizedStatus]!==undefined)c[normalizedStatus]++;});return c;},[filteredTests]);
+  const filteredIssueStats=useMemo(()=>({
+    open:filteredIssues.filter(i=>i.estado==="Open").length,
+    blocked:filteredIssues.filter(i=>i.estado==="Blocked").length,
+    readyRetest:filteredIssues.filter(i=>i.estado==="Ready for Retest").length,
+    inProg:filteredIssues.filter(i=>i.estado==="In Progress").length,
+    closed:filteredIssues.filter(i=>i.estado==="Closed").length,
+    reopen:filteredIssues.filter(i=>i.estado==="Re-Open").length,
+    total:filteredIssues.length
+  }),[filteredIssues]);
+
+  const issueLastUpdateLabel = useMemo(()=>{
+    const latest = [...issues].sort((a,b)=>{
+      const aDate = normalizeIssueBitacora(a.bitacora, a).slice(-1)[0]?.fecha || a.fechaSolucion || a.fechaCreacion || "01/01/1970";
+      const bDate = normalizeIssueBitacora(b.bitacora, b).slice(-1)[0]?.fecha || b.fechaSolucion || b.fechaCreacion || "01/01/1970";
+      const ad = parseDate(aDate) || new Date(0);
+      const bd = parseDate(bDate) || new Date(0);
+      return bd - ad;
+    })[0];
+    const dateLabel = latest ? (normalizeIssueBitacora(latest.bitacora, latest).slice(-1)[0]?.fecha || latest.fechaSolucion || latest.fechaCreacion || today()) : today();
+    const timeLabel = new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    return `${dateLabel}, ${timeLabel}`;
+  },[issues]);
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
 
   const filteredTimelineData=useMemo(()=>{
     const map={};
@@ -4174,6 +4463,7 @@ export default function App() {
             {/* ── ISSUES ── */}
             {tab==="issues"&&(
               <div style={{display:"flex",flexDirection:"column",gap:18}}>
+<<<<<<< HEAD
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                   <div>
                     <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Issue List</h2>
@@ -4235,6 +4525,153 @@ export default function App() {
                 </div>
               </div>
             )}
+=======
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
+                  <div>
+                    <div style={{fontSize:10,color:"#F5B041",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.2em",marginBottom:5}}>Panamericana · Módulo Activos Fijos</div>
+                    <h2 style={{margin:0,fontSize:42,fontWeight:900,color:DM.text,lineHeight:1}}>Bitácora de Issues <span style={{fontSize:36,color:DM.sub,fontWeight:700}}>/ QA</span></h2>
+                    <p style={{margin:"8px 0 0",color:DM.sub,fontSize:13}}>Última actualización: {issueLastUpdateLabel}</p>
+                  </div>
+                  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                    <Btn onClick={()=>{setEditIssue(null);setShowIssueForm(true);}} style={{background:"#F5B041",color:"#1E1E1E",padding:"12px 18px",fontSize:14,fontWeight:900}}>+ Registrar issue</Btn>
+                    <Btn variant="ghost" small onClick={()=>exportIssuesToCSV(proj, filteredIssues)}>⬇ Exportar</Btn>
+                  </div>
+                </div>
+
+                <div style={{display:"grid",gridTemplateColumns:"repeat(7, minmax(120px, 1fr))",border:`1px solid ${DM.cardBorder}`,borderRadius:10,overflow:"hidden",background:darkMode?"#172736":"#f8fbff"}}>
+                  {[
+                    {label:"OPEN",value:filteredIssueStats.open,color:"#E74C3C"},
+                    {label:"BLOCKED",value:filteredIssueStats.blocked,color:"#8E44AD"},
+                    {label:"READY FOR RETEST",value:filteredIssueStats.readyRetest,color:"#3498DB"},
+                    {label:"IN PROGRESS",value:filteredIssueStats.inProg,color:"#F39C12"},
+                    {label:"CLOSED",value:filteredIssueStats.closed,color:"#27AE60"},
+                    {label:"RE-OPEN",value:filteredIssueStats.reopen,color:"#E67E22"},
+                    {label:"TOTAL",value:filteredIssueStats.total,color:"#F5B041",accent:true},
+                  ].map(item=>(
+                    <div key={item.label} style={{padding:"14px 10px",textAlign:"center",borderRight:`1px solid ${DM.cardBorder}`,background:item.accent?(darkMode?"#21384F":"#eef5ff"):"transparent"}}>
+                      <div style={{fontSize:34,fontWeight:900,color:item.color,lineHeight:1}}>{item.value}</div>
+                      <div style={{fontSize:11,color:DM.sub,letterSpacing:"0.08em",marginTop:5}}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  <div style={{display:"inline-flex",alignItems:"center",border:`1px solid ${DM.cardBorder}`,borderRadius:8,overflow:"hidden"}}>
+                    <button onClick={()=>setIssueViewMode("table")} style={{border:"none",padding:"9px 20px",cursor:"pointer",fontSize:13,fontWeight:800,letterSpacing:"0.08em",background:issueViewMode==="table"?"#F5B041":"transparent",color:issueViewMode==="table"?"#1E1E1E":DM.sub}}>TABLA</button>
+                    <button onClick={()=>setIssueViewMode("kanban")} style={{border:"none",padding:"9px 20px",cursor:"pointer",fontSize:13,fontWeight:800,letterSpacing:"0.08em",background:issueViewMode==="kanban"?"#F5B041":"transparent",color:issueViewMode==="kanban"?"#1E1E1E":DM.sub}}>KANBAN</button>
+                  </div>
+                  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                    <select value={filterIssueEstado} onChange={e=>setFilterIssueEstado(e.target.value)} style={{...inputStyle,width:165,padding:"7px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
+                      <option value="Todos">Todos los estados</option>
+                      {Object.keys(issueStatusConfig).map(k=><option key={k} value={k}>{k}</option>)}
+                    </select>
+                    <select value={filterModulo} onChange={e=>setFilterModulo(e.target.value)} style={{...inputStyle,width:165,padding:"7px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}>
+                      {modulosList.map(m=><option key={m} value={m}>{m==="Todos"?"Todos los módulos":m}</option>)}
+                    </select>
+                    <input value={issueSearch} onChange={e=>setIssueSearch(e.target.value)} placeholder="Buscar por Test ID, formulario o escenario" style={{...inputStyle,width:300,padding:"9px 12px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}/>
+                  </div>
+                </div>
+
+                {issueViewMode==="table" && (
+                  <div style={{background:DM.card,borderRadius:12,overflow:"hidden",border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                    {filteredIssues.length===0 ? (
+                      <div style={{padding:"58px 24px",textAlign:"center"}}>
+                        <div style={{fontSize:33,fontWeight:900,color:DM.text,marginBottom:10}}>Sin issues registrados</div>
+                        <div style={{fontSize:30,color:DM.sub}}>Registra el primero con el botón '+ Registrar issue'.</div>
+                      </div>
+                    ) : (
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                        <thead>
+                          <tr style={{background:darkMode?"#1a2535":"#1e2a3a",color:"#8a9bb0"}}>
+                            {['TEST ID','FORMULARIO','OBSERVACIÓN','EVIDENCIA','SEVERITY','PRIORITY','STATUS','FECHA',''].map(h=>(
+                              <th key={h} style={{padding:"11px 13px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.07em",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:`1px solid ${DM.cardBorder}`}}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredIssues.map((issue,i)=>{
+                            const realIndex=proj.issues.findIndex(x=>x.id===issue.id);
+                            const sc=issueStatusConfig[issue.estado]||issueStatusConfig["Open"];
+                            const firstImg=(issue.attachments||[]).find(a=>a.type&&a.type.startsWith("image/"));
+                            return (
+                              <tr key={issue.id} draggable
+                                onDragStart={()=>{dragIssueIndex.current=realIndex;}}
+                                onDragOver={e=>{e.preventDefault();dragOverIssueIndex.current=realIndex;}}
+                                onDrop={()=>{if(dragIssueIndex.current!==null&&dragOverIssueIndex.current!==dragIssueIndex.current)reorderIssues(dragIssueIndex.current,dragOverIssueIndex.current);dragIssueIndex.current=null;dragOverIssueIndex.current=null;}}
+                                style={{background:i%2===0?DM.tableRow0:DM.tableRow1,borderBottom:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
+                                onMouseEnter={e=>{e.currentTarget.style.background=DM.tableHover;}}
+                                onMouseLeave={e=>{e.currentTarget.style.background=i%2===0?DM.tableRow0:DM.tableRow1;}}>
+                                <td style={{padding:"10px 13px",color:proj.color,fontWeight:700,whiteSpace:"nowrap",fontSize:13}}>{issue.testId||"—"}</td>
+                                <td style={{padding:"10px 13px",fontWeight:700,color:DM.text,maxWidth:260,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4}}>{issue.escenario||"—"}</td>
+                                <td style={{padding:"10px 13px",color:DM.sub,maxWidth:280,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4}}>{issue.observacion||"—"}</td>
+                                <td style={{padding:"10px 13px"}}>
+                                  {firstImg
+                                    ?<img src={firstImg.data} alt="evidencia" onClick={e=>{e.stopPropagation();setPreviewImg(firstImg.data);}} style={{width:44,height:32,objectFit:"cover",borderRadius:4,display:"block",border:`1px solid ${DM.cardBorder}`,cursor:"zoom-in"}}/>
+                                    :<span style={{fontSize:11,color:"#bbb"}}>—</span>}
+                                </td>
+                                <td style={{padding:"10px 13px",color:DM.text,whiteSpace:"nowrap"}}>{issue.severidad||"—"}</td>
+                                <td style={{padding:"10px 13px",color:DM.text,whiteSpace:"nowrap"}}>{issue.prioridad||"—"}</td>
+                                <td style={{padding:"10px 13px",whiteSpace:"nowrap"}}>
+                                  <span style={{fontSize:11,fontWeight:800,color:sc.color,border:`1.5px solid ${sc.color}`,borderRadius:5,padding:"2px 9px",letterSpacing:"0.07em",textTransform:"uppercase",background:"transparent"}}>{issue.estado}</span>
+                                </td>
+                                <td style={{padding:"10px 13px",color:proj.color,whiteSpace:"nowrap",fontWeight:600,fontSize:12}}>{issue.fechaCreacion||"—"}</td>
+                                <td style={{padding:"10px 13px",whiteSpace:"nowrap"}}>
+                                  <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setEditIssue(issue);setShowIssueForm(true);}}>Editar</Btn>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+
+                {issueViewMode==="kanban" && (
+                  <div style={{overflowX:"auto",paddingBottom:4}}>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(6, minmax(190px, 1fr))",gap:10,minWidth:1140}}>
+                      {["Open","Blocked","Ready for Retest","In Progress","Closed","Re-Open"].map(status=>{
+                        const cards = filteredIssues.filter(issue=>issue.estado===status);
+                        const sc = issueStatusConfig[status] || { color: DM.sub, bg: DM.card };
+                        return (
+                          <div key={status} style={{background:darkMode?"#141b26":"#f0f2f5",border:`1px solid ${DM.cardBorder}`,borderRadius:10,padding:"10px 8px",minHeight:240}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:8,borderBottom:`1px solid ${DM.cardBorder}`}}>
+                              <div style={{fontSize:11,fontWeight:800,color:darkMode?"#8a9bb0":"#555",textTransform:"uppercase",letterSpacing:"0.08em"}}>{status}</div>
+                              <span style={{fontSize:11,fontWeight:800,color:sc.color,background:darkMode?"#1e2a3a":"#e8edf4",borderRadius:999,padding:"1px 8px",minWidth:20,textAlign:"center"}}>{cards.length}</span>
+                            </div>
+                            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                              {cards.length===0 && <div style={{fontSize:13,color:DM.sub,padding:"4px 2px"}}>—</div>}
+                              {cards.map(issue=>{
+                                const firstImg=(issue.attachments||[]).find(a=>a.type&&a.type.startsWith("image/"));
+                                return (
+                                  <div key={issue.id} onClick={()=>setViewIssue(issue)} style={{border:`1px solid ${DM.cardBorder}`,borderLeft:`4px solid ${sc.color}`,borderRadius:8,overflow:"hidden",background:darkMode?"#1a2535":"#fff",cursor:"pointer",transition:"box-shadow 0.15s"}}
+                                    onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 18px #0003"}
+                                    onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+                                    {firstImg && (
+                                      <img src={firstImg.data} alt="evidencia" onClick={e=>{e.stopPropagation();setPreviewImg(firstImg.data);}}
+                                        style={{width:"100%",height:110,objectFit:"cover",display:"block",cursor:"zoom-in"}}/>
+                                    )}
+                                    <div style={{padding:"8px 10px"}}>
+                                      <div style={{fontSize:11,fontWeight:800,color:proj.color,marginBottom:4,letterSpacing:"0.03em"}}>{issue.testId||"—"}</div>
+                                      <div style={{fontSize:13,fontWeight:700,color:DM.text,lineHeight:1.35,marginBottom:4}}>{issue.escenario||"—"}</div>
+                                      {issue.observacion && <div style={{fontSize:11,color:DM.sub,lineHeight:1.4}}>{issue.observacion}</div>}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{fontSize:12,color:DM.sub,textAlign:"center",marginTop:4}}>Datos visibles para cualquier persona con este enlace · Actualización en tiempo real</div>
+              </div>
+            )}
+
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
           </div>
         </div>
       </div>
@@ -4255,6 +4692,15 @@ export default function App() {
           onAddComment={addComment}/>
       )}
       {showIssueForm&&<IssueFormModal initial={editIssue} issueId={editIssue?.id} testIds={tests.map(t=>t.id)} onSave={saveIssue} onClose={()=>{setShowIssueForm(false);setEditIssue(null);}} darkMode={darkMode}/>}
+<<<<<<< HEAD
+=======
+      {previewImg&&(
+        <div onClick={()=>setPreviewImg(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
+          <img src={previewImg} alt="evidencia" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:10,boxShadow:"0 8px 48px #000a",objectFit:"contain"}}/>
+          <button onClick={()=>setPreviewImg(null)} style={{position:"absolute",top:20,right:28,background:"transparent",border:"none",color:"#fff",fontSize:28,cursor:"pointer",lineHeight:1}}>✕</button>
+        </div>
+      )}
+>>>>>>> d738720 (Guardar cambios locales antes del pull)
       {viewIssue&&!showIssueForm&&(
         <IssueDetailModal issue={viewIssue} onClose={()=>setViewIssue(null)}
           onEdit={()=>{setEditIssue(viewIssue);setViewIssue(null);setShowIssueForm(true);}}
