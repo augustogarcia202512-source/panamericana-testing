@@ -348,27 +348,34 @@ function Field({label,children}) {
 const inputStyle={border:"1px solid #e0e0e0",borderRadius:8,padding:"9px 12px",fontSize:13,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit",background:"#fff"};
 const inputStyleDark={...inputStyle,background:"#2C2C2E",border:"1px solid #444",color:"#eee"};
 
-function Modal({children,onClose,wide,preventOutsideClose}) {
+function Modal({children,onClose,wide,preventOutsideClose,dark}) {
   return (
-    <div style={{position:"fixed",inset:0,background:"#00000055",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+    <div style={{position:"fixed",inset:0,background:"#00000088",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
       onClick={preventOutsideClose ? undefined : onClose}>
-      <div style={{background:"linear-gradient(135deg, #ffffff 0%, #f9fbff 100%)",borderRadius:16,padding:"32px 34px",width:"100%",maxWidth:wide?920:620,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 24px 80px #00000030",border:"1px solid #e8f0ff"}} onClick={e=>e.stopPropagation()}>
+      <div style={dark
+        ?{background:"#111827",borderRadius:16,padding:"32px 34px",width:"100%",maxWidth:wide?920:620,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 24px 80px #000000c0",border:"1px solid #1e2a3a",borderTop:"3px solid #F5B041"}
+        :{background:"linear-gradient(135deg, #ffffff 0%, #f9fbff 100%)",borderRadius:16,padding:"32px 34px",width:"100%",maxWidth:wide?920:620,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 24px 80px #00000030",border:"1px solid #e8f0ff"}
+      } onClick={e=>e.stopPropagation()}>
         {children}
       </div>
     </div>
   );
 }
-function ModalHeader({title,sub,onClose}) {
+function ModalHeader({title,sub,onClose,dark}) {
   return (
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22,padding:"14px 16px",borderRadius:14,background:"linear-gradient(90deg, rgba(192,57,43,0.10) 0%, rgba(192,57,43,0.03) 100%)",border:"1px solid rgba(192,57,43,0.14)",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.7)"}}>
+    <div style={dark
+      ?{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22,padding:"14px 16px",borderRadius:12,background:"rgba(245,176,65,0.07)",border:"1px solid rgba(245,176,65,0.18)"}
+      :{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22,padding:"14px 16px",borderRadius:14,background:"linear-gradient(90deg, rgba(192,57,43,0.10) 0%, rgba(192,57,43,0.03) 100%)",border:"1px solid rgba(192,57,43,0.14)",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.7)"}}>
       <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
-        <div style={{width:10,height:40,borderRadius:999,background:"linear-gradient(180deg, #C0392B 0%, #E74C3C 100%)",boxShadow:"0 0 0 4px rgba(192,57,43,0.12)"}}/>
+        <div style={{width:10,height:40,borderRadius:999,background:dark?"linear-gradient(180deg,#F5B041 0%,#F39C12 100%)":"linear-gradient(180deg, #C0392B 0%, #E74C3C 100%)",boxShadow:dark?"0 0 0 4px rgba(245,176,65,0.15)":"0 0 0 4px rgba(192,57,43,0.12)"}}/>
         <div>
-          <h3 style={{margin:0,fontSize:18,fontWeight:800,color:"var(--text-primary,#1a1a1a)"}}>{title}</h3>
-          {sub&&<p style={{margin:"4px 0 0",fontSize:12,color:"#6b7280",fontWeight:600}}>{sub}</p>}
+          <h3 style={{margin:0,fontSize:18,fontWeight:800,color:dark?"#f4f7fb":"var(--text-primary,#1a1a1a)"}}>{title}</h3>
+          {sub&&<p style={{margin:"4px 0 0",fontSize:12,color:dark?"#8a9bb0":"#6b7280",fontWeight:600}}>{sub}</p>}
         </div>
       </div>
-      <button onClick={onClose} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:10,padding:"6px 11px",cursor:"pointer",fontSize:16,color:"#6b7280",boxShadow:"0 2px 6px rgba(0,0,0,0.04)"}}>✕</button>
+      <button onClick={onClose} style={dark
+        ?{background:"#1e2a3a",border:"1px solid #2a3a4a",borderRadius:10,padding:"6px 11px",cursor:"pointer",fontSize:16,color:"#8a9bb0"}
+        :{background:"#fff",border:"1px solid #e5e7eb",borderRadius:10,padding:"6px 11px",cursor:"pointer",fontSize:16,color:"#6b7280",boxShadow:"0 2px 6px rgba(0,0,0,0.04)"}}>✕</button>
     </div>
   );
 }
@@ -388,14 +395,28 @@ function AttachmentZone({attachments,onChange,imagesOnly}) {
   function download(att){const a=document.createElement("a");a.href=att.data;a.download=att.name;a.click();}
   return (
     <div>
-      <div onClick={()=>fileRef.current.click()} onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);handleFiles(e.dataTransfer.files);}}
-        style={{border:`2px dashed ${dragging?BRAND:"#555"}`,borderRadius:8,padding:"18px 14px",textAlign:"center",cursor:"pointer",background:dragging?BRAND_LIGHT:"transparent",transition:"all 0.2s"}}>
-        {imagesOnly
-          ?<div style={{fontSize:11,color:"#888",letterSpacing:"0.06em",textTransform:"uppercase"}}>Clic para adjuntar capturas (PNG/JPG, máx. 5 imágenes)</div>
-          :(<><div style={{fontSize:20}}>📎</div><div style={{fontSize:12,color:"#888",marginTop:3}}>Arrastra o haz clic para adjuntar</div><div style={{fontSize:11,color:"#bbb",marginTop:2}}>Imágenes · Word · PDF</div></>)}
-      </div>
+      {imagesOnly && attachments.length>0 ? (
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+          {attachments.map((att,i)=>(
+            <div key={i} style={{position:"relative",borderRadius:8,overflow:"hidden",display:"inline-block"}}>
+              <img src={att.data} alt={att.name} style={{width:110,height:78,objectFit:"cover",display:"block",borderRadius:8}}/>
+              <button onClick={()=>remove(i)} style={{position:"absolute",inset:0,width:"100%",height:"100%",background:"rgba(0,0,0,0.45)",border:"none",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",borderRadius:8,letterSpacing:"0.04em"}}>Quitar</button>
+            </div>
+          ))}
+          {attachments.length<5&&(
+            <div onClick={()=>fileRef.current.click()} style={{width:110,height:78,border:"2px dashed #555",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:22}}>+</div>
+          )}
+        </div>
+      ) : (
+        <div onClick={()=>fileRef.current.click()} onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);handleFiles(e.dataTransfer.files);}}
+          style={{border:`2px dashed ${dragging?BRAND:"#555"}`,borderRadius:8,padding:"18px 14px",textAlign:"center",cursor:"pointer",background:dragging?BRAND_LIGHT:"transparent",transition:"all 0.2s"}}>
+          {imagesOnly
+            ?<div style={{fontSize:11,color:"#888",letterSpacing:"0.06em",textTransform:"uppercase"}}>Clic para adjuntar capturas (PNG/JPG, máx. 5 imágenes)</div>
+            :(<><div style={{fontSize:20}}>\ud83d\udcce</div><div style={{fontSize:12,color:"#888",marginTop:3}}>Arrastra o haz clic para adjuntar</div><div style={{fontSize:11,color:"#bbb",marginTop:2}}>Im\u00e1genes \u00b7 Word \u00b7 PDF</div></>)}
+        </div>
+      )}
       <input ref={fileRef} type="file" multiple accept={imagesOnly?".png,.jpg,.jpeg":".png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.pdf"} style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
-      {attachments.length>0&&(
+      {!imagesOnly&&attachments.length>0&&(
         <div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:7}}>
           {attachments.map((att,i)=>{
             const isImg=att.type.startsWith("image/");
@@ -404,8 +425,8 @@ function AttachmentZone({attachments,onChange,imagesOnly}) {
                 {isImg?<img src={att.data} alt={att.name} style={{width:100,height:68,objectFit:"cover",display:"block"}}/>
                   :<div style={{padding:"9px 11px",display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:18}}>{fileIcon(att.name)}</span><span style={{fontSize:11,color:"#555",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:110}}>{att.name}</span></div>}
                 <div style={{display:"flex",borderTop:"1px solid #f0f0f0"}}>
-                  <button onClick={()=>download(att)} style={{flex:1,border:"none",background:"none",padding:"4px 0",cursor:"pointer",fontSize:11,color:"#666"}}>⬇</button>
-                  <button onClick={()=>remove(i)} style={{border:"none",background:"none",padding:"4px 6px",cursor:"pointer",fontSize:11,color:"#E74C3C"}}>✕</button>
+                  <button onClick={()=>download(att)} style={{flex:1,border:"none",background:"none",padding:"4px 0",cursor:"pointer",fontSize:11,color:"#666"}}>\u2b07</button>
+                  <button onClick={()=>remove(i)} style={{border:"none",background:"none",padding:"4px 6px",cursor:"pointer",fontSize:11,color:"#E74C3C"}}>\u2715</button>
                 </div>
               </div>
             );
@@ -2121,13 +2142,16 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
   );
 }
 
-function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
+function IssueFormModal({initial,issueId,testIds,onSave,onClose,onDelete,darkMode}) {
   const [form,setForm]=useState({ ...EMPTY_ISSUE, ...(initial||{}), fechaCreacion: initial?.fechaCreacion || today(), fechaSolucion: initial?.fechaSolucion || "", bitacoraNota: "", asignadoA: initial?.asignadoA || "" });
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-  const IS=darkMode?inputStyleDark:inputStyle;
+  // always dark inside this modal
+  const IS={...inputStyleDark,background:"#1a2535",border:"1px solid #2a3a4a",color:"#e2e8f0",borderRadius:8};
+  const SEL={...IS,appearance:"auto"};
+  const isEdit=!!initial;
   return (
-    <Modal onClose={onClose} wide preventOutsideClose>
-      <ModalHeader title={initial?`Editar Issue #${issueId}`:"Registrar issue"} sub="Registra la novedad encontrada" onClose={onClose}/>
+    <Modal onClose={onClose} wide preventOutsideClose dark>
+      <ModalHeader title={isEdit?"Editar issue":"Registrar issue"} sub="Registra la novedad encontrada" onClose={onClose} dark/>
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <Field label="TEST ID">
@@ -2148,19 +2172,19 @@ function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
         </Field>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <Field label="STATUS">
-            <select style={{...IS,minHeight:44}} value={form.estado} onChange={e=>set("estado",e.target.value)}>
+            <select style={{...SEL,minHeight:44}} value={form.estado} onChange={e=>set("estado",e.target.value)}>
               {Object.keys(issueStatusConfig).map(k=><option key={k} value={k}>{k}</option>)}
             </select>
           </Field>
           <Field label="SEVERITY">
-            <select style={{...IS,minHeight:44}} value={form.severidad} onChange={e=>set("severidad",e.target.value)}>
+            <select style={{...SEL,minHeight:44}} value={form.severidad} onChange={e=>set("severidad",e.target.value)}>
               {Object.keys(severityConfig).map(k=><option key={k} value={k}>{k}</option>)}
             </select>
           </Field>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <Field label="PRIORITY">
-            <select style={{...IS,minHeight:44}} value={form.prioridad} onChange={e=>set("prioridad",e.target.value)}>
+            <select style={{...SEL,minHeight:44}} value={form.prioridad} onChange={e=>set("prioridad",e.target.value)}>
               {["Critical","High","Medium","Low"].map(k=><option key={k} value={k}>{k}</option>)}
             </select>
           </Field>
@@ -2172,9 +2196,16 @@ function IssueFormModal({initial,issueId,testIds,onSave,onClose,darkMode}) {
           <textarea style={{...IS,minHeight:90,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.bitacoraNota||""} onChange={e=>set("bitacoraNota",e.target.value)} placeholder="Opcional"/>
         </Field>
       </div>
-      <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}>
-        <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
-        <Btn onClick={()=>{if(!form.observacion.trim())return alert("La observación es requerida");onSave(form);}}>Guardar issue</Btn>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:18}}>
+        <div>
+          {isEdit&&onDelete&&(
+            <button onClick={onDelete} style={{background:"transparent",border:"1.5px solid #E74C3C",color:"#E74C3C",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Eliminar</button>
+          )}
+        </div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onClose} style={{background:"transparent",border:"1.5px solid #4a5568",color:"#8a9bb0",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Cancelar</button>
+          <button onClick={()=>{if(!form.observacion.trim())return alert("La observaci\u00f3n es requerida");onSave(form);}} style={{background:"#F5B041",border:"none",color:"#1a1a1a",borderRadius:8,padding:"9px 20px",fontSize:13,fontWeight:800,cursor:"pointer"}}>{isEdit?"Guardar cambios":"Guardar issue"}</button>
+        </div>
       </div>
     </Modal>
   );
@@ -2295,53 +2326,61 @@ function TcDetailModal({tc,onClose,onEdit,onDelete,onDuplicate,onAddComment}) {
 // ─── ISSUE DETAIL MODAL ───────────────────────────────────────────────────────
 function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
   const sc=issueStatusConfig[issue.estado]||issueStatusConfig["Open"];
-  const sev=severityConfig[issue.severidad]||"#888";
-  const bitacora = normalizeIssueBitacora(issue.bitacora, issue);
+  const firstImg=(issue.attachments||[]).find(a=>a.type&&a.type.startsWith("image/"));
+  const [lightbox,setLightbox]=useState(null);
   return (
-    <Modal onClose={onClose} wide>
-      <ModalHeader title={issue.escenario} sub={`Issue #${issue.id} · ${issue.testId} · ${bitacora.length} eventos`} onClose={onClose}/>
-      <div style={{display:"flex",justifyContent:"flex-end",gap:8,flexWrap:"wrap",marginBottom:20}}>
-        <Btn small onClick={onEdit}>✏️ Editar</Btn>
-        <Btn small danger onClick={onDelete}>🗑️</Btn>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:11,marginBottom:14}}>
-        {[ ["Módulo",issue.modulo],["Descripción de la novedad",issue.formulario],["Fecha Creación",issue.fechaCreacion || "—"], ["Fecha Solución",issue.fechaSolucion || "—"] ].map(([l,v])=>(
-          <div key={l} style={{background:"#f8f8f8",borderRadius:8,padding:"9px 12px"}}>
-            <div style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:3}}>{l}</div>
-            <div style={{fontSize:12,color:"#333",fontWeight:600}}>{v}</div>
+    <Modal onClose={onClose} wide dark>
+      <ModalHeader title={issue.escenario||"Issue"} sub={`${issue.testId||"—"} · ${issue.modulo||"—"}`} onClose={onClose} dark/>
+      {firstImg&&(
+        <div style={{marginBottom:16,borderRadius:10,overflow:"hidden",cursor:"zoom-in"}} onClick={()=>setLightbox(firstImg.data)}>
+          <img src={firstImg.data} alt="evidencia" style={{width:"100%",maxHeight:220,objectFit:"cover",display:"block"}}/>
+        </div>
+      )}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+        {[["STATUS",<span style={{fontSize:12,fontWeight:800,color:sc.color,border:`1.5px solid ${sc.color}`,borderRadius:5,padding:"2px 9px",letterSpacing:"0.07em",textTransform:"uppercase"}}>{issue.estado}</span>],
+          ["SEVERITY",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.severidad||"—"}</span>],
+          ["PRIORITY",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.prioridad||"—"}</span>],
+          ["FECHA",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.fechaCreacion||"—"}</span>],
+          ["ASIGNADO A",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.asignadoA||"—"}</span>],
+          ["MÓDULO",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.modulo||"—"}</span>],
+        ].map(([l,v])=>(
+          <div key={l} style={{background:"#1a2535",borderRadius:8,padding:"10px 12px",border:"1px solid #2a3a4a"}}>
+            <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>{l}</div>
+            <div>{v}</div>
           </div>
         ))}
       </div>
-      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
-        <Badge label={issue.estado} color={sc.color} bg={sc.bg}/>
-        <Badge label={`Severidad: ${issue.severidad}`} color={sev} bg={sev+"15"}/>
-        <Badge label={`Prioridad: ${issue.prioridad}`} color="#555" bg="#f0f0f0"/>
-      </div>
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Observación</div>
-        <div style={{background:"#FEF9E7",borderRadius:8,padding:14,fontSize:13,color:"#555",lineHeight:1.8,borderLeft:"3px solid #F39C12"}}>{issue.observacion}</div>
+        <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>OBSERVACIÓN</div>
+        <div style={{background:"#1a2535",borderRadius:8,padding:14,fontSize:13,color:"#c8d8e8",lineHeight:1.8,border:"1px solid #2a3a4a",borderLeft:"3px solid #F5B041"}}>{issue.observacion||"—"}</div>
       </div>
-      <div style={{marginBottom:14}}>
-        <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>Bitácora</div>
-        {bitacora.length===0 && <div style={{fontSize:12,color:"#bbb"}}>Sin eventos registrados.</div>}
-        {bitacora.length>0 && (
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {[...bitacora].reverse().map((entry,index)=>(
-              <div key={`${entry.fecha}-${index}`} style={{background:"#f8f8f8",borderRadius:8,padding:"10px 12px",border:"1px solid #ececec"}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:4}}>
-                  <span style={{fontSize:10,fontFamily:"monospace",color:"#999"}}>{entry.fecha || "—"}</span>
-                  <span style={{fontSize:10,color:sc.color,fontWeight:700}}>{issueStatusLabel[entry.estado] || entry.estado || "Abierto"}</span>
-                </div>
-                <div style={{fontSize:12,color:"#555",lineHeight:1.5}}>{entry.detalle}</div>
-              </div>
+      {issue.bitacoraNota&&(
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>SOLUCIÓN / NOTAS</div>
+          <div style={{background:"#1a2535",borderRadius:8,padding:14,fontSize:13,color:"#c8d8e8",lineHeight:1.7,border:"1px solid #2a3a4a"}}>{issue.bitacoraNota}</div>
+        </div>
+      )}
+      {(issue.attachments||[]).length>1&&(
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:8}}>EVIDENCIA</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {(issue.attachments||[]).filter(a=>a.type&&a.type.startsWith("image/")).map((att,i)=>(
+              <img key={i} src={att.data} alt="evidencia" onClick={()=>setLightbox(att.data)}
+                style={{width:80,height:56,objectFit:"cover",borderRadius:7,border:"1px solid #2a3a4a",cursor:"zoom-in"}}/>
             ))}
           </div>
-        )}
+        </div>
+      )}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:18}}>
+        <button onClick={onDelete} style={{background:"transparent",border:"1.5px solid #E74C3C",color:"#E74C3C",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Eliminar</button>
+        <button onClick={onEdit} style={{background:"#F5B041",border:"none",color:"#1a1a1a",borderRadius:8,padding:"9px 20px",fontSize:13,fontWeight:800,cursor:"pointer"}}>✏️ Editar</button>
       </div>
-      <div>
-        <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:8}}>Adjuntos</div>
-        <AttachmentViewer attachments={issue.attachments}/>
-      </div>
+      {lightbox&&(
+        <div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
+          <img src={lightbox} alt="evidencia" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:10,boxShadow:"0 8px 48px #000a",objectFit:"contain"}}/>
+          <button onClick={()=>setLightbox(null)} style={{position:"absolute",top:20,right:28,background:"transparent",border:"none",color:"#fff",fontSize:28,cursor:"pointer",lineHeight:1}}>✕</button>
+        </div>
+      )}
     </Modal>
   );
 }
@@ -4452,7 +4491,7 @@ export default function App() {
                               {cards.map(issue=>{
                                 const firstImg=(issue.attachments||[]).find(a=>a.type&&a.type.startsWith("image/"));
                                 return (
-                                  <div key={issue.id} onClick={()=>setViewIssue(issue)} style={{border:`1px solid ${DM.cardBorder}`,borderLeft:`4px solid ${sc.color}`,borderRadius:8,overflow:"hidden",background:darkMode?"#1a2535":"#fff",cursor:"pointer",transition:"box-shadow 0.15s"}}
+                                  <div key={issue.id} onClick={()=>{setEditIssue(issue);setShowIssueForm(true);}} style={{border:`1px solid ${DM.cardBorder}`,borderLeft:`4px solid ${sc.color}`,borderRadius:8,overflow:"hidden",background:darkMode?"#1a2535":"#fff",cursor:"pointer",transition:"box-shadow 0.15s"}}
                                     onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 18px #0003"}
                                     onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
                                     {firstImg && (
@@ -4498,7 +4537,7 @@ export default function App() {
           onDuplicate={()=>duplicateTC(viewTc)}
           onAddComment={addComment}/>
       )}
-      {showIssueForm&&<IssueFormModal initial={editIssue} issueId={editIssue?.id} testIds={tests.map(t=>t.id)} onSave={saveIssue} onClose={()=>{setShowIssueForm(false);setEditIssue(null);}} darkMode={darkMode}/>}
+      {showIssueForm&&<IssueFormModal initial={editIssue} issueId={editIssue?.id} testIds={tests.map(t=>t.id)} onSave={saveIssue} onClose={()=>{setShowIssueForm(false);setEditIssue(null);}} onDelete={editIssue?()=>{setShowIssueForm(false);setEditIssue(null);deleteIssue(editIssue.id);}:undefined} darkMode={darkMode}/>}
       {previewImg&&(
         <div onClick={()=>setPreviewImg(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
           <img src={previewImg} alt="evidencia" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:10,boxShadow:"0 8px 48px #000a",objectFit:"contain"}}/>
