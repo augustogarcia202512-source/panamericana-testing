@@ -2817,6 +2817,7 @@ export default function App() {
   const [showIssueForm,setShowIssueForm]=useState(false);
   const [editIssue,setEditIssue]=useState(null);
   const [viewIssue,setViewIssue]=useState(null);
+  const [previewImg,setPreviewImg]=useState(null);
   const [showCicloForm,setShowCicloForm]=useState(false);
   const [editCiclo,setEditCiclo]=useState(null);
   const [expandedCiclos,setExpandedCiclos]=useState({});
@@ -4413,7 +4414,7 @@ export default function App() {
                                 <td style={{padding:"10px 13px",color:DM.sub,maxWidth:280,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4}}>{issue.observacion||"—"}</td>
                                 <td style={{padding:"10px 13px"}}>
                                   {firstImg
-                                    ?<img src={firstImg.data} alt="evidencia" style={{width:44,height:32,objectFit:"cover",borderRadius:4,display:"block",border:`1px solid ${DM.cardBorder}`}}/>
+                                    ?<img src={firstImg.data} alt="evidencia" onClick={e=>{e.stopPropagation();setPreviewImg(firstImg.data);}} style={{width:44,height:32,objectFit:"cover",borderRadius:4,display:"block",border:`1px solid ${DM.cardBorder}`,cursor:"zoom-in"}}/>
                                     :<span style={{fontSize:11,color:"#bbb"}}>—</span>}
                                 </td>
                                 <td style={{padding:"10px 13px",color:DM.text,whiteSpace:"nowrap"}}>{issue.severidad||"—"}</td>
@@ -4435,37 +4436,42 @@ export default function App() {
                 )}
 
                 {issueViewMode==="kanban" && (
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(3, minmax(250px, 1fr))",gap:12}}>
-                    {["Open","In Progress","Ready for Retest","Blocked","Re-Open","Closed"].map(status=>{
-                      const cards = filteredIssues.filter(issue=>issue.estado===status);
-                      const sc = issueStatusConfig[status] || { color: DM.sub, bg: DM.card };
-                      return (
-                        <div key={status} style={{background:DM.card,border:`1px solid ${DM.cardBorder}`,borderRadius:12,padding:10,minHeight:220}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:8,borderBottom:`1px solid ${DM.cardBorder}`}}>
-                            <div style={{fontSize:12,fontWeight:800,color:sc.color,textTransform:"uppercase",letterSpacing:"0.06em"}}>{status}</div>
-                            <div style={{fontSize:11,fontWeight:700,color:DM.sub}}>{cards.length}</div>
-                          </div>
-                          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                            {cards.length===0 && <div style={{fontSize:11,color:DM.sub}}>Sin issues en esta columna</div>}
-                            {cards.map(issue=>{
-                              const bitacora = normalizeIssueBitacora(issue.bitacora, issue);
-                              const latest = bitacora[bitacora.length-1];
-                              return (
-                                <div key={issue.id} style={{border:`1px solid ${DM.cardBorder}`,borderLeft:`4px solid ${sc.color}`,borderRadius:9,padding:"8px 9px",background:darkMode?"#15171a":"#fff"}}>
-                                  <div style={{fontSize:11,fontWeight:700,color:proj.color,marginBottom:4}}>{issue.testId || "—"}</div>
-                                  <div style={{fontSize:12,fontWeight:700,color:DM.text,lineHeight:1.35}}>{issue.escenario}</div>
-                                  <div style={{fontSize:11,color:DM.sub,marginTop:4}}>{issue.formulario || "Sin descripción"}</div>
-                                  {latest && <div style={{fontSize:10,color:DM.sub,marginTop:7}}>{latest.fecha}: {latest.detalle}</div>}
-                                  <div style={{marginTop:8}}>
-                                    <Btn small variant="ghost" onClick={()=>setViewIssue(issue)}>Ver detalle</Btn>
+                  <div style={{overflowX:"auto",paddingBottom:4}}>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(6, minmax(190px, 1fr))",gap:10,minWidth:1140}}>
+                      {["Open","Blocked","Ready for Retest","In Progress","Closed","Re-Open"].map(status=>{
+                        const cards = filteredIssues.filter(issue=>issue.estado===status);
+                        const sc = issueStatusConfig[status] || { color: DM.sub, bg: DM.card };
+                        return (
+                          <div key={status} style={{background:darkMode?"#141b26":"#f0f2f5",border:`1px solid ${DM.cardBorder}`,borderRadius:10,padding:"10px 8px",minHeight:240}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:8,borderBottom:`1px solid ${DM.cardBorder}`}}>
+                              <div style={{fontSize:11,fontWeight:800,color:darkMode?"#8a9bb0":"#555",textTransform:"uppercase",letterSpacing:"0.08em"}}>{status}</div>
+                              <span style={{fontSize:11,fontWeight:800,color:sc.color,background:darkMode?"#1e2a3a":"#e8edf4",borderRadius:999,padding:"1px 8px",minWidth:20,textAlign:"center"}}>{cards.length}</span>
+                            </div>
+                            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                              {cards.length===0 && <div style={{fontSize:13,color:DM.sub,padding:"4px 2px"}}>—</div>}
+                              {cards.map(issue=>{
+                                const firstImg=(issue.attachments||[]).find(a=>a.type&&a.type.startsWith("image/"));
+                                return (
+                                  <div key={issue.id} onClick={()=>setViewIssue(issue)} style={{border:`1px solid ${DM.cardBorder}`,borderLeft:`4px solid ${sc.color}`,borderRadius:8,overflow:"hidden",background:darkMode?"#1a2535":"#fff",cursor:"pointer",transition:"box-shadow 0.15s"}}
+                                    onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 18px #0003"}
+                                    onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+                                    {firstImg && (
+                                      <img src={firstImg.data} alt="evidencia" onClick={e=>{e.stopPropagation();setPreviewImg(firstImg.data);}}
+                                        style={{width:"100%",height:110,objectFit:"cover",display:"block",cursor:"zoom-in"}}/>
+                                    )}
+                                    <div style={{padding:"8px 10px"}}>
+                                      <div style={{fontSize:11,fontWeight:800,color:proj.color,marginBottom:4,letterSpacing:"0.03em"}}>{issue.testId||"—"}</div>
+                                      <div style={{fontSize:13,fontWeight:700,color:DM.text,lineHeight:1.35,marginBottom:4}}>{issue.escenario||"—"}</div>
+                                      {issue.observacion && <div style={{fontSize:11,color:DM.sub,lineHeight:1.4}}>{issue.observacion}</div>}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
@@ -4493,6 +4499,12 @@ export default function App() {
           onAddComment={addComment}/>
       )}
       {showIssueForm&&<IssueFormModal initial={editIssue} issueId={editIssue?.id} testIds={tests.map(t=>t.id)} onSave={saveIssue} onClose={()=>{setShowIssueForm(false);setEditIssue(null);}} darkMode={darkMode}/>}
+      {previewImg&&(
+        <div onClick={()=>setPreviewImg(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
+          <img src={previewImg} alt="evidencia" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:10,boxShadow:"0 8px 48px #000a",objectFit:"contain"}}/>
+          <button onClick={()=>setPreviewImg(null)} style={{position:"absolute",top:20,right:28,background:"transparent",border:"none",color:"#fff",fontSize:28,cursor:"pointer",lineHeight:1}}>✕</button>
+        </div>
+      )}
       {viewIssue&&!showIssueForm&&(
         <IssueDetailModal issue={viewIssue} onClose={()=>setViewIssue(null)}
           onEdit={()=>{setEditIssue(viewIssue);setViewIssue(null);setShowIssueForm(true);}}
