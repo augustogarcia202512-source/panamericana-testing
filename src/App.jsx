@@ -2082,7 +2082,7 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
         <Field label="Módulo">
           <SuggestionInput value={form.proceso} onChange={v=>set("proceso",v)} options={project?.modules||[]} placeholder="Selecciona o escribe un módulo" darkMode={true} />
         </Field>
-        <Field label="Área"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} /></Field>
+        <Field label="Precondiciones"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} /></Field>
         <Field label="Rol Scrum">
           <select style={{...SEL}} value={form.asignadoRol||"QA / Pruebas"} onChange={e=>setForm(current=>{
             const nextRol = e.target.value;
@@ -2114,7 +2114,7 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
         <Field label="Fecha Ejecución"><input type="date" style={IS} value={toInputDate(form.fechaEjecucion)} onChange={e=>set("fechaEjecucion",toDisplayDate(e.target.value))}/></Field>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:14}}>
-        <Field label="Descripción"><textarea style={{...IS,minHeight:70,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.descripcion} onChange={e=>set("descripcion",e.target.value)} /></Field>
+        <Field label="Resultado esperado"><textarea style={{...IS,minHeight:70,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.descripcion} onChange={e=>set("descripcion",e.target.value)} /></Field>
         <Field label="Pasos">
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
@@ -2132,7 +2132,6 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
             ))}
           </div>
         </Field>
-        <Field label="Resultado Esperado"><textarea style={{...IS,minHeight:60,resize:"vertical"}} value={form.resultado} onChange={e=>set("resultado",e.target.value)} /></Field>
         <Field label="Adjuntos"><AttachmentZone attachments={form.attachments||[]} onChange={v=>set("attachments",v)}/></Field>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}>
@@ -4084,7 +4083,7 @@ export default function App() {
                           <input type="checkbox" checked={allVisibleSelected} onChange={e=>e.target.checked?selectAllVisibleTests(visibleTestIds):clearSelectedTests(visibleTestIds)} onClick={e=>e.stopPropagation()} title="Seleccionar visibles"/>
                         </th>
                         <th style={{padding:"11px 6px",width:20,borderBottom:`1px solid ${DM.cardBorder}`}}></th>
-                        {["ID","Escenario","Módulo","Tipo","Nivel",...(testViewMode==="expandida"?["Pasos","Descripción"]:[]),"Responsable","Estado","Adj.","Observación"].map(h=>(
+                        {["ID","Escenario",...(testViewMode==="expandida"?["Pasos"]:[]),"Precondiciones",...(testViewMode==="expandida"?["Resultado esperado"]:[]),"Módulo","Responsable","Estado","Adj.","Observación"].map(h=>(
                           <th key={h} style={{padding:"11px 10px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:"0.07em",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:`1px solid ${DM.cardBorder}`}}>{h}</th>
                         ))}
                       </tr>
@@ -4112,15 +4111,14 @@ export default function App() {
                             <td style={{padding:"9px 6px",textAlign:"center",color:DM.sub,cursor:"grab",fontSize:14}} onClick={e=>e.stopPropagation()} title="Arrastrar">⠿</td>
                             <td style={{padding:"9px 10px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",fontSize:11}}>{t.id}</td>
                             <td style={{padding:"9px 10px",fontWeight:700,color:DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.4,minWidth:180,maxWidth:240,fontSize:11,background:darkMode?"#1e2a3a":"#f0f5ff",borderRadius:6,border:darkMode?"1px solid #2a3a4a":"1px solid #d8e8ff"}}>{t.escenario}</td>
-                            <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.proceso}</td>
-                            <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.tipoPrueba||"—"}</td>
-                            <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.nivelPrueba||"—"}</td>
                             {testViewMode==="expandida"&&(
                               <td style={{padding:"9px 10px",color:DM.sub,minWidth:260,maxWidth:320,whiteSpace:"normal",lineHeight:1.35,fontSize:10,verticalAlign:"top"}}>
                                 {pasosPreview.length ? pasosPreview.map((s,idx)=><div key={idx} style={{marginBottom:idx===pasosPreview.length-1?0:4}}>{`${idx+1}. ${s.text || "Sin detalle"}`}</div>) : "—"}
                               </td>
                             )}
+                            <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.area||"—"}</td>
                             {testViewMode==="expandida"&&<td style={{padding:"9px 10px",color:DM.sub,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10}}>{t.descripcion}</td>}
+                            <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.proceso}</td>
                             <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:10}}>{t.asignadoA||"—"}</td>
                             <td style={{padding:"9px 10px"}} onClick={e=>e.stopPropagation()}>
                               <select value={t.estado} onChange={e=>updateTCStatus(t.id,e.target.value)}
