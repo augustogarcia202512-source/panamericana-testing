@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const { spawn } = require('child_process');
 const crypto = require('crypto');
+const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
@@ -42,6 +43,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const GITHUB_MODELS_TOKEN = process.env.GITHUB_MODELS_TOKEN || '';
 const GITHUB_MODELS_MODEL = process.env.GITHUB_MODELS_MODEL || 'gpt-4o-mini';
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
 const GITHUB_MODELS_ENDPOINT = process.env.GITHUB_MODELS_ENDPOINT || 'https://models.inference.ai.azure.com/chat/completions';
 const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY || '';
 const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT || '';
@@ -129,10 +131,11 @@ function postJson(url, headers, body, timeoutMs = MODEL_TIMEOUT * 1000) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
     const data = JSON.stringify(body);
-    const req = https.request({
+    const transport = parsed.protocol === 'https:' ? https : http;
+    const req = transport.request({
       method: 'POST',
       hostname: parsed.hostname,
-      port: parsed.port || 443,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
       path: `${parsed.pathname}${parsed.search}`,
       headers: {
         'Content-Type': 'application/json',
@@ -281,89 +284,35 @@ app.get('/api/ai/health', (req, res) => {
       azureOpenAI: Boolean(AZURE_OPENAI_API_KEY && AZURE_OPENAI_ENDPOINT && AZURE_OPENAI_DEPLOYMENT),
       openAI: Boolean(OPENAI_API_KEY),
       localCli: Boolean(LOCAL_CMD),
+      n8nWebhook: Boolean(N8N_WEBHOOK_URL),
     },
     envSourcesChecked: ['server/.env', '.env (raiz)', 'variables de entorno del proceso'],
   });
 });
 
-app.post('/api/ai/generate', async (req, res) => {
-  const prompt = String(req.body?.prompt || req.body?.text || '');
-  if (!prompt) return res.status(400).json({ error: 'Missing prompt' });
-  // Check cache
+app.post('/api/mejorar-caso', async (req, res) => {
+  const webhookUrl = N8N_WEBHOOK_URL.trim();
+  if (!webhookUrl) {
+    return res.status(500).json({ ok: false, error: 'N8N webhook URL no configurada. Define N8N_WEBHOOK_URL.' });
+  }
+
+  console.log('Proxy /api/mejorar-caso -> N8N webhook', webhookUrl);
+  console.log('Proxy payload:', JSON.stringify(req.body, null, 2));
+
   try {
-    const cached = getCached(prompt);
-    if (cached) return res.json({ text: cached, cached: true });
-  } catch (e) {
-    console.warn('Cache error', e?.message || e);
+    const response = await postJson(webhookUrl, { 'Content-Type': 'application/json' }, req.body);
+    console.log('N8N response status:', response.status);
+    console.log('N8N response body:', JSON.stringify(response.body, null, 2));
+    console.log('N8N response raw:', response.raw);
+
+    if (response.status < 200 || response.status >= 300) {
+      return res.status(response.status).json({ ok: false, error: `N8N webhook falló: ${response.status}`, detalle: response.raw });
+    }
+    return res.json(response.body);
+  } catch (error) {
+    console.error('Error forwarding to N8N webhook:', error?.message || error);
+    return res.status(500).json({ ok: false, error: error?.message || 'Error al conectar con N8N webhook' });
   }
-
-  // Preferencia: proveedor real por API (GitHub Models / Azure OpenAI / OpenAI), si hay credenciales.
-  try {
-    const githubText = await generateWithGitHubModels(prompt);
-    if (githubText) {
-      setCached(prompt, githubText);
-      return res.json({ text: githubText, provider: 'github-models' });
-    }
-
-    const azureText = await generateWithAzureOpenAI(prompt);
-    if (azureText) {
-      setCached(prompt, azureText);
-      return res.json({ text: azureText, provider: 'azure-openai' });
-    }
-
-    const openAiText = await generateWithOpenAI(prompt);
-    if (openAiText) {
-      setCached(prompt, openAiText);
-      return res.json({ text: openAiText, provider: 'openai' });
-    }
-  } catch (e) {
-    console.error('Real AI provider failed:', e?.message || e);
-  }
-
-  // Si se configuró un comando local para un modelo (ejecutable CLI), lo usamos
-  if (LOCAL_CMD) {
-    try {
-      const invocation = buildLocalModelInvocation(prompt);
-      const child = spawn(invocation.cmd, invocation.args, { stdio: ['pipe', 'pipe', 'pipe'], timeout: MODEL_TIMEOUT * 1000 });
-      let out = '';
-      let err = '';
-      let timedOut = false;
-
-      child.stdout.on('data', d => out += d.toString());
-      child.stderr.on('data', d => err += d.toString());
-      child.on('error', e => {
-        if (!timedOut) res.status(500).json({ error: e.message });
-      });
-      child.on('close', code => {
-        if (timedOut) return;
-        if (code !== 0) return res.status(500).json({ error: err || `Model process exited ${code}` });
-        setCached(prompt, out);
-        return res.json({ text: out, provider: 'local-cli' });
-      });
-      child.on('exit', (code, signal) => {
-        if (signal === 'SIGTERM' || signal === 'SIGKILL') {
-          timedOut = true;
-          return res.status(500).json({ error: `Model process timed out after ${MODEL_TIMEOUT}s` });
-        }
-      });
-
-      if (invocation.stdin !== null) {
-        child.stdin.write(invocation.stdin);
-        child.stdin.end();
-      } else {
-        child.stdin.end();
-      }
-
-      return;
-    } catch (e) {
-      console.error('Error running local model command:', e.message || e);
-    }
-  }
-
-  // Fallback: respuesta mock simple
-  const text = simpleMockResponse(prompt);
-  try { setCached(prompt, text); } catch (e) { /* ignore cache errors */ }
-  return res.json({ text, provider: 'mock' });
 });
 
 app.listen(PORT, () => console.log(`Local AI proxy running on http://localhost:${PORT}`));

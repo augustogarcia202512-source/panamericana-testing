@@ -114,18 +114,7 @@ const seedProjects = [{
     { id:1,testId:"TC-01",escenario:"Distribución de ajustes de comprobantes",formulario:"Distribución de ajustes",observacion:"Con productos no inventariados, está tomando la moneda de parámetros incorrecta. La columna NIT no se visualiza de manera consistente.",modulo:"Compras a pagos",estado:"Closed",severidad:"Medium",prioridad:"High",fechaCreacion:"05/05/2026",attachments:[] },
     { id:2,testId:"TC-04",escenario:"Registro comprobantes de Cuentas por pagar",formulario:"NP0575 Comprobantes",observacion:"Error al seleccionar comprobante: 'Invalid column name NP0575'.",modulo:"Compras a pagos",estado:"Open",severidad:"High",prioridad:"Critical",fechaCreacion:"06/05/2026",attachments:[] },
   ],
-  ciclos:[
-    { id:"ciclo-1", nombre:"Ciclo 1", modulo:"Compras", fechaInicio:"2026-05-01", fechaFin:"2026-05-21", descripcion:"Primera ejecución módulo Compras",
-      ejecuciones:[
-        {tcId:"TC-01",estado:"Aprobado",fechaEjecucion:"21/05/2026",nota:""},
-        {tcId:"TC-02",estado:"Aprobado",fechaEjecucion:"21/05/2026",nota:""},
-        {tcId:"TC-04",estado:"Fallido",fechaEjecucion:"21/05/2026",nota:"Pendiente de revisión"},
-      ]},
-    { id:"ciclo-2", nombre:"Ciclo 2", modulo:"Compras", fechaInicio:"2026-05-22", fechaFin:"2026-05-30", descripcion:"Re-ejecución casos fallidos",
-      ejecuciones:[
-        {tcId:"TC-04",estado:"No ejecutado",fechaEjecucion:"",nota:""},
-      ]},
-  ],
+  ciclos:[],
 }];
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -684,6 +673,85 @@ function parseAiProposal(text, tc) {
   };
 }
 
+function normalizeN8nResponse(data) {
+  if (Array.isArray(data)) {
+    if (data.length === 0) return data;
+    if (data[0] && typeof data[0] === 'object' && data[0].json) return data[0].json;
+    return data[0];
+  }
+
+  if (data && typeof data === 'object') {
+    if (data.json && typeof data.json === 'object') {
+      return data.json;
+    }
+    if (data.body && typeof data.body === 'object') {
+      return data.body;
+    }
+    const choices = data.choices || (data.raw?.choices);
+    const content = choices?.[0]?.message?.content || choices?.[0]?.text;
+    if (typeof content === 'string') {
+      try {
+        return JSON.parse(content);
+      } catch (e) {
+        return { rawContent: content, original: data };
+      }
+    }
+  }
+
+  return data;
+}
+
+function extractTextValue(value) {
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value).trim();
+  if (value && typeof value === 'object') {
+    return extractTextValue(value.descripcion || value.description || value.texto || value.text || value.resultado || value.result || '');
+  }
+  return '';
+}
+
+function extractTextArray(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map(item => extractTextValue(item)).filter(Boolean);
+  }
+  return [extractTextValue(value)].filter(Boolean);
+}
+
+function parseN8nProposal(data, tc) {
+  const fallback = buildAiProposal(tc);
+  const suggestedId = String(data.suggestedId || data.id || tc.id || fallback.suggestedId || tc.id).trim();
+
+  const enrichedSteps = Array.isArray(data.pasos_sugeridos)
+    ? data.pasos_sugeridos.map(item => extractTextValue(item)).filter(Boolean)
+    : Array.isArray(data.pasos)
+      ? data.pasos.map(item => extractTextValue(item)).filter(Boolean)
+      : fallback.enrichedSteps;
+
+  const expectedResult = extractTextValue(
+    data.resultado_esperado_sugerido ||
+    data.expectedResult ||
+    data.resultado_esperado ||
+    data.resultado ||
+    fallback.expectedResult ||
+    ''
+  );
+
+  const precondiciones = Array.isArray(data.precondiciones_sugeridas)
+    ? data.precondiciones_sugeridas.map(item => extractTextValue(item)).filter(Boolean)
+    : Array.isArray(data.precondiciones)
+      ? data.precondiciones.map(item => extractTextValue(item)).filter(Boolean)
+      : (data.precondiciones ? [extractTextValue(data.precondiciones)].filter(Boolean) : []);
+
+  return {
+    suggestedId,
+    enrichedSteps: enrichedSteps.length ? enrichedSteps : fallback.enrichedSteps,
+    expectedResult: expectedResult || fallback.expectedResult,
+    precondiciones,
+    response: JSON.stringify(data, null, 2)
+  };
+}
+
 function buildDefaultPrompt(tc, intent = "Mejorá este caso") {
   if(!tc) return "";
   const title = tc.escenario ? `${tc.escenario}` : "el caso seleccionado";
@@ -694,42 +762,54 @@ function buildDefaultPrompt(tc, intent = "Mejorá este caso") {
   return `${intent} ${tc.id} (${title}).\n${context ? context + "\n\n" : ""}Enfócate en generar pasos claros, validaciones y un resultado esperado más preciso.`;
 }
 
-async function getAiProposal(tc, userPrompt) {
-  // Use proxy endpoint first (/api/ai/generate). It can route to real AI (OpenAI/Azure), local CLI, or mock fallback.
+async function getAiProposal(tc, userPrompt, mode = 'mejorar_todo') {
   try {
-    // build a richer prompt including last historial, comments and attachments
-    const lastHist = (tc.historial||[]).slice(-3).map(h=>`${h.fecha||''}: ${h.nota||''}`).join('\n') || '';
-    const recentComments = (tc.comentarios||[]).slice(-3).map(c=>`${c.fecha||''}: ${c.texto||c}`).join('\n') || '';
-    const attachList = (tc.attachments||[]).slice(0,5).map(a=>a.name).join(', ') || '';
-    const promptBody = `Actúa como un experto en QA. Revisa este caso de prueba y mejóralo para hacerlo reproducible y robusto.\n\nID: ${tc.id}\nÁrea: ${tc.area || tc.proceso || 'Sin área'}\nEscenario: ${tc.escenario || ''}\nDescripción: ${tc.descripcion || ''}\nPasos actuales:\n${tc.pasos || '(sin pasos)'}\nResultado actual:\n${tc.resultado || '(sin resultado)'}\n\nHistorial:\n${lastHist}\n\nComentarios recientes:\n${recentComments}\n\nAdjuntos: ${attachList}\n\nSolicitud del usuario: ${userPrompt}\n\nDevuelve preferentemente JSON con campos: suggestedId, steps (array), expectedResult. Si no puedes, devuelve texto plano con etiquetas claras: 'ID sugerido:', 'PASOS:' y 'RESULTADO ESPERADO:'.`;
+    const pasosActuales = (tc.pasos || '').toString().split('\n').map(s => s.trim()).filter(Boolean);
+    const payload = {
+      caso_id: tc.id,
+      modo: mode,
+      titulo_descripcion: tc.escenario || tc.descripcion || '',
+      pasos_actuales: pasosActuales,
+      resultado_esperado_actual: tc.resultado || '',
+      precondiciones_actuales: tc.precondiciones || tc.area || '',
+      instrucciones_usuario: userPrompt || ''
+    };
 
-    const res = await fetch('/api/ai/generate', {
+    const res = await fetch('/api/mejorar-caso', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: promptBody })
+      body: JSON.stringify(payload)
     });
-      if (res.ok) {
-      const data = await res.json();
-      const provider = String(data?.provider || '').toLowerCase();
 
-      // Si el proxy responde en modo mock, evita pasos genéricos y usa la propuesta local contextual.
-      if (provider === 'mock') {
-        return buildAiProposal(tc, userPrompt);
-      }
-
-      const text = (data && (data.text || data.output || data.result)) || (typeof data === 'string' ? data : '');
-      if (text) return parseAiProposal(String(text), tc);
+    if (!res.ok) {
+      const bodyText = await res.text();
+      console.error('getAiProposal: /api/mejorar-caso HTTP error', res.status, res.statusText, bodyText);
+      throw new Error(`Webhook falló: ${res.status} ${res.statusText}`);
     }
+
+    const data = await res.json();
+    console.log('getAiProposal: /api/mejorar-caso response', data, { payload });
+    const normalized = normalizeN8nResponse(data);
+    console.log('getAiProposal: normalized webhook data', normalized);
+
+    if (normalized && normalized.ok === false) {
+      console.warn('getAiProposal: webhook responded ok:false', normalized);
+      throw new Error(normalized.error || 'Respuesta del webhook no OK');
+    }
+
+    const proposal = parseN8nProposal(normalized, tc);
+    console.log('getAiProposal: parsed proposal', proposal);
+    return proposal;
   } catch (e) {
-    console.warn('AI proxy failed:', e?.message || e);
+    console.warn('n8n webhook failed:', e?.message || e);
   }
 
-  // Fallback to local builder if proxy failed
   return buildAiProposal(tc, userPrompt);
 }
 
 function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, darkMode }) {
   const [prompt, setPrompt] = useState("");
+  const [promptMode, setPromptMode] = useState("predeterminado");
   const [messages, setMessages] = useState([]);
   const [activeProposal, setActiveProposal] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -742,6 +822,7 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
   const [showApplyConfirm, setShowApplyConfirm] = useState(false);
   const [showFullDiff, setShowFullDiff] = useState(false);
   const [fullDiffDocked, setFullDiffDocked] = useState(false);
+  const [applyPrecondiciones, setApplyPrecondiciones] = useState(false);
 
   const filteredTests = tests.filter(tc => {
     const q = caseSearch.trim().toLowerCase();
@@ -764,8 +845,10 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
     setApplyId(false);
     setApplySteps(true);
     setApplyResult(true);
+    setApplyPrecondiciones(false);
     setActiveProposal(null);
     setMessages([]);
+    setPromptMode("predeterminado");
     setPrompt(buildDefaultPrompt(selectedTc));
   }, [selectedTc?.id]);
 
@@ -773,6 +856,7 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
     if (activeProposal) {
       setApplySteps(true);
       setApplyResult(true);
+      setApplyPrecondiciones(false);
       // Keep ID unchecked by default to avoid accidental renames.
       setApplyId(false);
     }
@@ -785,17 +869,18 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
 
   function handleConfirmApply() {
     if (!activeProposal || !selectedTc) return;
-    const opts = { applyId, applySteps, applyResult };
+    const opts = { applyId, applySteps, applyResult, applyPrecondiciones };
     try {
       if (onApplyProposal) onApplyProposal(activeProposal, opts);
       // add a comment to the case with a short note of the applied fields
-      try { addComment(selectedTc.id, `Aplicada propuesta IA: ${[opts.applyId?"ID":"", opts.applySteps?"Pasos":"", opts.applyResult?"Resultado":""].filter(Boolean).join(", ") || "(ninguno)"}`); } catch(e) {}
-      setMessages(prev => [...prev, { role: "system", text: `Se aplicaron: ${[applyId?"ID":"", applySteps?"Pasos":"", applyResult?"Resultado":""].filter(Boolean).join(", ") || "(ninguno)"}` }]);
+      try { addComment(selectedTc.id, `Aplicada propuesta IA: ${[opts.applyId?"ID":"", opts.applySteps?"Pasos":"", opts.applyResult?"Resultado":"", opts.applyPrecondiciones?"Precondiciones":""].filter(Boolean).join(", ") || "(ninguno)"}`); } catch(e) {}
+      setMessages(prev => [...prev, { role: "system", text: `Se aplicaron: ${[applyId?"ID":"", applySteps?"Pasos":"", applyResult?"Resultado":"", applyPrecondiciones?"Precondiciones":""].filter(Boolean).join(", ") || "(ninguno)"}` }]);
       // clear active proposal and reset selections
       setActiveProposal(null);
       setApplyId(false);
       setApplySteps(true);
       setApplyResult(true);
+      setApplyPrecondiciones(false);
       setPrompt(selectedTc ? buildDefaultPrompt(selectedTc) : "");
     } catch (e) {
       setMessages(prev => [...prev, { role: "system", text: `Error al aplicar la propuesta: ${e?.message||e}` }]);
@@ -831,36 +916,72 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
     );
   }
 
-  async function handleSend() {
-    if (!selectedTc || !prompt.trim()) return;
-    const userText = prompt.trim();
+  async function sendAiPrompt(userText, mode) {
+    if (!selectedTc || !userText.trim()) return null;
     setMessages(prev => [...prev, { role: "user", text: userText }]);
     setLoading(true);
     setError("");
 
     try {
-      const proposal = await getAiProposal(selectedTc, userText);
+      const proposal = await getAiProposal(selectedTc, userText, mode);
       setMessages(prev => [...prev, { role: "assistant", text: proposal.response, proposal }]);
       setActiveProposal(proposal);
-      setPrompt("");
+      return proposal;
     } catch (err) {
       const msg = `No pude contactar al asistente local: ${err?.message || "error desconocido"}`;
       setMessages(prev => [...prev, { role: "assistant", text: msg }]);
       setError(msg);
+      return null;
     } finally {
       setLoading(false);
     }
   }
 
-  function quickPrompt(action) {
+  async function handleSend() {
+    if (!selectedTc || !prompt.trim()) return;
+    await sendAiPrompt(prompt.trim(), promptMode);
+    setPrompt("");
+  }
+
+  async function handleMejorarPrecondiciones() {
+    if (!selectedTc) return;
+    setPromptMode('mejorar_precondiciones');
+
+    const promptText = `Mejorá las precondiciones del caso ${selectedTc.id} para que sean claras, completas y necesarias antes de ejecutar el caso.`;
+    await sendAiPrompt(promptText, 'mejorar_precondiciones');
+  }
+
+  async function quickPrompt(action, autoSend = false) {
     if (!selectedTc) return;
     const intentMap = {
-      pasos: `Refina los pasos del caso ${selectedTc.id} y agrega validaciones claras.`,
-      resultado: `Aclará el resultado esperado del caso ${selectedTc.id} para que sea más preciso.`,
-      id: `Mejorá el ID del caso ${selectedTc.id} para que sea más descriptivo y consistente.`,
-      completo: `Mejorá el caso ${selectedTc.id}: revisá la descripción, completá los pasos con validaciones y refiná el resultado esperado.`
+      predeterminado: {
+        prompt: buildDefaultPrompt(selectedTc),
+        mode: 'predeterminado'
+      },
+      pasos: {
+        prompt: `Refina los pasos del caso ${selectedTc.id} y agrega validaciones claras.`,
+        mode: 'refinar_pasos'
+      },
+      resultado: {
+        prompt: `Aclará el resultado esperado del caso ${selectedTc.id} para que sea más preciso.`,
+        mode: 'mejorar_resultado'
+      },
+      completo: {
+        prompt: `Mejorá el caso ${selectedTc.id}: revisá la descripción, completá los pasos con validaciones y refiná el resultado esperado.`,
+        mode: 'mejorar_todo'
+      },
+      precondiciones: {
+        prompt: `Mejorá las precondiciones del caso ${selectedTc.id} para que sean claras, completas y necesarias antes de ejecutar el caso.`,
+        mode: 'mejorar_precondiciones'
+      }
     };
-    setPrompt(intentMap[action] || buildDefaultPrompt(selectedTc));
+    const selected = intentMap[action] || { prompt: buildDefaultPrompt(selectedTc), mode: 'predeterminado' };
+    setPrompt(selected.prompt);
+    setPromptMode(selected.mode);
+    if (autoSend) {
+      await sendAiPrompt(selected.prompt, selected.mode);
+      setPrompt("");
+    }
   }
 
   function saveDraft() {
@@ -966,10 +1087,11 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
         <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} rows={4} placeholder="Usa el prompt predeterminado o escribe qué querés mejorar." style={{...inputStyle, resize:"vertical", background:darkMode?"#2C2C2E":"#fff", color:darkMode?"#eee":"#1a1a1a", border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}/>
         <div style={{display:"flex",justifyContent:"flex-start",gap:8,flexWrap:"wrap"}}>
           <Btn small onClick={handleSend} disabled={!selectedTc || !prompt.trim() || loading}>{loading ? "Enviando..." : "Enviar a IA"}</Btn>
-          <Btn small variant="ghost" onClick={()=>setPrompt(selectedTc ? buildDefaultPrompt(selectedTc) : "")}>Predeterminado</Btn>
+          <Btn small variant="ghost" onClick={()=>quickPrompt('predeterminado')}>Predeterminado</Btn>
           <Btn small variant="ghost" onClick={()=>quickPrompt('pasos')}>Refinar pasos</Btn>
           <Btn small variant="ghost" onClick={()=>quickPrompt('resultado')}>Mejorar resultado</Btn>
-          <Btn small variant="ghost" onClick={()=>quickPrompt('completo')}>Mejorar todo</Btn>
+          <Btn small variant="ghost" onClick={()=>quickPrompt('completo', true)}>Mejorar todo</Btn>
+          <Btn small variant="ghost" onClick={handleMejorarPrecondiciones}>Mejorar precondiciones</Btn>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
           <Btn small variant="ghost" onClick={()=>{setMessages([]);setActiveProposal(null);setPrompt(selectedTc ? buildDefaultPrompt(selectedTc) : "");setError("");}}>Limpiar</Btn>
@@ -997,6 +1119,14 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
               <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:800}}>Resultado esperado</div>
               <div style={{fontSize:12,color:darkMode?"#ddd":"#555",marginTop:4,lineHeight:1.5}}>{activeProposal.expectedResult}</div>
             </div>
+            {activeProposal.precondiciones && activeProposal.precondiciones.length > 0 && (
+              <div style={{background:darkMode?"#1d1d1d":"#fff",borderRadius:8,padding:"8px 10px",border:`1px solid ${darkMode?"#333":"#f0dada"}`}}>
+                <div style={{fontSize:10,color:darkMode?"#888":"#777",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:800}}>Precondiciones sugeridas</div>
+                <ul style={{margin:"6px 0 0 16px",padding:0,fontSize:12,color:darkMode?"#ddd":"#555",display:"grid",gap:4}}>
+                  {activeProposal.precondiciones.map((item, idx) => <li key={idx}>{item}</li>)}
+                </ul>
+              </div>
+            )}
           </div>
           <div style={{marginTop:12,padding:12,borderRadius:12,background:darkMode?"#141414":"#fff",border:`1px solid ${darkMode?"#222":"#e5e7eb"}`}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
@@ -1034,7 +1164,7 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
             </div>
           </div>
           <div style={{marginTop:12,fontSize:12,color:darkMode?"#ddd":"#444"}}>Actualizar campos antes de aplicar la propuesta:</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3, minmax(150px, 1fr))",gap:10,marginTop:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4, minmax(150px, 1fr))",gap:10,marginTop:10}}>
             <label style={{display:"inline-flex",alignItems:"center",gap:8,fontSize:12}}>
               <input type="checkbox" checked={applyId} onChange={e=>setApplyId(e.target.checked)} />
               <span style={{fontSize:13}}>Aplicar ID sugerido</span>
@@ -1047,19 +1177,23 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
               <input type="checkbox" checked={applyResult} onChange={e=>setApplyResult(e.target.checked)} />
               <span style={{fontSize:13}}>Aplicar resultado esperado</span>
             </label>
+            <label style={{display:"inline-flex",alignItems:"center",gap:8,fontSize:12}}>
+              <input type="checkbox" checked={applyPrecondiciones} onChange={e=>setApplyPrecondiciones(e.target.checked)} />
+              <span style={{fontSize:13}}>Aplicar precondiciones</span>
+            </label>
           </div>
-          {!applyId && !applySteps && !applyResult && (
+          {!applyId && !applySteps && !applyResult && !applyPrecondiciones && (
             <div style={{marginTop:10,fontSize:11,color:darkMode?"#f8b4b4":"#b91c1c"}}>Marca al menos una opción para aplicar la propuesta.</div>
           )}
           <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:10}}>
-            <Btn small variant="ghost" onClick={()=>{setApplyId(true);setApplySteps(true);setApplyResult(true);}}>
+            <Btn small variant="ghost" onClick={()=>{setApplyId(true);setApplySteps(true);setApplyResult(true);setApplyPrecondiciones(true);}}>
               Aplicar todo
             </Btn>
-            <Btn small variant="ghost" onClick={handleRequestApply} disabled={!applyId && !applySteps && !applyResult}>
+            <Btn small variant="ghost" onClick={handleRequestApply} disabled={!applyId && !applySteps && !applyResult && !applyPrecondiciones}>
               Aceptar cambios parciales
             </Btn>
             {onApplyProposal&&(
-              <button onClick={handleRequestApply} style={{background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700}} disabled={!applyId && !applySteps && !applyResult}>
+              <button onClick={handleRequestApply} style={{background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:700}} disabled={!applyId && !applySteps && !applyResult && !applyPrecondiciones}>
                 ✅ Aplicar mejora al caso
               </button>
             )}
@@ -1075,7 +1209,8 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
               {applyId && <li>ID sugerido: <strong style={{color:BRAND}}>{activeProposal?.suggestedId}</strong></li>}
               {applySteps && <li>Pasos mejorados (se reemplazarán los pasos actuales).</li>}
               {applyResult && <li>Resultado esperado actualizado.</li>}
-              {!applyId && !applySteps && !applyResult && <li style={{color:"#b91c1c"}}>No se seleccionaron campos para aplicar.</li>}
+              {applyPrecondiciones && <li>Precondiciones sugeridas actualizadas.</li>}
+              {!applyId && !applySteps && !applyResult && !applyPrecondiciones && <li style={{color:"#b91c1c"}}>No se seleccionaron campos para aplicar.</li>}
             </ul>
             {applySteps && (
               <div>
@@ -1091,7 +1226,7 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
             )}
             <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
               <Btn small variant="ghost" onClick={()=>setShowApplyConfirm(false)}>Cancelar</Btn>
-              <button onClick={handleConfirmApply} style={{background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:13,fontWeight:800}} disabled={!applyId && !applySteps && !applyResult}>Confirmar y aplicar</button>
+              <button onClick={handleConfirmApply} style={{background:BRAND,color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:13,fontWeight:800}} disabled={!applyId && !applySteps && !applyResult && !applyPrecondiciones}>Confirmar y aplicar</button>
             </div>
           </div>
         </div>
@@ -3061,10 +3196,13 @@ export default function App() {
   }
   function handleApplyAiProposal(proposal){
     if(!proposal || !selectedAiTc) return;
-    const opts = arguments[1] || { applyId:false, applySteps:true, applyResult:true };
+    const opts = arguments[1] || { applyId:false, applySteps:true, applyResult:true, applyPrecondiciones:false };
     const oldId = selectedAiTc.id;
     const newPasos = opts.applySteps ? proposal.enrichedSteps.map((step, index)=>`${index+1}. ${step}`).join("\n") : selectedAiTc.pasos;
     const newResultado = opts.applyResult ? proposal.expectedResult : selectedAiTc.resultado;
+    const newPrecondiciones = opts.applyPrecondiciones
+      ? (Array.isArray(proposal.precondiciones) ? proposal.precondiciones.join("\n") : (proposal.precondiciones || ""))
+      : (selectedAiTc.precondiciones || selectedAiTc.area || "");
     const applyId = opts.applyId === true;
 
     function makeUniqueId(tests, desired) {
@@ -3085,6 +3223,7 @@ export default function App() {
           id: finalNewId,
           pasos: newPasos,
           resultado: newResultado,
+          precondiciones: newPrecondiciones,
           historial: [ ...(tc.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ]
         }),
         issues: (p.issues||[]).map(is => is.testId===oldId ? { ...is, testId: finalNewId } : is),
@@ -3092,8 +3231,8 @@ export default function App() {
       };
     }));
 
-    setSelectedAiTc(prev => prev ? { ...prev, id: finalNewId, pasos: newPasos, resultado: newResultado, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
-    setViewTc(prev => prev && prev.id === oldId ? { ...prev, id: finalNewId, pasos: newPasos, resultado: newResultado, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
+    setSelectedAiTc(prev => prev ? { ...prev, id: finalNewId, pasos: newPasos, resultado: newResultado, precondiciones: newPrecondiciones, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
+    setViewTc(prev => prev && prev.id === oldId ? { ...prev, id: finalNewId, pasos: newPasos, resultado: newResultado, precondiciones: newPrecondiciones, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
   }
   function addComment(tcId,texto){
     setProjects(ps=>ps.map(p=>{
