@@ -3199,7 +3199,9 @@ export default function App() {
     const opts = arguments[1] || { applyId:false, applySteps:true, applyResult:true, applyPrecondiciones:false };
     const oldId = selectedAiTc.id;
     const newPasos = opts.applySteps ? proposal.enrichedSteps.map((step, index)=>`${index+1}. ${step}`).join("\n") : selectedAiTc.pasos;
-    const newResultado = opts.applyResult ? proposal.expectedResult : selectedAiTc.resultado;
+    const newResultado = opts.applyResult
+      ? proposal.expectedResult
+      : (selectedAiTc.resultado || selectedAiTc.descripcion || "");
     const newPrecondiciones = opts.applyPrecondiciones
       ? (Array.isArray(proposal.precondiciones) ? proposal.precondiciones.join("\n") : (proposal.precondiciones || ""))
       : (selectedAiTc.precondiciones || selectedAiTc.area || "");
@@ -3223,7 +3225,9 @@ export default function App() {
           id: finalNewId,
           pasos: newPasos,
           resultado: newResultado,
+          descripcion: newResultado,
           precondiciones: newPrecondiciones,
+          area: newPrecondiciones,
           historial: [ ...(tc.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ]
         }),
         issues: (p.issues||[]).map(is => is.testId===oldId ? { ...is, testId: finalNewId } : is),
@@ -3231,8 +3235,8 @@ export default function App() {
       };
     }));
 
-    setSelectedAiTc(prev => prev ? { ...prev, id: finalNewId, pasos: newPasos, resultado: newResultado, precondiciones: newPrecondiciones, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
-    setViewTc(prev => prev && prev.id === oldId ? { ...prev, id: finalNewId, pasos: newPasos, resultado: newResultado, precondiciones: newPrecondiciones, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
+    setSelectedAiTc(prev => prev ? { ...prev, id: finalNewId, pasos: newPasos, resultado: newResultado, descripcion: newResultado, precondiciones: newPrecondiciones, area: newPrecondiciones, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
+    setViewTc(prev => prev && prev.id === oldId ? { ...prev, id: finalNewId, pasos: newPasos, resultado: newResultado, descripcion: newResultado, precondiciones: newPrecondiciones, area: newPrecondiciones, historial: [ ...(prev.historial||[]), { fecha: today(), de: oldId, a: finalNewId, nota: `ID sugerido: ${proposal.suggestedId}` } ] } : prev);
   }
   function addComment(tcId,texto){
     setProjects(ps=>ps.map(p=>{
