@@ -856,7 +856,7 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
     if (activeProposal) {
       setApplySteps(true);
       setApplyResult(true);
-      setApplyPrecondiciones(false);
+      setApplyPrecondiciones(Boolean(activeProposal.precondiciones?.length));
       // Keep ID unchecked by default to avoid accidental renames.
       setApplyId(false);
     }
@@ -2216,7 +2216,7 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
         <Field label="Módulo">
           <SuggestionInput value={form.proceso} onChange={v=>set("proceso",v)} options={project?.modules||[]} placeholder="Selecciona o escribe un módulo" darkMode={true} />
         </Field>
-        <Field label="Precondiciones"><input style={IS} value={form.area} onChange={e=>set("area",e.target.value)} /></Field>
+        <Field label="Precondiciones"><textarea style={{...IS,minHeight:60,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.area} onChange={e=>set("area",e.target.value)} /></Field>
         <Field label="Rol Scrum">
           <select style={{...SEL}} value={form.asignadoRol||"QA / Pruebas"} onChange={e=>setForm(current=>{
             const nextRol = e.target.value;
@@ -4352,8 +4352,8 @@ export default function App() {
                                 {pasosPreview.length ? pasosPreview.map((s,idx)=><div key={idx} style={{marginBottom:idx===pasosPreview.length-1?0:4}}>{`${idx+1}. ${s.text || "Sin detalle"}`}</div>) : "—"}
                               </td>
                             )}
-                            <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.area||"—"}</td>
-                            {testViewMode==="expandida"&&<td style={{padding:"9px 10px",color:DM.sub,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10}}>{t.descripcion}</td>}
+                            <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"pre-wrap",wordBreak:"break-word",overflowWrap:"anywhere",lineHeight:1.4,maxWidth:240,fontSize:11}}>{t.area||"—"}</td>
+                            {testViewMode==="expandida"&&<td style={{padding:"9px 10px",color:DM.sub,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"pre-wrap",wordBreak:"break-word",overflowWrap:"anywhere",lineHeight:1.4,fontSize:10}}>{t.descripcion}</td>}
                             <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.proceso}</td>
                             <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:10}}>{t.asignadoA||"—"}</td>
                             <td style={{padding:"9px 10px"}} onClick={e=>e.stopPropagation()}>
