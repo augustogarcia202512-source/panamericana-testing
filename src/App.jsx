@@ -4271,8 +4271,8 @@ export default function App() {
                   const na=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="No aplica").length;
                   const bl=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Bloqueante").length;
                   const execPctC=ejecs.length?Math.round((aprobados/ejecs.length)*100):0;
-                  // TCs disponibles para agregar (que no estén ya en este ciclo)
-                  const tcsDisponibles=tests.filter(t=>!ejecs.find(e=>e.tcId===t.id));
+                  // TCs disponibles para agregar (que no estén ya en este ciclo, filtrados por módulo del ciclo)
+                  const tcsDisponibles=tests.filter(t=>!ejecs.find(e=>e.tcId===t.id)&&(!ciclo.modulo||t.proceso===ciclo.modulo));
                   const selectedForCycle=bulkTcSelection[ciclo.id]||[];
 
                   return(
