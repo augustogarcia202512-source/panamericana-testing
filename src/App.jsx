@@ -1807,8 +1807,7 @@ function CicloFormModal({initial,cicloId,modulosList,onSave,onClose,darkMode}) {
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
         <Field label="Nombre del Ciclo"><input style={IS} value={form.nombre} onChange={e=>set("nombre",e.target.value)} placeholder="Ej: Ciclo 1, Ciclo 2 Re-prueba..."/></Field>
         <Field label="Módulo">
-          <input style={IS} value={form.modulo} onChange={e=>set("modulo",e.target.value)} placeholder="Ej: Compras, Activos Fijos..." list="modulos-list"/>
-          <datalist id="modulos-list">{modulosList.map(m=><option key={m} value={m}/>)}</datalist>
+          <SuggestionInput value={form.modulo} onChange={v=>set("modulo",v)} options={modulosList} placeholder="Selecciona o escribe un módulo" darkMode={darkMode}/>
         </Field>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Field label="Fecha Inicio"><input style={IS} type="date" value={form.fechaInicio} onChange={e=>set("fechaInicio",e.target.value)}/></Field>
@@ -2847,6 +2846,8 @@ export default function App() {
   const [search,setSearch]=useState("");
   const [darkMode,setDarkMode]=useState(()=>{try{return localStorage.getItem("pana_dark")==="1";}catch{return false;}});
   const [sidebarOpen,setSidebarOpen]=useState(()=>{try{return localStorage.getItem("pana_sidebar")!=="0";}catch{return true;}});
+  const [sidebarWidth,setSidebarWidth]=useState(()=>{try{return parseInt(localStorage.getItem("pana_sidebar_w"))||220;}catch{return 220;}});
+  const sidebarDragging=useRef(false);
   const [showProjectsHome,setShowProjectsHome]=useState(false);
   const [showProjSelector,setShowProjSelector]=useState(true);
   const [showProjForm,setShowProjForm]=useState(false);
@@ -3438,8 +3439,8 @@ export default function App() {
 
       <div style={{display:"flex",minHeight:"100vh"}}>
         {/* SIDEBAR */}
-        <div style={{width:sidebarOpen?220:0,minWidth:sidebarOpen?220:0,background:DM.sidebar,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden",transition:"width 0.25s ease, min-width 0.25s ease",position:"relative"}}>
-          <div style={{width:220,display:"flex",flexDirection:"column",height:"100%"}}>
+        <div style={{width:sidebarOpen?sidebarWidth:0,minWidth:sidebarOpen?sidebarWidth:0,background:DM.sidebar,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden",transition:sidebarDragging.current?"none":"width 0.25s ease, min-width 0.25s ease",position:"sticky",top:0,height:"100vh",alignSelf:"flex-start"}}>
+          <div style={{width:sidebarWidth,display:"flex",flexDirection:"column",height:"100%"}}>
           <div style={{padding:"18px 16px 10px",borderBottom:"1px solid #333",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div>
               <div style={{background:BRAND,color:"#fff",fontWeight:900,fontSize:11,padding:"4px 10px",borderRadius:5,letterSpacing:"0.07em",display:"inline-block",marginBottom:8}}>CESAR RODRIGUEZ</div>
@@ -3491,9 +3492,37 @@ export default function App() {
 
         {/* TOGGLE SIDEBAR BUTTON */}
         <button onClick={()=>setSidebarOpen(o=>!o)} title={sidebarOpen?"Ocultar panel":"Mostrar panel"}
-          style={{position:"fixed",left:sidebarOpen?212:4,top:"50%",transform:"translateY(-50%)",zIndex:300,background:BRAND,border:"2px solid #fff",borderRadius:"0 10px 10px 0",color:"#fff",cursor:"pointer",padding:"12px 7px",fontSize:16,transition:"left 0.25s ease",lineHeight:1,boxShadow:"2px 0 8px #00000040"}}>
+          style={{position:"fixed",left:sidebarOpen?sidebarWidth-8:4,top:"50%",transform:"translateY(-50%)",zIndex:300,background:BRAND,border:"2px solid #fff",borderRadius:"0 10px 10px 0",color:"#fff",cursor:"pointer",padding:"12px 7px",fontSize:16,transition:sidebarDragging.current?"none":"left 0.25s ease",lineHeight:1,boxShadow:"2px 0 8px #00000040"}}>
           {sidebarOpen?"◀":"▶"}
         </button>
+        {/* DRAG HANDLE */}
+        {sidebarOpen&&(
+          <div
+            onMouseDown={e=>{
+              e.preventDefault();
+              sidebarDragging.current=true;
+              document.body.style.cursor="col-resize";
+              document.body.style.userSelect="none";
+              const onMove=ev=>{
+                const w=Math.min(400,Math.max(160,ev.clientX));
+                setSidebarWidth(w);
+              };
+              const onUp=()=>{
+                sidebarDragging.current=false;
+                document.body.style.cursor="";
+                document.body.style.userSelect="";
+                setSidebarWidth(w=>{ try{localStorage.setItem("pana_sidebar_w",w);}catch{} return w; });
+                document.removeEventListener("mousemove",onMove);
+                document.removeEventListener("mouseup",onUp);
+              };
+              document.addEventListener("mousemove",onMove);
+              document.addEventListener("mouseup",onUp);
+            }}
+            style={{position:"sticky",top:0,width:4,height:"100vh",alignSelf:"flex-start",cursor:"col-resize",background:"transparent",flexShrink:0,zIndex:200,transition:"background 0.15s"}}
+            onMouseEnter={e=>e.currentTarget.style.background=BRAND+"88"}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+          />
+        )}
 
         {/* MAIN */}
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
@@ -4587,7 +4616,7 @@ export default function App() {
 
       {/* ── MODALS ── */}
       {showJira&&<JiraModal onImport={handleJiraImport} onClose={()=>setShowJira(false)} existingTests={tests} darkMode={darkMode}/>}
-      {showCicloForm&&<CicloFormModal initial={editCiclo} cicloId={editCiclo?.nombre} modulosList={[...new Set(tests.map(t=>t.proceso).filter(Boolean))]} onSave={saveCiclo} onClose={()=>{setShowCicloForm(false);setEditCiclo(null);}} darkMode={darkMode}/>}
+      {showCicloForm&&<CicloFormModal initial={editCiclo} cicloId={editCiclo?.nombre} modulosList={[...new Set([...(proj?.modules||[]),...tests.map(t=>t.proceso).filter(Boolean)])]} onSave={saveCiclo} onClose={()=>{setShowCicloForm(false);setEditCiclo(null);}} darkMode={darkMode}/>}
       {showProjForm&&<ProjectFormModal initial={editProj} onSave={saveProject} onClose={()=>{setShowProjForm(false);setEditProj(null);}} darkMode={darkMode}/>}
       {showTcForm&&<TcFormModal initial={editTc} tcId={editTc?.id} onSave={saveTC} onClose={()=>{setShowTcForm(false);setEditTc(null);}} darkMode={darkMode} project={proj}/>}
       {observationTc&&<ObservationModal tc={observationTc} initialText="" darkMode={darkMode}
