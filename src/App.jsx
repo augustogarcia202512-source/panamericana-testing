@@ -2847,6 +2847,8 @@ export default function App() {
   const [search,setSearch]=useState("");
   const [darkMode,setDarkMode]=useState(()=>{try{return localStorage.getItem("pana_dark")==="1";}catch{return false;}});
   const [sidebarOpen,setSidebarOpen]=useState(()=>{try{return localStorage.getItem("pana_sidebar")!=="0";}catch{return true;}});
+  const [showProjectsHome,setShowProjectsHome]=useState(false);
+  const [showProjSelector,setShowProjSelector]=useState(true);
   const [showProjForm,setShowProjForm]=useState(false);
   const [editProj,setEditProj]=useState(null);
   const [showTcForm,setShowTcForm]=useState(false);
@@ -3444,20 +3446,37 @@ export default function App() {
               <div style={{fontSize:12,color:"#888"}}>Gestión de Pruebas</div>
             </div>
           </div>
-          <div style={{padding:"12px 10px 6px",fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:700}}>Proyectos</div>
+          <div
+            onClick={()=>setShowProjSelector(s=>!s)}
+            style={{padding:"10px 12px",margin:"6px 6px 2px",borderRadius:10,fontSize:11,color:"#ccc",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:8,userSelect:"none",background:"#1e1e1e",border:"1px solid #2e2e2e",transition:"background 0.15s"}}
+            onMouseEnter={e=>e.currentTarget.style.background="#252525"}
+            onMouseLeave={e=>e.currentTarget.style.background="#1e1e1e"}
+          >
+            <span style={{fontSize:10,transition:"transform 0.2s",display:"inline-block",transform:showProjSelector?"rotate(90deg)":"rotate(0deg)",color:"#666"}}>▶</span>
+            <span>📁 Proyectos</span>
+            <span style={{marginLeft:"auto",fontSize:10,background:"#2e2e2e",color:"#aaa",borderRadius:999,padding:"2px 8px",fontWeight:800}}>{projects.length}</span>
+          </div>
           <div style={{flex:1,overflowY:"auto"}}>
-            {projects.map(p=>(
-              <div key={p.id} onClick={()=>{setActiveProjectId(p.id);setTab("dashboard");}}
-                style={{padding:"9px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderRadius:8,margin:"2px 6px",background:p.id===activeProjectId?"#2C2C2E":"transparent",transition:"background 0.15s"}}
-                onMouseEnter={e=>{if(p.id!==activeProjectId)e.currentTarget.style.background="#252525";}}
-                onMouseLeave={e=>{if(p.id!==activeProjectId)e.currentTarget.style.background="transparent";}}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:p.color,flexShrink:0}}/>
-                <div style={{flex:1,overflow:"hidden"}}>
-                  <div style={{fontSize:12,color:p.id===activeProjectId?"#fff":"#bbb",fontWeight:p.id===activeProjectId?700:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
-                  <div style={{fontSize:10,color:"#555"}}>{p.tests.length} TCs · {p.issues.length} issues</div>
+            {showProjSelector && projects.map(p=>{
+              const pctVal=(p.tests||[]).length?Math.round((p.tests.filter(t=>normalizeTestStatus(t.estado)==="Aprobado").length/p.tests.length)*100):0;
+              const openIssues=(p.issues||[]).filter(i=>i.estado==="Open"||i.estado==="Re-Open").length;
+              return(
+                <div key={p.id} onClick={()=>{setActiveProjectId(p.id);setTab("dashboard");setShowProjectsHome(false);}}
+                  style={{padding:"9px 12px 9px 24px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderRadius:8,margin:"2px 6px",background:p.id===activeProjectId?"#2C2C2E":"transparent",borderLeft:p.id===activeProjectId?`3px solid ${p.color}`:"3px solid transparent",transition:"all 0.15s"}}
+                  onMouseEnter={e=>{if(p.id!==activeProjectId)e.currentTarget.style.background="#252525";}}
+                  onMouseLeave={e=>{if(p.id!==activeProjectId)e.currentTarget.style.background="transparent";}}>
+                  <div style={{width:30,height:30,borderRadius:8,background:p.color,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff",fontWeight:900,fontSize:14,boxShadow:`0 2px 8px ${p.color}55`}}>{p.name.charAt(0).toUpperCase()}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,color:p.id===activeProjectId?"#fff":"#ccc",fontWeight:p.id===activeProjectId?700:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                    <div style={{display:"flex",gap:6,marginTop:3}}>
+                      <span style={{fontSize:10,color:"#666"}}>{(p.tests||[]).length} TCs</span>
+                      <span style={{fontSize:10,color:"#27AE60",fontWeight:700}}>{pctVal}%</span>
+                      {openIssues>0&&<span style={{fontSize:10,color:"#E74C3C",fontWeight:700}}>{openIssues} ⚠</span>}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div style={{padding:"10px 10px 16px",borderTop:"1px solid #2a2a2a",display:"flex",flexDirection:"column",gap:5}}>
             <button onClick={()=>setTab("documentador")} style={{background:"linear-gradient(135deg, #C0392B 0%, #E74C3C 100%)",border:"none",borderRadius:10,color:"#fff",padding:"10px 12px",cursor:"pointer",fontSize:12,fontWeight:800,boxShadow:"0 8px 20px rgba(192,57,43,0.22)",width:"100%"}}>🗂️ Abrir documentador</button>
@@ -3486,7 +3505,7 @@ export default function App() {
               <span style={{fontSize:12,color:DM.sub,marginLeft:4}}>{proj.description}</span>
             </div>
             <div style={{display:"flex",gap:2}}>
-              {tabs.map(t=>(
+              {!showProjectsHome && tabs.map(t=>(
                 <button key={t.id} onClick={()=>setTab(t.id)} style={{background: tab===t.id ? (t.id==="documentador" ? "linear-gradient(135deg, #C0392B 0%, #E74C3C 100%)" : DM.bg) : (t.id==="documentador" ? "rgba(192,57,43,0.10)" : "transparent"), color: tab===t.id ? (t.id==="documentador" ? "#fff" : DM.text) : (t.id==="documentador" ? BRAND : DM.sub), border: t.id==="documentador" ? "1px solid rgba(192,57,43,0.18)" : "none", padding:"12px 16px", cursor:"pointer", fontSize:13, fontWeight:tab===t.id?800:600, borderBottom:tab===t.id?`3px solid ${proj.color}`:"3px solid transparent", borderRadius: t.id==="documentador" ? 999 : 0, boxShadow: t.id==="documentador" && tab===t.id ? "0 8px 18px rgba(192,57,43,0.18)" : "none", transition:"all 0.2s"}}>
                   {t.label}
                 </button>
@@ -3495,11 +3514,56 @@ export default function App() {
           </div>
 
               <div style={{flex:1,overflowY:"auto",padding:"24px 28px"}}>
-            {tab==="documentador"&&(
+            {showProjectsHome&&(
+              <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div>
+                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Proyectos</h2>
+                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>{projects.length} proyecto{projects.length!==1?"s":""} registrado{projects.length!==1?"s":""}</p>
+                  </div>
+                  <Btn small onClick={()=>{setShowProjForm(true);setEditProj(null);}}>+ Nuevo Proyecto</Btn>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {projects.map(p=>{
+                    const approved=(p.tests||[]).filter(t=>normalizeTestStatus(t.estado)==="Aprobado").length;
+                    const total=(p.tests||[]).length;
+                    const openIssues=(p.issues||[]).filter(i=>i.estado==="Open"||i.estado==="Re-Open").length;
+                    const pct=total?Math.round((approved/total)*100):0;
+                    return(
+                      <div key={p.id} onClick={()=>{setActiveProjectId(p.id);setTab("dashboard");setShowProjectsHome(false);}} style={{padding:"16px 20px",borderRadius:14,background:DM.card,border:`1px solid ${p.id===activeProjectId?p.color:DM.cardBorder}`,boxShadow:p.id===activeProjectId?`0 0 0 2px ${p.color}22`:"0 1px 8px #0000000a",cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"all 0.15s"}}
+                        onMouseEnter={e=>{ e.currentTarget.style.borderColor=p.color; e.currentTarget.style.boxShadow=`0 4px 16px ${p.color}22`; }}
+                        onMouseLeave={e=>{ e.currentTarget.style.borderColor=p.id===activeProjectId?p.color:DM.cardBorder; e.currentTarget.style.boxShadow=p.id===activeProjectId?`0 0 0 2px ${p.color}22`:"0 1px 8px #0000000a"; }}>
+                        <div style={{width:40,height:40,borderRadius:12,background:p.color,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff",fontWeight:900,fontSize:16}}>{p.name.charAt(0).toUpperCase()}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                            <span style={{fontSize:14,fontWeight:800,color:DM.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                            {p.id===activeProjectId&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:999,background:`${p.color}20`,color:p.color,fontWeight:700}}>Activo</span>}
+                          </div>
+                          {p.description&&<div style={{fontSize:12,color:DM.sub,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.description}</div>}
+                          <div style={{marginTop:8,height:4,borderRadius:4,background:darkMode?"#2a2a2a":"#f0f0f0",overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:4,transition:"width 0.4s"}}/>
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:20,flexShrink:0,textAlign:"center"}}>
+                          <div><div style={{fontSize:18,fontWeight:800,color:DM.text}}>{total}</div><div style={{fontSize:10,color:DM.sub}}>TCs</div></div>
+                          <div><div style={{fontSize:18,fontWeight:800,color:"#27AE60"}}>{pct}%</div><div style={{fontSize:10,color:DM.sub}}>Aprobados</div></div>
+                          <div><div style={{fontSize:18,fontWeight:800,color:openIssues>0?"#E74C3C":DM.sub}}>{openIssues}</div><div style={{fontSize:10,color:DM.sub}}>Issues</div></div>
+                        </div>
+                        <div style={{flexShrink:0,display:"flex",gap:6}}>
+                          <button onClick={e=>{e.stopPropagation();setEditProj(p);setShowProjForm(true);}} style={{background:"none",border:`1px solid ${DM.cardBorder}`,borderRadius:8,color:DM.sub,fontSize:11,padding:"5px 10px",cursor:"pointer"}}>✏️</button>
+                          <button onClick={e=>{e.stopPropagation();setConfirmDelete({type:"project",id:p.id});}} style={{background:"none",border:"1px solid #6B202033",borderRadius:8,color:"#E74C3C",fontSize:11,padding:"5px 10px",cursor:"pointer"}}>🗑️</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {!showProjectsHome&&tab==="documentador"&&(
               <DocumentadorPanel darkMode={darkMode} />
             )}
 
-            {tab==="scrum"&&(
+            {!showProjectsHome&&tab==="scrum"&&(
               <div style={{display:"flex",flexDirection:"column",gap:18}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                   <div>
@@ -3672,7 +3736,7 @@ export default function App() {
               </div>
             )}
 
-            {tab==="dashboard"&&(
+            {!showProjectsHome&&tab==="dashboard"&&(
                 <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                   <div>
@@ -4014,7 +4078,7 @@ export default function App() {
             )}
 
           {/* ── CASOS DE PRUEBA ── */}
-            {tab==="tests"&&(
+            {!showProjectsHome&&tab==="tests"&&(
               <div style={{display:"flex",flexDirection:"column",gap:18}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                   <div>
@@ -4144,7 +4208,7 @@ export default function App() {
             )}
 
             {/* ── CICLOS ── */}
-            {tab==="ciclos"&&(()=>{
+            {!showProjectsHome&&tab==="ciclos"&&(()=>{
               const ciclos=proj.ciclos||[];
               return(
               <div style={{display:"flex",flexDirection:"column",gap:20}}>
@@ -4370,7 +4434,7 @@ export default function App() {
             })()}
 
             {/* ── ISSUES ── */}
-            {tab==="issues"&&(
+            {!showProjectsHome&&tab==="issues"&&(
               <div style={{display:"flex",flexDirection:"column",gap:18}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
                   <div>
