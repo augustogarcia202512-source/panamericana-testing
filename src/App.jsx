@@ -943,13 +943,7 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
     setPrompt("");
   }
 
-  async function handleMejorarPrecondiciones() {
-    if (!selectedTc) return;
-    setPromptMode('mejorar_precondiciones');
-
-    const promptText = `Mejorá las precondiciones del caso ${selectedTc.id} para que sean claras, completas y necesarias antes de ejecutar el caso.`;
-    await sendAiPrompt(promptText, 'mejorar_precondiciones');
-  }
+  
 
   async function quickPrompt(action, autoSend = false) {
     if (!selectedTc) return;
@@ -970,10 +964,7 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
         prompt: `Mejorá el caso ${selectedTc.id}: revisá la descripción, completá los pasos con validaciones y refiná el resultado esperado.`,
         mode: 'mejorar_todo'
       },
-      precondiciones: {
-        prompt: `Mejorá las precondiciones del caso ${selectedTc.id} para que sean claras, completas y necesarias antes de ejecutar el caso.`,
-        mode: 'mejorar_precondiciones'
-      }
+      
     };
     const selected = intentMap[action] || { prompt: buildDefaultPrompt(selectedTc), mode: 'predeterminado' };
     setPrompt(selected.prompt);
@@ -1091,7 +1082,7 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
           <Btn small variant="ghost" onClick={()=>quickPrompt('pasos')}>Refinar pasos</Btn>
           <Btn small variant="ghost" onClick={()=>quickPrompt('resultado')}>Mejorar resultado</Btn>
           <Btn small variant="ghost" onClick={()=>quickPrompt('completo', true)}>Mejorar todo</Btn>
-          <Btn small variant="ghost" onClick={handleMejorarPrecondiciones}>Mejorar precondiciones</Btn>
+          
         </div>
         <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
           <Btn small variant="ghost" onClick={()=>{setMessages([]);setActiveProposal(null);setPrompt(selectedTc ? buildDefaultPrompt(selectedTc) : "");setError("");}}>Limpiar</Btn>

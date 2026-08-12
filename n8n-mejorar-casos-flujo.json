@@ -13,11 +13,7 @@
       "position": [
         -832,
         -96
-      ]
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
+            
         "path": "mejorar-caso",
         "responseMode": "responseNode",
         "options": {}
@@ -175,26 +171,7 @@
                 "combinator": "and"
               }
             },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "leftValue": "={{ $json.modo }}",
-                    "rightValue": "mejorar_precondiciones",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            }
+            
           ]
         },
         "options": {
@@ -350,41 +327,7 @@
         }
       }
     },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.groq.com/openai/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.requestBodyJson }}",
-        "options": {}
-      },
-      "id": "1204d1e8-3b27-4b82-b518-89ba7d7d2ebb",
-      "name": "IA - Mejorar Precondiciones",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        416,
-        880
-      ],
-      "credentials": {
-        "openAiApi": {
-          "id": "9l9nIUkIGBWlurs4",
-          "name": "OpenAi account"
-        }
-      }
-    },
+            
     {
       "parameters": {
         "assignments": {
@@ -398,7 +341,7 @@
             {
               "id": "f2",
               "name": "error",
-              "value": "=Modo '{{ $json.modo }}' no reconocido. Usa: predeterminado, refinar_pasos, mejorar_resultado, mejorar_todo o mejorar_precondiciones.",
+              "value": "=Modo '{{ $json.modo }}' no reconocido. Usa: predeterminado, refinar_pasos, mejorar_resultado o mejorar_todo.",
               "type": "string"
             }
           ]
@@ -410,19 +353,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        304,
-        1040
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Toma la respuesta cruda de OpenAI y la deja lista para el frontend\nif ($json.ok === false) {\n  // viene de la rama 'Modo Inválido'\n  return $input.all();\n}\n\ntry {\n  const contenido = $json.choices[0].message.content;\n  const parseado = JSON.parse(contenido);\n  return [{\n    json: {\n      ok: true,\n      pasos_sugeridos: parseado.pasos_sugeridos || null,\n      resultado_esperado_sugerido: parseado.resultado_esperado_sugerido || null,\n      precondiciones_sugeridas: parseado.precondiciones_sugeridas || null\n    }\n  }];\n} catch (error) {\n  return [{\n    json: {\n      ok: false,\n      error: \"No se pudo interpretar la respuesta de la IA\",\n      detalle: error.message,\n      respuesta_cruda: $json\n    }\n  }];\n}"
-      },
-      "id": "df121e24-11a6-4d9c-bc97-a2eb95bff212",
-      "name": "Parsear Respuesta IA",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
+    
         560,
         640
       ]
@@ -621,17 +552,7 @@
         ]
       ]
     },
-    "IA - Mejorar Precondiciones": {
-      "main": [
-        [
-          {
-            "node": "Parsear Respuesta IA",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
+    
     "Modo Inválido": {
       "main": [
         [
@@ -698,17 +619,7 @@
         ]
       ]
     },
-    "Prompt - Mejorar Precondiciones": {
-      "main": [
-        [
-          {
-            "node": "IA - Mejorar Precondiciones",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    
   },
   "pinData": {},
   "meta": {
