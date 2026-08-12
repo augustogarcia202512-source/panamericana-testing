@@ -2998,6 +2998,7 @@ export default function App() {
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [storageWarn,setStorageWarn]=useState(false);
   const [selectedAiTc,setSelectedAiTc]=useState(null);
+  const [expandedAvailableTc,setExpandedAvailableTc]=useState(null);
   const [scrumTestTypeInput,setScrumTestTypeInput]=useState("");
   const [scrumLevelInput,setScrumLevelInput]=useState("");
   const dragIndex=useRef(null);
@@ -4452,22 +4453,51 @@ export default function App() {
                         ))}
                         {/* Agregar TC al ciclo */}
                         {tcsDisponibles.length>0&&(
-                          <div style={{marginLeft:"auto",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8,minWidth:320,width:"100%",maxWidth:360}}>
+                          <div style={{marginLeft:"auto",display:"flex",flexDirection:"column",alignItems:"stretch",gap:8,width:"80%",maxWidth:"80%"}}>
                             <div style={{display:"flex",gap:6,alignItems:"center",justifyContent:"flex-end",width:"100%"}}>
                               <button onClick={()=>selectAllCycleTcs(ciclo.id,tcsDisponibles.map(t=>t.id))} style={{background:"#f4f4f4",border:"1px solid #e0e0e0",borderRadius:6,color:"#444",padding:"4px 8px",cursor:"pointer",fontSize:11,fontWeight:700}}>✓ Todos</button>
                               <button onClick={()=>clearCycleTcSelection(ciclo.id)} style={{background:"#f4f4f4",border:"1px solid #e0e0e0",borderRadius:6,color:"#444",padding:"4px 8px",cursor:"pointer",fontSize:11,fontWeight:700}}>Limpiar</button>
                               <button onClick={()=>addSelectedTcsToCiclo(ciclo.id,selectedForCycle)} disabled={!selectedForCycle.length} style={{background:proj.color,border:"none",borderRadius:6,color:"#fff",padding:"4px 10px",cursor:!selectedForCycle.length?"not-allowed":"pointer",fontSize:11,fontWeight:700,opacity:!selectedForCycle.length?0.6:1}}>Agregar seleccionados ({selectedForCycle.length})</button>
                             </div>
-                            <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8,width:"100%",maxHeight:150,overflowY:"auto",padding:8,border:`1px solid ${DM.cardBorder}`,borderRadius:8,background:darkMode?"#171717":"#fafafa"}}>
+                            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(640px,1fr))",gap:16,width:"100%",maxHeight:420,overflowY:"auto",padding:16,border:`1px solid ${DM.cardBorder}`,borderRadius:8,background:darkMode?"#171717":"#fafafa",maxWidth:"100%"}}>
+                              
                               {tcsDisponibles.map(t=>{
                                 const checked=selectedForCycle.includes(t.id);
+                                if(expandedAvailableTc===t.id){
+                                  return (
+                                    <div key={t.id} style={{background:darkMode?"#151515":"#fff",border:`1px solid ${DM.cardBorder}`,borderRadius:8,padding:12,display:"flex",flexDirection:"column",gap:8,minHeight:140}}>
+                                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                                        <div>
+                                          <div style={{fontWeight:800,color:proj.color,fontSize:13}}>{t.id}</div>
+                                          <div style={{fontSize:11,padding:"4px 8px",borderRadius:999,background:proj.color+"15",color:proj.color,fontWeight:700,display:"inline-block",marginTop:6}}>{t.proceso||"Sin módulo"}</div>
+                                        </div>
+                                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                                          <input type="checkbox" checked={checked} onChange={()=>toggleCycleTcSelection(ciclo.id,t.id)} />
+                                          <button onClick={()=>setExpandedAvailableTc(null)} title="Cerrar" style={{background:"transparent",border:"none",cursor:"pointer",fontSize:16,color:DM.sub}}>✕</button>
+                                        </div>
+                                      </div>
+                                      <div style={{fontSize:16,fontWeight:800,color:DM.text}}>{t.escenario}</div>
+                                        {t.descripcion&&<div style={{color:DM.sub,whiteSpace:"pre-wrap",maxHeight:320,overflowY:"auto"}}>{t.descripcion}</div>}
+                                      <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+                                        <button onClick={()=>{toggleCycleTcSelection(ciclo.id,t.id);setExpandedAvailableTc(null);}} style={{background:proj.color,border:"none",color:"#fff",padding:"6px 10px",borderRadius:6,cursor:"pointer",fontWeight:800}}>Agregar</button>
+                                      </div>
+                                    </div>
+                                  );
+                                }
                                 return (
                                   <label key={t.id} style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:11,color:DM.text,cursor:"pointer",padding:"2px 0"}}>
                                     <input type="checkbox" checked={checked} onChange={()=>toggleCycleTcSelection(ciclo.id,t.id)} />
-                                    <span style={{lineHeight:1.25}}>
-                                      <span style={{fontWeight:700,color:proj.color,display:"block"}}>{t.id}</span>
-                                      <span style={{fontSize:10,display:"inline-block",margin:"2px 0 4px",padding:"2px 8px",borderRadius:999,background:proj.color+"15",color:proj.color,fontWeight:700}}>{t.proceso || "Sin módulo"}</span>
-                                      <span>{t.escenario.slice(0,28)}{t.escenario.length>28?"…":""}</span>
+                                    <span style={{lineHeight:1.25,flex:1,padding:"6px 0"}}>
+                                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                                        <span style={{fontWeight:700,color:proj.color,display:"block"}}>{t.id}</span>
+                                        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                                          <span style={{fontSize:10,display:"inline-block",margin:"2px 0 4px",padding:"2px 8px",borderRadius:999,background:proj.color+"15",color:proj.color,fontWeight:700}}>{t.proceso || "Sin módulo"}</span>
+                                          <button onClick={(e)=>{e.stopPropagation();e.preventDefault();setExpandedAvailableTc(expandedAvailableTc===t.id?null:t.id);}} title="Expandir" style={{background:"transparent",border:"none",cursor:"pointer",fontSize:14,color:DM.sub}}>⤢</button>
+                                        </div>
+                                      </div>
+                                      <div style={{marginTop:4}}>
+                                        <span style={{display:"block",whiteSpace:"normal",overflowWrap:"anywhere",maxWidth:"100%"}}>{t.escenario.slice(0,300)}{t.escenario.length>300?"…":""}</span>
+                                      </div>
                                     </span>
                                   </label>
                                 );
@@ -4483,9 +4513,9 @@ export default function App() {
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                           <thead>
                             <tr style={{background:darkMode?"#1a1a1a":"#f8f8f8"}}>
-                              {["TC","Escenario",""] .map(h=>(
-                                <th key={h} style={{padding:"8px 14px",textAlign:"left",fontSize:10,fontWeight:700,color:DM.sub,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
-                              ))}
+                              <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:DM.sub,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap",width:120}}>TC</th>
+                              <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:DM.sub,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap",minWidth:520}}>Escenario</th>
+                              <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:DM.sub,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap",width:64}}> </th>
                             </tr>
                           </thead>
                           <tbody>
@@ -4501,7 +4531,7 @@ export default function App() {
                                   <tr key={ejec.tcId} style={{borderTop:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
                                     onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
                                     onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                                    <td style={{padding:"8px 14px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",verticalAlign:"top"}}>
+                                    <td style={{padding:"8px 10px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",verticalAlign:"top",width:120}}>
                                       <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                                         <div>{tc.id}</div>
                                         <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTc(tc);}} title="Agregar novedad u observación" style={{padding:"4px 9px",fontSize:10,color:BRAND,border:`1px solid ${BRAND}2a`,background:BRAND_LIGHT,borderRadius:999,boxShadow:"0 1px 4px rgba(0,0,0,0.04)"}}>📝 Novedad</Btn>
@@ -4510,13 +4540,13 @@ export default function App() {
                                         <Badge label={generalState} color={generalSc.color} bg={generalSc.bg} />
                                       </div>
                                     </td>
-                                    <td style={{padding:"8px 14px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:320,maxWidth:520,letterSpacing:"0.08px",background:darkMode?"#202b3b":"#f7faff",borderRadius:8,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff",verticalAlign:"top"}}>
+                                    <td style={{padding:"8px 10px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:520,letterSpacing:"0.02px",background:darkMode?"#202b3b":"#f7faff",borderRadius:6,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff",verticalAlign:"top"}}>
                                       <div>{tc.escenario}</div>
                                       <div style={{marginTop:8,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                                         <span style={{fontSize:10,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>Estado general</span>
                                         <Badge label={generalState} color={generalSc.color} bg={generalSc.bg} />
                                       </div>
-                                      <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:6,maxHeight:190,overflowY:"auto",paddingRight:4}}>
+                                      <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:6,maxHeight:140,overflowY:"auto",paddingRight:4}}>
                                         {parsedSteps.map((step,index)=>(
                                           <div key={`${tc.id}-${index}`} onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",gap:6,background:darkMode?"#141b24":"#fff",borderRadius:11,padding:"8px 10px",border:`1px solid ${darkMode?"#31445b":"#eaf1f8"}`,borderLeft:`4px solid ${cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub}`,boxShadow:darkMode?"0 1px 4px rgba(0,0,0,0.14)":"0 1px 4px rgba(17,24,39,0.05)"}}>
                                             <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
@@ -4531,7 +4561,7 @@ export default function App() {
                                         ))}
                                       </div>
                                     </td>
-                                    <td style={{padding:"8px 14px"}}>
+                                    <td style={{padding:"8px 10px",width:64,textAlign:"center"}}>
                                       <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6}} onClick={e=>e.stopPropagation()}>
                                         <button onClick={()=>removeTcFromCiclo(ciclo.id,tc.id)} title="Quitar del ciclo"
                                           style={{background:"none",border:"none",cursor:"pointer",color:"#E74C3C",fontSize:14,padding:"2px 4px"}}>✕</button>
