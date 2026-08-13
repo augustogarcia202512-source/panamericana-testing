@@ -3769,7 +3769,7 @@ export default function App() {
             <button onClick={()=>setTab("documentador")} style={{background:"linear-gradient(135deg, #C0392B 0%, #E74C3C 100%)",border:"none",borderRadius:10,color:"#fff",padding:"10px 12px",cursor:"pointer",fontSize:12,fontWeight:800,boxShadow:"0 8px 20px rgba(192,57,43,0.22)",width:"100%"}}>🗂️ Abrir documentador</button>
             <button onClick={()=>{setShowProjForm(true);setEditProj(null);}} style={{background:"#2C2C2E",border:"1px dashed #444",borderRadius:8,color:"#aaa",padding:"8px 0",cursor:"pointer",fontSize:12,width:"100%"}}>+ Nuevo Proyecto</button>
             <button onClick={()=>{setEditProj(proj);setShowProjForm(true);}} style={{background:"none",border:"none",color:"#666",fontSize:11,cursor:"pointer",padding:"4px 0"}}>✏️ Editar proyecto</button>
-            {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && hoveredProjectId===proj.id && (
+            {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && (
               <button onClick={()=>setConfirmDelete({type:"project",id:proj.id})} style={{background:"none",border:"none",color:"#6B2020",fontSize:11,cursor:"pointer",padding:"4px 0"}}>🗑️ Eliminar proyecto</button>
             )}
             <button onClick={()=>setDarkMode(d=>!d)} style={{background:"none",border:"none",color:"#666",fontSize:11,cursor:"pointer",padding:"4px 0",marginTop:4}}>{darkMode?"☀️ Modo claro":"🌙 Modo oscuro"}</button>
@@ -3816,7 +3816,7 @@ export default function App() {
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
           {/* topbar */}
           <div style={{background:DM.card,borderBottom:`1px solid ${DM.cardBorder}`,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}} onMouseEnter={()=>setHoveredProjectId(proj.id)} onMouseLeave={()=>setHoveredProjectId(null)}>
               <div style={{width:10,height:10,borderRadius:"50%",background:proj.color}}/>
               <span style={{fontSize:15,fontWeight:800,color:DM.text}}>{proj.name}</span>
               <span style={{fontSize:12,color:DM.sub,marginLeft:4}}>{proj.description}</span>
@@ -3889,7 +3889,7 @@ export default function App() {
                         </div>
                         <div style={{flexShrink:0,display:"flex",gap:6}}>
                           <button onClick={e=>{e.stopPropagation();setEditProj(p);setShowProjForm(true);}} style={{background:"none",border:`1px solid ${DM.cardBorder}`,borderRadius:8,color:DM.sub,fontSize:11,padding:"5px 10px",cursor:"pointer"}}>✏️</button>
-                          {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && hoveredProjectId===p.id && (
+                          {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && (
                             <button onClick={e=>{e.stopPropagation();setConfirmDelete({type:"project",id:p.id});}} style={{background:"none",border:"1px solid #6B202033",borderRadius:8,color:"#E74C3C",fontSize:11,padding:"5px 10px",cursor:"pointer"}}>🗑️</button>
                           )}
                         </div>
@@ -4613,7 +4613,7 @@ export default function App() {
                             </button>
                           )}
                           <button onClick={()=>{setEditCiclo(ciclo);setShowCicloForm(true);}} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:6,color:"#fff",padding:"5px 10px",cursor:"pointer",fontSize:12}}>✏️ Editar</button>
-                          {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && hoveredCicloId===ciclo.id && (
+                          {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && (
                             <button onClick={()=>setConfirmDelete({type:"ciclo",id:ciclo.id})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:6,color:"#fff",padding:"5px 8px",cursor:"pointer",fontSize:12}}>🗑️</button>
                           )}
                           <button
