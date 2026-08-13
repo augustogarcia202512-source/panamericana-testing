@@ -1026,7 +1026,7 @@ function AiAssistantPanel({ tests, selectedTc, onSelectTc, onApplyProposal, dark
               <div style={{flex:"1 1 240px"}}>
                 <div style={{fontSize:12,color:darkMode?"#bbb":"#666",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:6}}>Caso seleccionado</div>
                 <div style={{fontSize:14,fontWeight:800,color:darkMode?"#fff":"#1a1a1a"}}>{selectedTc.id} · {selectedTc.escenario}</div>
-                <div style={{fontSize:12,color:darkMode?"#ddd":"#444",marginTop:4}}>{selectedTc.descripcion || "Sin descripción"}</div>
+                {/* descripción oculta en esta vista por solicitud del usuario */}
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(2, minmax(120px, 1fr))",gap:10,marginTop:selectedTc?8:0}}>
                 <div style={{padding:10,borderRadius:10,background:darkMode?"#232323":"#fff",border:`1px solid ${darkMode?"#333":"#e8e8e8"}`}}>
@@ -2363,7 +2363,7 @@ function TcDetailModal({tc,onClose,onEdit,onDelete,onDuplicate,onAddComment}) {
   const ISD={...inputStyleDark,background:"#1a2535",border:"1px solid #2a3a4a",color:"#e2e8f0",borderRadius:8};
   return (
     <Modal onClose={onClose} wide dark>
-      <ModalHeader title={tc.escenario||tc.descripcion||"Caso de Prueba"} sub={`${tc.id} · ${tc.proceso||"—"}`} onClose={onClose} dark/>
+      <ModalHeader title={tc.escenario||"Caso de Prueba"} sub={`${tc.id} · ${tc.proceso||"—"}`} onClose={onClose} dark/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
         {[["Área",tc.area],["Módulo",tc.proceso],["Tipo",tc.tipoPrueba||"—"],["Nivel",tc.nivelPrueba||"—"],["Asignado a",tc.asignadoA||"—"],["Rol Scrum",tc.asignadoRol||"—"],["Fecha Aprob.",tc.fechaAprobacion||"—"],["Fecha Ejec.",tc.fechaEjecucion||"—"]].map(([l,v])=>(
           <div key={l} style={{background:"#1a2535",borderRadius:8,padding:"9px 12px",border:"1px solid #2a3a4a"}}>
@@ -4345,7 +4345,7 @@ export default function App() {
                               </td>
                             )}
                             <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"pre-wrap",wordBreak:"break-word",overflowWrap:"anywhere",lineHeight:1.4,maxWidth:240,fontSize:11}}>{t.area||"—"}</td>
-                            {testViewMode==="expandida"&&<td style={{padding:"9px 10px",color:DM.sub,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"pre-wrap",wordBreak:"break-word",overflowWrap:"anywhere",lineHeight:1.4,fontSize:10}}>{t.descripcion}</td>}
+                            {testViewMode==="expandida"&&<td style={{padding:"9px 10px",color:DM.sub,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"pre-wrap",wordBreak:"break-word",overflowWrap:"anywhere",lineHeight:1.4,fontSize:10}}>{t.resultado || ''}</td>}
                             <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:11}}>{t.proceso}</td>
                             <td style={{padding:"9px 10px",color:DM.sub,whiteSpace:"nowrap",fontSize:10}}>{t.asignadoA||"—"}</td>
                             <td style={{padding:"9px 10px"}} onClick={e=>e.stopPropagation()}>
@@ -4464,22 +4464,51 @@ export default function App() {
                               {tcsDisponibles.map(t=>{
                                 const checked=selectedForCycle.includes(t.id);
                                 if(expandedAvailableTc===t.id){
+                                  const attachmentsCount = (t.attachments||[]).length;
+                                  const commentsCount = (t.comentarios||[]).length;
                                   return (
-                                    <div key={t.id} style={{background:darkMode?"#151515":"#fff",border:`1px solid ${DM.cardBorder}`,borderRadius:8,padding:12,display:"flex",flexDirection:"column",gap:8,minHeight:140}}>
-                                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                                    <div key={t.id} style={{background:darkMode?"#151515":"#fff",border:`1px solid ${DM.cardBorder}`,borderRadius:8,padding:16,display:"flex",flexDirection:"column",gap:12,minHeight:160}}>
+                                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
                                         <div>
-                                          <div style={{fontWeight:800,color:proj.color,fontSize:13}}>{t.id}</div>
-                                          <div style={{fontSize:11,padding:"4px 8px",borderRadius:999,background:proj.color+"15",color:proj.color,fontWeight:700,display:"inline-block",marginTop:6}}>{t.proceso||"Sin módulo"}</div>
+                                          <div style={{fontWeight:900,color:proj.color,fontSize:14}}>{t.id} · {t.escenario && t.escenario.length>60? t.escenario.slice(0,60)+"…": t.escenario}</div>
+                                          <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+                                            {t.area&&<div style={{fontSize:12,padding:"4px 8px",borderRadius:999,background:darkMode?"#222":"#fafafa",color:DM.sub}}>{t.area}</div>}
+                                            <div style={{fontSize:12,padding:"4px 8px",borderRadius:999,background:proj.color+"15",color:proj.color,fontWeight:700}}>{t.proceso||"Sin módulo"}</div>
+                                            <div style={{fontSize:12,padding:"4px 8px",borderRadius:6,background:DM.card,border:`1px solid ${DM.cardBorder}`,color:DM.sub}}>Estado: <strong style={{color:DM.text,fontWeight:800}}> {t.estado||"—"}</strong></div>
+                                          </div>
                                         </div>
                                         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                                          <input type="checkbox" checked={checked} onChange={()=>toggleCycleTcSelection(ciclo.id,t.id)} />
-                                          <button onClick={()=>setExpandedAvailableTc(null)} title="Cerrar" style={{background:"transparent",border:"none",cursor:"pointer",fontSize:16,color:DM.sub}}>✕</button>
+                                          <div style={{display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>
+                                            <input type="checkbox" checked={checked} onChange={()=>toggleCycleTcSelection(ciclo.id,t.id)} />
+                                            <button onClick={()=>setExpandedAvailableTc(null)} title="Cerrar" style={{background:"transparent",border:"none",cursor:"pointer",fontSize:16,color:DM.sub}}>✕</button>
+                                          </div>
                                         </div>
                                       </div>
-                                      <div style={{fontSize:16,fontWeight:800,color:DM.text}}>{t.escenario}</div>
-                                        {t.descripcion&&<div style={{color:DM.sub,whiteSpace:"pre-wrap",maxHeight:320,overflowY:"auto"}}>{t.descripcion}</div>}
-                                      <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
-                                        <button onClick={()=>{toggleCycleTcSelection(ciclo.id,t.id);setExpandedAvailableTc(null);}} style={{background:proj.color,border:"none",color:"#fff",padding:"6px 10px",borderRadius:6,cursor:"pointer",fontWeight:800}}>Agregar</button>
+
+                                      <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:16,alignItems:"start"}}>
+                                        <div style={{minWidth:0}}>
+                                            <div style={{marginTop:12,fontSize:13,fontWeight:800,color:DM.text}}>Precondiciones</div>
+                                          <div style={{color:DM.sub,whiteSpace:"pre-wrap",marginTop:6,lineHeight:1.4}}>{t.precondiciones || t.area || '—'}</div>
+
+                                          <div style={{marginTop:12,fontSize:13,fontWeight:800,color:DM.text}}>Pasos</div>
+                                          <div style={{color:DM.sub,whiteSpace:"pre-wrap",marginTop:6,lineHeight:1.4}}>{t.pasos||"—"}</div>
+
+                                          <div style={{marginTop:12,fontSize:13,fontWeight:800,color:DM.text}}>Resultado esperado</div>
+                                          <div style={{color:DM.sub,whiteSpace:"pre-wrap",marginTop:6}}>{t.resultado||"—"}</div>
+                                        </div>
+
+                                        <div style={{borderLeft:`1px solid ${DM.cardBorder}`,paddingLeft:12}}>
+                                          <div style={{fontSize:13,fontWeight:800,color:DM.text}}>Metadatos</div>
+                                          <div style={{marginTop:8,fontSize:12,color:DM.sub}}>
+                                            <div>Tipo: {t.tipoPrueba||"—"}</div>
+                                            <div>Nivel: {t.nivelPrueba||"—"}</div>
+                                            <div>Adjuntos: {attachmentsCount}</div>
+                                            <div>Comentarios: {commentsCount}</div>
+                                          </div>
+                                          <div style={{marginTop:12,display:"flex",gap:8,justifyContent:"flex-end"}}>
+                                            <button onClick={()=>{toggleCycleTcSelection(ciclo.id,t.id);setExpandedAvailableTc(null);}} style={{background:proj.color,border:"none",color:"#fff",padding:"8px 12px",borderRadius:6,cursor:"pointer",fontWeight:800}}>Agregar</button>
+                                          </div>
+                                        </div>
                                       </div>
                                     </div>
                                   );
