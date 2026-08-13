@@ -207,36 +207,23 @@ function SuggestionInput({ value, onChange, options = [], placeholder, darkMode 
   const IS = darkMode ? inputStyleDark : inputStyle;
   const normalizedOptions = Array.from(new Set((options || []).filter(Boolean).map(v => String(v).trim()).filter(Boolean)));
 
-  useEffect(() => {
-    setDraft(value || "");
-  }, [value]);
+  useEffect(() => { setDraft(value || ""); }, [value]);
 
   const visibleOptions = open
-    ? (draft.trim()
-        ? normalizedOptions.filter(opt => opt.toLowerCase().includes(draft.toLowerCase()))
-        : normalizedOptions)
+    ? (draft.trim() ? normalizedOptions.filter(opt => opt.toLowerCase().includes(draft.toLowerCase())) : normalizedOptions)
     : [];
 
-  const selectOption = (option) => {
-    setDraft(option);
-    onChange(option);
-    setOpen(false);
-  };
+  const selectOption = (option) => { setDraft(option); onChange(option); setOpen(false); };
 
   return (
     <div style={{ position: "relative" }}>
       <input
-        style={IS}
         value={draft}
-        onChange={(e) => {
-          const next = e.target.value;
-          setDraft(next);
-          onChange(next);
-          setOpen(true);
-        }}
+        onChange={(e) => { const next = e.target.value; setDraft(next); onChange(next); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
         placeholder={placeholder}
+        style={IS}
       />
       {open && (
         <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 30, maxHeight: 180, overflowY: "auto", border: darkMode ? "1px solid #3a3a3d" : "1px solid #e5e7eb", borderRadius: 10, background: darkMode ? "#1f1f22" : "#fff", boxShadow: "0 10px 24px rgba(0,0,0,0.12)" }}>
@@ -1971,6 +1958,8 @@ function ProjectFormModal({initial,onSave,onClose,darkMode}) {
   const [qaInput,setQaInput]=useState("");
   const [testTypeInput,setTestTypeInput]=useState("");
   const [levelInput,setLevelInput]=useState("");
+  const [memberNameInput,setMemberNameInput]=useState("");
+  const [memberRolesInput,setMemberRolesInput]=useState("");
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const IS=darkMode?inputStyleDark:inputStyle;
   function addItem(field, inputValue, setter) {
@@ -2024,6 +2013,17 @@ function ProjectFormModal({initial,onSave,onClose,darkMode}) {
   function removeListItem(field, item) {
     const items = normalizeProjectList(form[field]);
     set(field, items.filter(entry => entry !== item));
+  }
+  function addMember(){
+    const name=String(memberNameInput||"").trim();
+    if(!name) return;
+    const roles = String(memberRolesInput||"").split(",").map(r=>r.trim()).filter(Boolean);
+    const next = [...(form.members||[]).filter(m=>m.name!==name), {name, roles}];
+    set("members", next);
+    setMemberNameInput(""); setMemberRolesInput("");
+  }
+  function removeMember(name){
+    set("members", (form.members||[]).filter(m=>m.name!==name));
   }
   return (
     <Modal onClose={onClose} preventOutsideClose>
@@ -2127,6 +2127,24 @@ function ProjectFormModal({initial,onSave,onClose,darkMode}) {
                 <span key={item} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#f4f4f4",color:darkMode?"#eee":"#444",fontSize:12}}>
                   {item}
                   <button type="button" onClick={()=>removeListItem("scrumLevels",item)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12}}>✕</button>
+                </span>
+              ))}
+            </div>
+          )}
+        </Field>
+        <Field label="Miembros del proyecto (opcional)">
+          <div style={{display:"flex",gap:8}}>
+            <input style={IS} value={memberNameInput} onChange={e=>setMemberNameInput(e.target.value)} placeholder="Nombre (Ej: Juan Pérez)" onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addMember();}}} />
+            <input style={IS} value={memberRolesInput} onChange={e=>setMemberRolesInput(e.target.value)} placeholder="Roles (separar por comas: admin,QA)" onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addMember();}}} />
+            <Btn small variant="ghost" onClick={addMember}>Agregar</Btn>
+          </div>
+          {(form.members||[]).length>0&&(
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
+              {(form.members||[]).map(m=>(
+                <span key={m.name} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#f4f4f4",color:darkMode?"#eee":"#444",fontSize:12}}>
+                  <strong style={{marginRight:6}}>{m.name}</strong>
+                  <span style={{fontSize:11,color:darkMode?"#aaa":"#666"}}>{(Array.isArray(m.roles)?m.roles.join(", "):m.roles)||"—"}</span>
+                  <button type="button" onClick={()=>removeMember(m.name)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12}}>✕</button>
                 </span>
               ))}
             </div>
@@ -2953,10 +2971,13 @@ export default function App() {
           ...c,
           ejecuciones:c.ejecuciones||[]
         }))
+      ,
+      members: Array.isArray(p.members) ? p.members : []
       }));
     }catch{return seedProjects;}
   });
   const [activeProjectId,setActiveProjectId]=useState(()=>{try{return localStorage.getItem("pana_active_project")||seedProjects[0].id;}catch{return seedProjects[0].id;}});
+  const [currentUser,setCurrentUser]=useState(()=>{try{return JSON.parse(localStorage.getItem("pana_user")||'null');}catch{return null;}});
   const [tab,setTab]=useState("dashboard");
   const [filterEstado,setFilterEstado]=useState("Todos");
   const [filterIssueEstado,setFilterIssueEstado]=useState("Todos");
@@ -2968,6 +2989,8 @@ export default function App() {
   const [issueSearch,setIssueSearch]=useState("");
   const [filterModulo,setFilterModulo]=useState("Todos");
   const [filterFechaDesde,setFilterFechaDesde]=useState("");
+
+  useEffect(()=>{try{if(currentUser) localStorage.setItem("pana_user",JSON.stringify(currentUser)); else localStorage.removeItem("pana_user");}catch{}},[currentUser]);
   const [filterFechaHasta,setFilterFechaHasta]=useState("");
   const [search,setSearch]=useState("");
   const [darkMode,setDarkMode]=useState(()=>{try{return localStorage.getItem("pana_dark")==="1";}catch{return false;}});
@@ -2996,6 +3019,10 @@ export default function App() {
   const [bulkTestAssignee,setBulkTestAssignee]=useState("");
   const [showJira,setShowJira]=useState(false);
   const [confirmDelete,setConfirmDelete]=useState(null);
+  const [recentlyDeleted,setRecentlyDeleted]=useState([]); // {key,type,id,projectId,payload,timeoutId}
+  const [hoveredTestId,setHoveredTestId]=useState(null);
+  const [hoveredProjectId,setHoveredProjectId]=useState(null);
+  const [hoveredCicloId,setHoveredCicloId]=useState(null);
   const [storageWarn,setStorageWarn]=useState(false);
   const [selectedAiTc,setSelectedAiTc]=useState(null);
   const [expandedAvailableTc,setExpandedAvailableTc]=useState(null);
@@ -3073,12 +3100,19 @@ export default function App() {
   function saveProject(form){
     const scrumTeam = normalizeScrumTeam(form.scrumTeam);
     const testers = getScrumTeamMembers({ scrumTeam });
-    const payload = { ...form, modules: normalizeProjectList(form.modules), scrumTeam, scrumTestTypes: normalizeProjectList(form.scrumTestTypes), scrumLevels: normalizeProjectList(form.scrumLevels), testers };
+    const payload = { ...form, modules: normalizeProjectList(form.modules), scrumTeam, scrumTestTypes: normalizeProjectList(form.scrumTestTypes), scrumLevels: normalizeProjectList(form.scrumLevels), testers, members: form.members || [] };
     if(editProj){setProjects(ps=>ps.map(p=>p.id===editProj.id?{...p,...payload}:p));setEditProj(null);}
     else{const np={id:`proj-${Date.now()}`,createdAt:today(),tests:[],issues:[],...payload};setProjects(ps=>[...ps,np]);setActiveProjectId(np.id);}
     setShowProjForm(false);
   }
-  function deleteProject(id){const r=projects.filter(p=>p.id!==id);setProjects(r);setActiveProjectId(r[0]?.id||null);setConfirmDelete(null);}
+  function deleteProject(id){
+    if(!(currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin"))){
+      alert("No autorizado: se requiere rol 'admin' para eliminar proyectos.");
+      setConfirmDelete(null);
+      return;
+    }
+    const r=projects.filter(p=>p.id!==id);setProjects(r);setActiveProjectId(r[0]?.id||null);setConfirmDelete(null);
+  }
   function updateProjectListField(field, nextItems) {
     setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,[field]:normalizeProjectList(nextItems)}));
   }
@@ -3125,7 +3159,119 @@ export default function App() {
     }));
     setShowTcForm(false);setEditTc(null);setViewTc(null);
   }
-  function deleteTC(id){setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,tests:p.tests.filter(t=>t.id!==id)}));setViewTc(null);setConfirmDelete(null);}
+  function deleteTC(id){
+    if(!(currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin"))){
+      alert("No autorizado: se requiere rol 'admin' para eliminar casos de prueba.");
+      setConfirmDelete(null);
+      return;
+    }
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,tests:p.tests.filter(t=>t.id!==id)}));
+    setViewTc(null);setConfirmDelete(null);
+  }
+
+  function scheduleRecentlyDeleted(entry){
+    const key = `${entry.type}:${entry.id}:${Date.now()}`;
+    const timeoutId = setTimeout(()=>{
+      setRecentlyDeleted(prev=>prev.filter(x=>x.key!==key));
+    },8000);
+    setRecentlyDeleted(prev=>[...prev,{...entry,key,timeoutId}]);
+  }
+
+  function softDelete({type,id,projectId}){
+    if(!(currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin"))){
+      alert("No autorizado: se requiere rol 'admin' para eliminar.");
+      return;
+    }
+    if(type==="tc"){
+      const projIndex = projects.findIndex(p=>p.id===projectId);
+      if(projIndex===-1) return;
+      const proj = projects[projIndex];
+      const tcIndex = proj.tests.findIndex(t=>t.id===id);
+      const tc = proj.tests[tcIndex];
+      if(!tc) return;
+      // remove test
+      setProjects(ps=>ps.map(p=>p.id!==projectId?p:{...p,tests:p.tests.filter(t=>t.id!==id)}));
+      scheduleRecentlyDeleted({type:"tc",id,projectId,payload:tc, index: tcIndex});
+      return;
+    }
+    if(type==="project"){
+      const projIndex = projects.findIndex(p=>p.id===id);
+      const proj = projects[projIndex];
+      if(!proj) return;
+      setProjects(ps=>ps.filter(p=>p.id!==id));
+      // if deleted active project, move activeProjectId
+      setActiveProjectId(prev=>{const first=projects.find(p=>p.id!==id); return first?first.id:null;});
+      scheduleRecentlyDeleted({type:"project",id,payload:proj, index: projIndex});
+      return;
+    }
+    if(type==="ciclo"){
+      const proj = projects.find(p=>p.id===projectId);
+      if(!proj) return;
+      const cicloIndex = (proj.ciclos||[]).findIndex(c=>c.id===id);
+      const ciclo = (proj.ciclos||[])[cicloIndex];
+      if(!ciclo) return;
+      setProjects(ps=>ps.map(p=>p.id!==projectId?p:{...p,ciclos:(p.ciclos||[]).filter(c=>c.id!==id)}));
+      scheduleRecentlyDeleted({type:"ciclo",id,projectId,payload:ciclo, index: cicloIndex});
+      return;
+    }
+    if(type==="issue"){
+      const proj = projects.find(p=>p.id===projectId);
+      if(!proj) return;
+      const issueIndex = (proj.issues||[]).findIndex(i=>i.id===id);
+      const issue = (proj.issues||[])[issueIndex];
+      if(!issue) return;
+      setProjects(ps=>ps.map(p=>p.id!==projectId?p:{...p,issues:(p.issues||[]).filter(i=>i.id!==id)}));
+      scheduleRecentlyDeleted({type:"issue",id,projectId,payload:issue, index: issueIndex});
+      return;
+    }
+  }
+
+  function undoDelete(key){
+    const entry = recentlyDeleted.find(r=>r.key===key);
+    if(!entry) return;
+    clearTimeout(entry.timeoutId);
+    setRecentlyDeleted(prev=>prev.filter(r=>r.key!==key));
+    if(entry.type==="tc"){
+      setProjects(ps=>ps.map(p=>{
+        if(p.id!==entry.projectId) return p;
+        const tests = Array.isArray(p.tests)?[...p.tests]:[];
+        const idx = (typeof entry.index==="number" && entry.index>=0)?Math.min(entry.index, tests.length):tests.length;
+        tests.splice(idx,0,entry.payload);
+        return {...p, tests};
+      }));
+      return;
+    }
+    if(entry.type==="project"){
+      setProjects(ps=>{
+        const arr = Array.isArray(ps)?[...ps]:[];
+        const idx = (typeof entry.index==="number" && entry.index>=0)?Math.min(entry.index, arr.length):arr.length;
+        arr.splice(idx,0,entry.payload);
+        return arr;
+      });
+      setActiveProjectId(entry.payload.id);
+      return;
+    }
+    if(entry.type==="ciclo"){
+      setProjects(ps=>ps.map(p=>{
+        if(p.id!==entry.projectId) return p;
+        const ciclos = Array.isArray(p.ciclos)?[...p.ciclos]:[];
+        const idx = (typeof entry.index==="number" && entry.index>=0)?Math.min(entry.index, ciclos.length):ciclos.length;
+        ciclos.splice(idx,0,entry.payload);
+        return {...p, ciclos};
+      }));
+      return;
+    }
+    if(entry.type==="issue"){
+      setProjects(ps=>ps.map(p=>{
+        if(p.id!==entry.projectId) return p;
+        const issues = Array.isArray(p.issues)?[...p.issues]:[];
+        const idx = (typeof entry.index==="number" && entry.index>=0)?Math.min(entry.index, issues.length):issues.length;
+        issues.splice(idx,0,entry.payload);
+        return {...p, issues};
+      }));
+      return;
+    }
+  }
   function duplicateTC(tc){
     setProjects(ps=>ps.map(p=>{
       if(p.id!==activeProjectId)return p;
@@ -3302,6 +3448,11 @@ export default function App() {
     setShowCicloForm(false);setEditCiclo(null);
   }
   function deleteCiclo(id){
+    if(!(currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin"))){
+      alert("No autorizado: se requiere rol 'admin' para eliminar ciclos.");
+      setConfirmDelete(null);
+      return;
+    }
     setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,ciclos:(p.ciclos||[]).filter(c=>c.id!==id)}));
     setConfirmDelete(null);
   }
@@ -3618,7 +3769,9 @@ export default function App() {
             <button onClick={()=>setTab("documentador")} style={{background:"linear-gradient(135deg, #C0392B 0%, #E74C3C 100%)",border:"none",borderRadius:10,color:"#fff",padding:"10px 12px",cursor:"pointer",fontSize:12,fontWeight:800,boxShadow:"0 8px 20px rgba(192,57,43,0.22)",width:"100%"}}>🗂️ Abrir documentador</button>
             <button onClick={()=>{setShowProjForm(true);setEditProj(null);}} style={{background:"#2C2C2E",border:"1px dashed #444",borderRadius:8,color:"#aaa",padding:"8px 0",cursor:"pointer",fontSize:12,width:"100%"}}>+ Nuevo Proyecto</button>
             <button onClick={()=>{setEditProj(proj);setShowProjForm(true);}} style={{background:"none",border:"none",color:"#666",fontSize:11,cursor:"pointer",padding:"4px 0"}}>✏️ Editar proyecto</button>
-            <button onClick={()=>setConfirmDelete({type:"project",id:proj.id})} style={{background:"none",border:"none",color:"#6B2020",fontSize:11,cursor:"pointer",padding:"4px 0"}}>🗑️ Eliminar proyecto</button>
+            {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && hoveredProjectId===proj.id && (
+              <button onClick={()=>setConfirmDelete({type:"project",id:proj.id})} style={{background:"none",border:"none",color:"#6B2020",fontSize:11,cursor:"pointer",padding:"4px 0"}}>🗑️ Eliminar proyecto</button>
+            )}
             <button onClick={()=>setDarkMode(d=>!d)} style={{background:"none",border:"none",color:"#666",fontSize:11,cursor:"pointer",padding:"4px 0",marginTop:4}}>{darkMode?"☀️ Modo claro":"🌙 Modo oscuro"}</button>
             <div style={{fontSize:10,color:"#444",marginTop:4}}>💾 {storageUsedMB()} MB usado</div>
           </div>
@@ -3675,6 +3828,27 @@ export default function App() {
                 </button>
               ))}
             </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:12}}>
+              <select value={currentUser?.name||""} onChange={e=>{
+                const name=e.target.value;
+                if(!name){setCurrentUser(null);return;}
+                // try to find member in project
+                const candidate = (proj.members||[]).find(m=>m.name===name);
+                if(candidate){ setCurrentUser({ name: candidate.name, roles: candidate.roles || [] }); return; }
+                // fallback to scrum team
+                const scrum = getScrumTeamMembers(proj);
+                if(scrum.includes(name)){ setCurrentUser({ name, roles: [] }); return; }
+                setCurrentUser({ name, roles: [] });
+              }} style={{padding:"6px 8px",borderRadius:8,border:`1px solid ${DM.cardBorder}`,background:DM.bg}}>
+                <option value="">— Usuario —</option>
+                {(proj.members||[]).map(m=><option key={m.name} value={m.name}>{m.name}{m.roles?` (${m.roles.join(",")})`:''}</option>)}
+                {getScrumTeamMembers(proj).filter(n=>!(proj.members||[]).some(m=>m.name===n)).map(n=><option key={n} value={n}>{n}</option>)}
+              </select>
+              <Btn small variant="ghost" onClick={()=>{setEditProj(proj);setShowProjForm(true);}} title="Gestionar miembros">👥</Btn>
+              {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && (
+                <span style={{marginLeft:8,fontSize:11,fontWeight:800,color:"#fff",background:proj.color,padding:"4px 8px",borderRadius:6}}>ADMIN</span>
+              )}
+            </div>
           </div>
 
               <div style={{flex:1,overflowY:"auto",padding:"24px 28px"}}>
@@ -3715,7 +3889,9 @@ export default function App() {
                         </div>
                         <div style={{flexShrink:0,display:"flex",gap:6}}>
                           <button onClick={e=>{e.stopPropagation();setEditProj(p);setShowProjForm(true);}} style={{background:"none",border:`1px solid ${DM.cardBorder}`,borderRadius:8,color:DM.sub,fontSize:11,padding:"5px 10px",cursor:"pointer"}}>✏️</button>
-                          <button onClick={e=>{e.stopPropagation();setConfirmDelete({type:"project",id:p.id});}} style={{background:"none",border:"1px solid #6B202033",borderRadius:8,color:"#E74C3C",fontSize:11,padding:"5px 10px",cursor:"pointer"}}>🗑️</button>
+                          {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && hoveredProjectId===p.id && (
+                            <button onClick={e=>{e.stopPropagation();setConfirmDelete({type:"project",id:p.id});}} style={{background:"none",border:"1px solid #6B202033",borderRadius:8,color:"#E74C3C",fontSize:11,padding:"5px 10px",cursor:"pointer"}}>🗑️</button>
+                          )}
                         </div>
                       </div>
                     );
@@ -4331,8 +4507,8 @@ export default function App() {
                             onDrop={()=>{if(dragIndex.current!==null&&dragIndex.current!==dragOverIndex.current)reorderTests(dragIndex.current,dragOverIndex.current);dragIndex.current=null;dragOverIndex.current=null;}}
                             onClick={()=>{setEditTc(t);setShowTcForm(true);setSelectedAiTc(t);}}
                             style={{background:isSelected?(darkMode?"#1d2a3c":"#ecf5ff"):(i%2===0?DM.tableRow0:DM.tableRow1),cursor:"pointer",borderBottom:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
-                            onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
-                            onMouseLeave={e=>e.currentTarget.style.background=isSelected?(darkMode?"#1d2a3c":"#ecf5ff"):(i%2===0?DM.tableRow0:DM.tableRow1)}>
+                            onMouseEnter={e=>{e.currentTarget.style.background=DM.tableHover; setHoveredTestId(t.id);}}
+                            onMouseLeave={e=>{e.currentTarget.style.background=isSelected?(darkMode?"#1d2a3c":"#ecf5ff"):(i%2===0?DM.tableRow0:DM.tableRow1); setHoveredTestId(null);}}>
                             <td style={{padding:"9px 6px",textAlign:"center"}} onClick={e=>e.stopPropagation()}>
                               <input type="checkbox" checked={isSelected} onChange={()=>toggleTestSelection(t.id)} />
                             </td>
@@ -4361,6 +4537,11 @@ export default function App() {
                             <td style={{padding:"9px 10px",textAlign:"center",whiteSpace:"nowrap"}} onClick={e=>e.stopPropagation()}>
                               <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTc(t);}} title="Agregar novedad u observación" style={{padding:"4px 8px",fontSize:11,color:commentsCount>0?"#C0392B":undefined,fontWeight:commentsCount>0?800:700}}>📝{commentsCount>0?` ${commentsCount}`:""}</Btn>
                             </td>
+                            {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && (
+                              <td style={{padding:"9px 10px",textAlign:"center",whiteSpace:"nowrap"}} onClick={e=>e.stopPropagation()}>
+                                <Btn small danger onClick={e=>{e.stopPropagation();setConfirmDelete({type:"tc",id:t.id});}} title="Eliminar caso">🗑️</Btn>
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
@@ -4411,7 +4592,7 @@ export default function App() {
                   const selectedForCycle=bulkTcSelection[ciclo.id]||[];
 
                   return(
-                    <div key={ciclo.id} style={{background:DM.card,borderRadius:14,border:`1px solid ${DM.cardBorder}`,overflow:"hidden",boxShadow:"0 2px 12px #0000000a"}}>
+                    <div key={ciclo.id} onMouseEnter={()=>setHoveredCicloId(ciclo.id)} onMouseLeave={()=>setHoveredCicloId(null)} style={{background:DM.card,borderRadius:14,border:`1px solid ${DM.cardBorder}`,overflow:"hidden",boxShadow:"0 2px 12px #0000000a"}}>
                       {/* Header */}
                       <div style={{background:proj.color,padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -4432,7 +4613,9 @@ export default function App() {
                             </button>
                           )}
                           <button onClick={()=>{setEditCiclo(ciclo);setShowCicloForm(true);}} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:6,color:"#fff",padding:"5px 10px",cursor:"pointer",fontSize:12}}>✏️ Editar</button>
-                          <button onClick={()=>setConfirmDelete({type:"ciclo",id:ciclo.id})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:6,color:"#fff",padding:"5px 8px",cursor:"pointer",fontSize:12}}>🗑️</button>
+                          {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && hoveredCicloId===ciclo.id && (
+                            <button onClick={()=>setConfirmDelete({type:"ciclo",id:ciclo.id})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:6,color:"#fff",padding:"5px 8px",cursor:"pointer",fontSize:12}}>🗑️</button>
+                          )}
                           <button
                             onClick={()=>setExpandedCiclos(prev=>({...prev,[ciclo.id]:!isExpanded}))}
                             style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:6,color:"#fff",padding:"5px 12px",cursor:"pointer",fontSize:13,fontWeight:700,minWidth:36}}>
@@ -4818,7 +5001,7 @@ export default function App() {
       {viewTc&&!showTcForm&&(
         <TcDetailModal tc={viewTc} onClose={()=>setViewTc(null)}
           onEdit={()=>{setEditTc(viewTc);setViewTc(null);setShowTcForm(true);}}
-          onDelete={()=>setConfirmDelete({type:"tc",id:viewTc.id})}
+          onDelete={currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") ? ()=>setConfirmDelete({type:"tc",id:viewTc.id}) : undefined}
           onDuplicate={()=>duplicateTC(viewTc)}
           onAddComment={addComment}/>
       )}
@@ -4832,7 +5015,7 @@ export default function App() {
       {viewIssue&&!showIssueForm&&(
         <IssueDetailModal issue={viewIssue} onClose={()=>setViewIssue(null)}
           onEdit={()=>{setEditIssue(viewIssue);setViewIssue(null);setShowIssueForm(true);}}
-          onDelete={()=>setConfirmDelete({type:"issue",id:viewIssue.id})}/>
+          onDelete={currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") ? ()=>setConfirmDelete({type:"issue",id:viewIssue.id}) : undefined}/>
       )}
       {confirmDelete&&(
         <Modal onClose={()=>setConfirmDelete(null)}>
@@ -4845,15 +5028,31 @@ export default function App() {
           </p>
           <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
             <Btn variant="ghost" onClick={()=>setConfirmDelete(null)}>Cancelar</Btn>
-            <Btn danger onClick={()=>{
-              if(confirmDelete.type==="project")deleteProject(confirmDelete.id);
-              else if(confirmDelete.type==="tc")deleteTC(confirmDelete.id);
-              else if(confirmDelete.type==="ciclo")deleteCiclo(confirmDelete.id);
-              else deleteIssue(confirmDelete.id);
+            <Btn danger onClick={() => {
+              // perform soft delete with undo
+              const cd = confirmDelete;
+              setConfirmDelete(null);
+              if(!cd) return;
+              if(cd.type==="project") return softDelete({type:"project",id:cd.id});
+              if(cd.type==="tc") return softDelete({type:"tc",id:cd.id,projectId:activeProjectId});
+              if(cd.type==="ciclo") return softDelete({type:"ciclo",id:cd.id,projectId:activeProjectId});
+              if(cd.type==="issue") return softDelete({type:"issue",id:cd.id,projectId:activeProjectId});
             }}>Sí, eliminar</Btn>
           </div>
         </Modal>
       )}
+
+      <div style={{position:"fixed",right:20,bottom:20,display:"flex",flexDirection:"column",gap:10,zIndex:9999}}>
+        {recentlyDeleted.map(r=> (
+          <div key={r.key} style={{background:darkMode?"#222":"#fff",border:`1px solid ${DM.cardBorder}`,padding:"10px 12px",borderRadius:8,boxShadow:"0 6px 18px rgba(0,0,0,0.12)",minWidth:240,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+            <div style={{fontSize:13,color:DM.text}}>{r.type==="tc"?`Caso ${r.payload.id} eliminado`:(r.type==="project"?`Proyecto ${r.payload.name} eliminado`:(r.type==="ciclo"?`Ciclo ${r.payload.nombre} eliminado`:`Elemento eliminado`))}</div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>undoDelete(r.key)} style={{background:"transparent",border:"none",color:BRAND,cursor:"pointer",fontWeight:800}}>Deshacer</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    
     </div>
   );
 }
