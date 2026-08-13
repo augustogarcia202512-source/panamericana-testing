@@ -2285,7 +2285,7 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
   );
 }
 
-function IssueFormModal({initial,issueId,testIds,onSave,onClose,onDelete,darkMode}) {
+function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDelete,darkMode}) {
   const [form,setForm]=useState({ ...EMPTY_ISSUE, ...(initial||{}), fechaCreacion: initial?.fechaCreacion || today(), fechaSolucion: initial?.fechaSolucion || "", bitacoraNota: "", asignadoA: initial?.asignadoA || "" });
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   // always dark inside this modal
@@ -2297,9 +2297,46 @@ function IssueFormModal({initial,issueId,testIds,onSave,onClose,onDelete,darkMod
       <ModalHeader title={isEdit?"Editar issue":"Registrar issue"} sub="Registra la novedad encontrada" onClose={onClose} dark/>
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-          <Field label="TEST ID">
-            <input style={{...IS,minHeight:44}} value={form.testId} onChange={e=>set("testId",e.target.value)} placeholder="Ej. Imagen 7"/>
-          </Field>
+            <Field label="TEST ID">
+              {Array.isArray(tests) ? (() => {
+                // compute failed tests from ciclos
+                const failedIds = new Set();
+                (proj?.ciclos||[]).forEach(c=>{(c.ejecuciones||[]).forEach(e=>{ if(normalizeCycleExecutionStatus(e.estado)==="Fallido") failedIds.add(String(e.tcId)); })});
+                const failedTests = tests.filter(t=>failedIds.has(String(t.id)));
+                if(failedTests.length===0) {
+                  return <select style={{...SEL,minHeight:44}} disabled>
+                    <option>No hay casos fallidos en ciclos</option>
+                  </select>;
+                }
+                return (
+                <select style={{...SEL,minHeight:44}} value={form.testId||""} onChange={e=>{
+                  const id=e.target.value; set("testId",id);
+                  const tc = tests.find(t=>String(t.id)===String(id));
+                  if(tc){ 
+                    set("modulo", tc.proceso || tc.modulo || "");
+                    set("escenario", tc.escenario || tc.nombre || "");
+                    // Prefer observation from ciclo execution with estado Fallido, fallback to any nota, then tc.descripcion
+                    let obs = tc.descripcion || form.observacion || "";
+                    const ciclos = Array.isArray(proj?.ciclos)?proj.ciclos:[];
+                    // search latest ciclos first
+                    for(let i=ciclos.length-1;i>=0;i--){
+                      const ejec = (ciclos[i].ejecuciones||[]).find(x=>String(x.tcId)===String(id));
+                      if(!ejec) continue;
+                      const norm = normalizeCycleExecutionStatus(ejec.estado);
+                      if(norm==="Fallido" && ejec.nota && String(ejec.nota).trim()) { obs = ejec.nota; break; }
+                      if(ejec.nota && String(ejec.nota).trim()) obs = ejec.nota; // keep as fallback
+                    }
+                    set("observacion", obs);
+                  }
+                }}>
+                    <option value="">-- Selecciona un Test fallido --</option>
+                    {failedTests.map(t=> <option key={t.id} value={t.id}>{t.id} · {t.escenario||t.nombre}</option>)}
+                  </select>
+                );
+              })() : (
+                <input style={{...IS,minHeight:44}} value={form.testId} onChange={e=>set("testId",e.target.value)} placeholder="Ej. Imagen 7"/>
+              )}
+            </Field>
           <Field label="MÓDULO">
             <input style={{...IS,minHeight:44}} value={form.modulo} onChange={e=>set("modulo",e.target.value)} placeholder="Ej. Activos fijos"/>
           </Field>
@@ -5005,7 +5042,7 @@ export default function App() {
           onDuplicate={()=>duplicateTC(viewTc)}
           onAddComment={addComment}/>
       )}
-      {showIssueForm&&<IssueFormModal initial={editIssue} issueId={editIssue?.id} testIds={tests.map(t=>t.id)} onSave={saveIssue} onClose={()=>{setShowIssueForm(false);setEditIssue(null);}} onDelete={editIssue?()=>{setShowIssueForm(false);setEditIssue(null);deleteIssue(editIssue.id);}:undefined} darkMode={darkMode}/>}
+      {showIssueForm&&<IssueFormModal initial={editIssue} issueId={editIssue?.id} tests={tests} proj={proj} testIds={tests.map(t=>t.id)} onSave={saveIssue} onClose={()=>{setShowIssueForm(false);setEditIssue(null);}} onDelete={editIssue?()=>{setShowIssueForm(false);setEditIssue(null);deleteIssue(editIssue.id);}:undefined} darkMode={darkMode}/>} 
       {previewImg&&(
         <div onClick={()=>setPreviewImg(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
           <img src={previewImg} alt="evidencia" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:10,boxShadow:"0 8px 48px #000a",objectFit:"contain"}}/>
