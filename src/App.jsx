@@ -295,6 +295,22 @@ function storageUsedMB() {
   } catch { return 0; }
 }
 
+function isValidDataURL(data) {
+  if (!data || typeof data !== "string") return false;
+  try {
+    return data.startsWith("data:") && data.includes(",") && data.length > 100;
+  } catch { return false; }
+}
+
+function validateAttachmentData(attachment) {
+  if (!attachment || typeof attachment !== "object") return null;
+  if (!isValidDataURL(attachment.data)) {
+    console.warn(`Invalid data URL for attachment: ${attachment.name}`);
+    return null;
+  }
+  return attachment;
+}
+
 function parseSteps(value="") {
   const lines = String(value||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
   if (!lines.length) return [{id:1,status:"No ejecutado",text:""}];
@@ -399,26 +415,37 @@ function ModalHeader({title,sub,onClose,dark}) {
 function AttachmentZone({attachments,onChange,imagesOnly}) {
   const fileRef=useRef();
   const [dragging,setDragging]=useState(false);
+  
+  // Filter out invalid attachments
+  const validAttachments = (attachments || []).filter(att => {
+    if (!att || typeof att !== "object") return false;
+    if (!isValidDataURL(att.data)) {
+      console.warn(`Skipping invalid attachment: ${att.name}`);
+      return false;
+    }
+    return true;
+  });
+  
   async function handleFiles(files) {
     const exts=imagesOnly?["png","jpg","jpeg"]:["png","jpg","jpeg","gif","webp","doc","docx","pdf"];
     const arr=Array.from(files).filter(f=>{ const ext=f.name.split(".").pop().toLowerCase(); return exts.includes(ext); });
-    const limited=imagesOnly?arr.slice(0,Math.max(0,5-attachments.length)):arr;
+    const limited=imagesOnly?arr.slice(0,Math.max(0,5-validAttachments.length)):arr;
     const processed=await Promise.all(limited.map(async f=>({name:f.name,type:f.type,size:f.size,data:await readFileAsDataURL(f)})));
-    onChange([...attachments,...processed]);
+    onChange([...validAttachments,...processed]);
   }
-  function remove(i){onChange(attachments.filter((_,idx)=>idx!==i));}
+  function remove(i){onChange(validAttachments.filter((_,idx)=>idx!==i));}
   function download(att){const a=document.createElement("a");a.href=att.data;a.download=att.name;a.click();}
   return (
     <div>
-      {imagesOnly && attachments.length>0 ? (
+      {imagesOnly && validAttachments.length>0 ? (
         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-          {attachments.map((att,i)=>(
+          {validAttachments.map((att,i)=>(
             <div key={i} style={{position:"relative",borderRadius:8,overflow:"hidden",display:"inline-block"}}>
               <img src={att.data} alt={att.name} style={{width:110,height:78,objectFit:"cover",display:"block",borderRadius:8}}/>
               <button onClick={()=>remove(i)} style={{position:"absolute",inset:0,width:"100%",height:"100%",background:"rgba(0,0,0,0.45)",border:"none",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",borderRadius:8,letterSpacing:"0.04em"}}>Quitar</button>
             </div>
           ))}
-          {attachments.length<5&&(
+          {validAttachments.length<5&&(
             <div onClick={()=>fileRef.current.click()} style={{width:110,height:78,border:"2px dashed #555",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:22}}>+</div>
           )}
         </div>
@@ -431,9 +458,9 @@ function AttachmentZone({attachments,onChange,imagesOnly}) {
         </div>
       )}
       <input ref={fileRef} type="file" multiple accept={imagesOnly?".png,.jpg,.jpeg":".png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.pdf"} style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
-      {!imagesOnly&&attachments.length>0&&(
+      {!imagesOnly&&validAttachments.length>0&&(
         <div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:7}}>
-          {attachments.map((att,i)=>{
+          {validAttachments.map((att,i)=>{
             const isImg=att.type.startsWith("image/");
             return (
               <div key={i} style={{border:"1px solid #e8e8e8",borderRadius:8,overflow:"hidden",background:"#fff",boxShadow:"0 1px 4px #0000000a",maxWidth:isImg?100:180}}>
@@ -452,11 +479,12 @@ function AttachmentZone({attachments,onChange,imagesOnly}) {
   );
 }
 function AttachmentViewer({attachments}) {
-  if(!attachments||!attachments.length) return <span style={{fontSize:12,color:"#bbb"}}>Sin adjuntos</span>;
+  const validAttachments = (attachments || []).filter(att => isValidDataURL(att?.data));
+  if(!validAttachments.length) return <span style={{fontSize:12,color:"#bbb"}}>Sin adjuntos</span>;
   function download(att){const a=document.createElement("a");a.href=att.data;a.download=att.name;a.click();}
   return (
     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-      {attachments.map((att,i)=>{
+      {validAttachments.map((att,i)=>{
         const isImg=att.type.startsWith("image/");
         return (
           <div key={i} onClick={()=>download(att)} style={{border:"1px solid #e8e8e8",borderRadius:8,overflow:"hidden",background:"#fff",cursor:"pointer",boxShadow:"0 1px 4px #0000000a",maxWidth:isImg?110:190}}>
@@ -2334,18 +2362,6 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
 function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDelete,darkMode}) {
   const [form,setForm]=useState({ ...EMPTY_ISSUE, ...(initial||{}), fechaCreacion: initial?.fechaCreacion || today(), fechaSolucion: initial?.fechaSolucion || "", bitacoraNota: "", asignadoA: initial?.asignadoA || "" });
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-  const setAttachments = async (attachments) => {
-    const compressed = await Promise.all(
-      attachments.map(async (att) => {
-        if (att.type && att.type.startsWith("image/") && att.data) {
-          const compressed = await compressImage(att.data, 0.75, 1000, 800);
-          return { ...att, data: compressed };
-        }
-        return att;
-      })
-    );
-    set("attachments", compressed);
-  };
   // always dark inside this modal
   const IS={...inputStyleDark,background:"#1a2535",border:"1px solid #2a3a4a",color:"#e2e8f0",borderRadius:8};
   const SEL={...IS,appearance:"auto"};
@@ -2367,13 +2383,13 @@ function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDel
                   </select>;
                 }
                 return (
-                <select style={{...SEL,minHeight:44}} value={form.testId||""} onChange={async e=>{
+                <select style={{...SEL,minHeight:44}} value={form.testId||""} onChange={e=>{
                   const id=e.target.value; set("testId",id);
                   const tc = tests.find(t=>String(t.id)===String(id));
                   if(tc){ 
                     set("modulo", tc.proceso || tc.modulo || "");
                     set("escenario", tc.escenario || tc.nombre || "");
-                    await setAttachments(tc.attachments||[]);
+                    set("attachments", tc.attachments||[]);
                     // Prefer observation from ciclo execution with estado Fallido, fallback to any nota, then tc.descripcion
                     let obs = tc.descripcion || form.observacion || "";
                     const ciclos = Array.isArray(proj?.ciclos)?proj.ciclos:[];
@@ -2408,7 +2424,7 @@ function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDel
           <textarea style={{...IS,minHeight:90,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.observacion} onChange={e=>set("observacion",e.target.value)} placeholder="Describe el comportamiento encontrado..."/>
         </Field>
         <Field label="EVIDENCIA (IMAGEN)">
-          <AttachmentZone attachments={form.attachments||[]} onChange={setAttachments} imagesOnly/>
+          <AttachmentZone attachments={form.attachments||[]} onChange={v=>set("attachments",v)} imagesOnly/>
         </Field>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <Field label="STATUS">
@@ -3502,39 +3518,56 @@ export default function App() {
     const manualLog = String(form?.bitacoraNota || "").trim();
     const cleanedForm = { ...form };
     delete cleanedForm.bitacoraNota;
-
-    setProjects(ps=>ps.map(p=>{
-      if(p.id!==activeProjectId)return p;
-      if(editIssue){
-        return{
-          ...p,
-          issues:p.issues.map(i=>{
-            if(i.id!==editIssue.id) return i;
-            const nextIssue = { ...i, ...cleanedForm };
-            const nextBitacora = [...normalizeIssueBitacora(i.bitacora, i)];
-            const changes = summarizeIssueChanges(i, nextIssue);
-            if (changes) {
-              const autoEntry = buildIssueLogEntry(changes, nextIssue.estado || "Open");
-              if (autoEntry) nextBitacora.push(autoEntry);
-            }
-            if (manualLog) {
-              const noteEntry = buildIssueLogEntry(manualLog, nextIssue.estado || "Open", today(), "nota");
-              if (noteEntry) nextBitacora.push(noteEntry);
-            }
-            return { ...nextIssue, bitacora: nextBitacora };
-          })
-        };
-      }
-      const newId=(p.issues.length?Math.max(...p.issues.map(i=>i.id)):0)+1;
-      const createdIssue = { id:newId, ...cleanedForm, fechaCreacion: cleanedForm.fechaCreacion || today(), attachments: cleanedForm.attachments||[] };
-      const initialBitacora = normalizeIssueBitacora(cleanedForm.bitacora, createdIssue);
-      if (manualLog) {
-        const noteEntry = buildIssueLogEntry(manualLog, createdIssue.estado || "Open", today(), "nota");
-        if (noteEntry) initialBitacora.push(noteEntry);
-      }
-      return{...p,issues:[...p.issues,{...createdIssue,bitacora:initialBitacora}]};
-    }));
-    setShowIssueForm(false);setEditIssue(null);setViewIssue(null);
+    
+    // Compress images only if localStorage is getting too large
+    Promise.all(
+      (cleanedForm.attachments || []).map(async (att) => {
+        if (att.type && att.type.startsWith("image/") && att.data && att.data.length > 200000) {
+          try {
+            const compressed = await compressImage(att.data, 0.75, 1000, 800);
+            return { ...att, data: compressed };
+          } catch (e) {
+            return att;
+          }
+        }
+        return att;
+      })
+    ).then(compressed => {
+      cleanedForm.attachments = compressed;
+      
+      setProjects(ps=>ps.map(p=>{
+        if(p.id!==activeProjectId)return p;
+        if(editIssue){
+          return{
+            ...p,
+            issues:p.issues.map(i=>{
+              if(i.id!==editIssue.id) return i;
+              const nextIssue = { ...i, ...cleanedForm };
+              const nextBitacora = [...normalizeIssueBitacora(i.bitacora, i)];
+              const changes = summarizeIssueChanges(i, nextIssue);
+              if (changes) {
+                const autoEntry = buildIssueLogEntry(changes, nextIssue.estado || "Open");
+                if (autoEntry) nextBitacora.push(autoEntry);
+              }
+              if (manualLog) {
+                const noteEntry = buildIssueLogEntry(manualLog, nextIssue.estado || "Open", today(), "nota");
+                if (noteEntry) nextBitacora.push(noteEntry);
+              }
+              return { ...nextIssue, bitacora: nextBitacora };
+            })
+          };
+        }
+        const newId=(p.issues.length?Math.max(...p.issues.map(i=>i.id)):0)+1;
+        const createdIssue = { id:newId, ...cleanedForm, fechaCreacion: cleanedForm.fechaCreacion || today(), attachments: cleanedForm.attachments||[] };
+        const initialBitacora = normalizeIssueBitacora(cleanedForm.bitacora, createdIssue);
+        if (manualLog) {
+          const noteEntry = buildIssueLogEntry(manualLog, createdIssue.estado || "Open", today(), "nota");
+          if (noteEntry) initialBitacora.push(noteEntry);
+        }
+        return{...p,issues:[...p.issues,{...createdIssue,bitacora:initialBitacora}]};
+      }));
+      setShowIssueForm(false);setEditIssue(null);setViewIssue(null);
+    });
   }
   function deleteIssue(id){setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,issues:p.issues.filter(i=>i.id!==id)}));setViewIssue(null);setConfirmDelete(null);}
 
