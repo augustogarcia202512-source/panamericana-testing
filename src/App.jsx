@@ -405,7 +405,7 @@ function AttachmentZone({attachments,onChange,imagesOnly}) {
           style={{border:`2px dashed ${dragging?BRAND:"#555"}`,borderRadius:8,padding:"18px 14px",textAlign:"center",cursor:"pointer",background:dragging?BRAND_LIGHT:"transparent",transition:"all 0.2s"}}>
           {imagesOnly
             ?<div style={{fontSize:11,color:"#888",letterSpacing:"0.06em",textTransform:"uppercase"}}>Clic para adjuntar capturas (PNG/JPG, máx. 5 imágenes)</div>
-            :(<><div style={{fontSize:20}}>\ud83d\udcce</div><div style={{fontSize:12,color:"#888",marginTop:3}}>Arrastra o haz clic para adjuntar</div><div style={{fontSize:11,color:"#bbb",marginTop:2}}>Im\u00e1genes \u00b7 Word \u00b7 PDF</div></>)}
+            :(<><div style={{fontSize:20}}>📎</div><div style={{fontSize:12,color:"#888",marginTop:3}}>Arrastra o haz clic para adjuntar</div><div style={{fontSize:11,color:"#bbb",marginTop:2}}>Imágenes · Word · PDF</div></>)}
         </div>
       )}
       <input ref={fileRef} type="file" multiple accept={imagesOnly?".png,.jpg,.jpeg":".png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.pdf"} style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
@@ -418,8 +418,8 @@ function AttachmentZone({attachments,onChange,imagesOnly}) {
                 {isImg?<img src={att.data} alt={att.name} style={{width:100,height:68,objectFit:"cover",display:"block"}}/>
                   :<div style={{padding:"9px 11px",display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:18}}>{fileIcon(att.name)}</span><span style={{fontSize:11,color:"#555",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:110}}>{att.name}</span></div>}
                 <div style={{display:"flex",borderTop:"1px solid #f0f0f0"}}>
-                  <button onClick={()=>download(att)} style={{flex:1,border:"none",background:"none",padding:"4px 0",cursor:"pointer",fontSize:11,color:"#666"}}>\u2b07</button>
-                  <button onClick={()=>remove(i)} style={{border:"none",background:"none",padding:"4px 6px",cursor:"pointer",fontSize:11,color:"#E74C3C"}}>\u2715</button>
+                  <button onClick={()=>download(att)} style={{flex:1,border:"none",background:"none",padding:"4px 0",cursor:"pointer",fontSize:11,color:"#666"}}>⬇</button>
+                  <button onClick={()=>remove(i)} style={{border:"none",background:"none",padding:"4px 6px",cursor:"pointer",fontSize:11,color:"#E74C3C"}}>✕</button>
                 </div>
               </div>
             );
@@ -4997,10 +4997,12 @@ export default function App() {
                                               <div style={{display:"flex",flexDirection:"column",gap:7}}>
                                                 {parsedSteps.length ? parsedSteps.map((step,index)=>(
                                                   <div key={`${tc.id}-${index}`} onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",gap:6,background:darkMode?"#141b24":"#fff",borderRadius:9,padding:"8px 10px",border:`1px solid ${darkMode?"#31445b":"#eaf1f8"}`,borderLeft:`4px solid ${cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub}`,boxShadow:darkMode?"0 1px 4px rgba(0,0,0,0.14)":"0 1px 4px rgba(17,24,39,0.05)"}}>
-                                                    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                                                      <span style={{fontSize:9,color:DM.sub,fontWeight:800,whiteSpace:"nowrap",textTransform:"uppercase",letterSpacing:"0.05em"}}>Paso {index+1}</span>
-                                                      <Badge label={normalizeCycleExecutionStatus(step.status)} color={cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub} bg={cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.bg || "#f4f4f4"} />
-                                                      <select value={normalizeCycleExecutionStatus(step.status)} onChange={e=>updateStepEstado(tc.id,index,e.target.value)} title="Cambiar estado del paso" style={{marginLeft:"auto",border:`1px solid ${cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub}30`,borderRadius:7,padding:"2px 7px",fontSize:9,fontWeight:700,color:cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub,background:cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.bg || "#f4f4f4",cursor:"pointer",outline:"none",minWidth:98}}>
+                                                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
+                                                      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",minWidth:0}}>
+                                                        <span style={{fontSize:9,color:DM.sub,fontWeight:800,whiteSpace:"nowrap",textTransform:"uppercase",letterSpacing:"0.05em"}}>Paso {index+1}</span>
+                                                        <Badge label={normalizeCycleExecutionStatus(step.status)} color={cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub} bg={cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.bg || "#f4f4f4"} />
+                                                      </div>
+                                                      <select value={normalizeCycleExecutionStatus(step.status)} onChange={e=>updateStepEstado(tc.id,index,e.target.value)} title="Cambiar estado del paso" style={{border:`1px solid ${cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub}30`,borderRadius:7,padding:"2px 8px",fontSize:9,fontWeight:700,color:cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.color || DM.sub,background:cycleStatusConfig[normalizeCycleExecutionStatus(step.status)]?.bg || "#f4f4f4",cursor:"pointer",outline:"none",minWidth:104,flexShrink:0}}>
                                                         {Object.keys(cycleStatusConfig).map(k=><option key={k} value={k}>{k}</option>)}
                                                       </select>
                                                     </div>
