@@ -2322,9 +2322,10 @@ function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDel
                     for(let i=ciclos.length-1;i>=0;i--){
                       const ejec = (ciclos[i].ejecuciones||[]).find(x=>String(x.tcId)===String(id));
                       if(!ejec) continue;
+                      const note = String(ejec.nota || "").trim();
                       const norm = normalizeCycleExecutionStatus(ejec.estado);
-                      if(norm==="Fallido" && ejec.nota && String(ejec.nota).trim()) { obs = ejec.nota; break; }
-                      if(ejec.nota && String(ejec.nota).trim()) obs = ejec.nota; // keep as fallback
+                      if(norm==="Fallido" && note && note.toLowerCase() !== "agregado masivamente") { obs = note; break; }
+                      if(note && note.toLowerCase() !== "agregado masivamente") { obs = note; }
                     }
                     set("observacion", obs);
                   }
@@ -3041,7 +3042,7 @@ export default function App() {
   const [showTcForm,setShowTcForm]=useState(false);
   const [editTc,setEditTc]=useState(null);
   const [viewTc,setViewTc]=useState(null);
-  const [observationTc,setObservationTc]=useState(null);
+  const [observationTarget,setObservationTarget]=useState(null);
   const [showIssueForm,setShowIssueForm]=useState(false);
   const [editIssue,setEditIssue]=useState(null);
   const [viewIssue,setViewIssue]=useState(null);
@@ -3127,7 +3128,7 @@ export default function App() {
         ...c,
         ejecuciones:[...(c.ejecuciones||[]), ...tcIds
           .filter(tcId=>(!(c.ejecuciones||[]).some(e=>e.tcId===tcId)))
-          .map(tcId=>({tcId,estado:"No ejecutado",fechaEjecucion:"",nota:"Agregado masivamente"}))]
+          .map(tcId=>({tcId,estado:"No ejecutado",fechaEjecucion:"",nota:""}))]
       })
     }));
     clearCycleTcSelection(cicloId);
@@ -4572,7 +4573,7 @@ export default function App() {
                               {(t.comentarios||[]).length>0&&<span style={{fontSize:11,marginLeft:3}} title={`${t.comentarios.length} comentario(s)`}>💬{t.comentarios.length}</span>}
                             </td>
                             <td style={{padding:"9px 10px",textAlign:"center",whiteSpace:"nowrap"}} onClick={e=>e.stopPropagation()}>
-                              <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTc(t);}} title="Agregar novedad u observación" style={{padding:"4px 8px",fontSize:11,color:commentsCount>0?"#C0392B":undefined,fontWeight:commentsCount>0?800:700}}>📝{commentsCount>0?` ${commentsCount}`:""}</Btn>
+                              <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTarget({type:"test", tc:t, initialText:(t.comentarios||[]).slice(-1)[0]?.texto || ""});}} title="Agregar novedad u observación" style={{padding:"4px 8px",fontSize:11,color:commentsCount>0?"#C0392B":undefined,fontWeight:commentsCount>0?800:700}}>📝{commentsCount>0?` ${commentsCount}`:""}</Btn>
                             </td>
                             {currentUser && Array.isArray(currentUser.roles) && currentUser.roles.includes("admin") && (
                               <td style={{padding:"9px 10px",textAlign:"center",whiteSpace:"nowrap"}} onClick={e=>e.stopPropagation()}>
@@ -4783,7 +4784,7 @@ export default function App() {
                                     <td style={{padding:"8px 10px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",verticalAlign:"top",width:120}}>
                                       <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                                         <div>{tc.id}</div>
-                                        <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTc(tc);}} title="Agregar novedad u observación" style={{padding:"4px 9px",fontSize:10,color:BRAND,border:`1px solid ${BRAND}2a`,background:BRAND_LIGHT,borderRadius:999,boxShadow:"0 1px 4px rgba(0,0,0,0.04)"}}>📝 Novedad</Btn>
+                                        <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setObservationTarget({type:"cycle", cicloId:ciclo.id, tcId:tc.id, tc, initialText: ejec.nota || ""});}} title="Agregar novedad u observación" style={{padding:"4px 9px",fontSize:10,color:BRAND,border:`1px solid ${BRAND}2a`,background:BRAND_LIGHT,borderRadius:999,boxShadow:"0 1px 4px rgba(0,0,0,0.04)"}}>📝 Novedad</Btn>
                                       </div>
                                       <div style={{marginTop:8,display:"inline-flex",alignItems:"center",gap:6}}>
                                         <Badge label={generalState} color={generalSc.color} bg={generalSc.bg} />
@@ -5032,9 +5033,18 @@ export default function App() {
       {showCicloForm&&<CicloFormModal initial={editCiclo} cicloId={editCiclo?.nombre} modulosList={[...new Set([...(proj?.modules||[]),...tests.map(t=>t.proceso).filter(Boolean)])]} onSave={saveCiclo} onClose={()=>{setShowCicloForm(false);setEditCiclo(null);}} darkMode={darkMode}/>}
       {showProjForm&&<ProjectFormModal initial={editProj} onSave={saveProject} onClose={()=>{setShowProjForm(false);setEditProj(null);}} darkMode={darkMode}/>}
       {showTcForm&&<TcFormModal initial={editTc} tcId={editTc?.id} onSave={saveTC} onClose={()=>{setShowTcForm(false);setEditTc(null);}} darkMode={darkMode} project={proj}/>}
-      {observationTc&&<ObservationModal tc={observationTc} initialText="" darkMode={darkMode}
-        onClose={()=>setObservationTc(null)}
-        onSave={(text)=>{addComment(observationTc.id,text);setObservationTc(null);}} />}
+      {observationTarget&&<ObservationModal tc={observationTarget.tc} initialText={observationTarget.initialText || ""} darkMode={darkMode}
+        onClose={()=>setObservationTarget(null)}
+        onSave={(text)=>{
+          if (observationTarget.type === "cycle") {
+            const targetEjec = ((proj?.ciclos||[]).find(c=>c.id===observationTarget.cicloId)?.ejecuciones||[]).find(e=>String(e.tcId)===String(observationTarget.tcId));
+            const currentEstado = targetEjec?.estado || "No ejecutado";
+            updateEjecucionEstado(observationTarget.cicloId, observationTarget.tcId, currentEstado, text);
+          } else {
+            addComment(observationTarget.tc.id, text);
+          }
+          setObservationTarget(null);
+        }} />}
       {viewTc&&!showTcForm&&(
         <TcDetailModal tc={viewTc} onClose={()=>setViewTc(null)}
           onEdit={()=>{setEditTc(viewTc);setViewTc(null);setShowTcForm(true);}}
