@@ -258,6 +258,28 @@ function toDisplayDate(value) {
 function readFileAsDataURL(file) {
   return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
 }
+function compressImage(dataUrl, quality = 0.7, maxWidth = 1200, maxHeight = 800) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width = width * ratio;
+        height = height * ratio;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
 function fileIcon(name) {
   const ext = name.split(".").pop().toLowerCase();
   if(["png","jpg","jpeg","gif","webp"].includes(ext)) return "🖼️";
@@ -2312,6 +2334,18 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
 function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDelete,darkMode}) {
   const [form,setForm]=useState({ ...EMPTY_ISSUE, ...(initial||{}), fechaCreacion: initial?.fechaCreacion || today(), fechaSolucion: initial?.fechaSolucion || "", bitacoraNota: "", asignadoA: initial?.asignadoA || "" });
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const setAttachments = async (attachments) => {
+    const compressed = await Promise.all(
+      attachments.map(async (att) => {
+        if (att.type && att.type.startsWith("image/") && att.data) {
+          const compressed = await compressImage(att.data, 0.75, 1000, 800);
+          return { ...att, data: compressed };
+        }
+        return att;
+      })
+    );
+    set("attachments", compressed);
+  };
   // always dark inside this modal
   const IS={...inputStyleDark,background:"#1a2535",border:"1px solid #2a3a4a",color:"#e2e8f0",borderRadius:8};
   const SEL={...IS,appearance:"auto"};
@@ -2333,12 +2367,13 @@ function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDel
                   </select>;
                 }
                 return (
-                <select style={{...SEL,minHeight:44}} value={form.testId||""} onChange={e=>{
+                <select style={{...SEL,minHeight:44}} value={form.testId||""} onChange={async e=>{
                   const id=e.target.value; set("testId",id);
                   const tc = tests.find(t=>String(t.id)===String(id));
                   if(tc){ 
                     set("modulo", tc.proceso || tc.modulo || "");
                     set("escenario", tc.escenario || tc.nombre || "");
+                    await setAttachments(tc.attachments||[]);
                     // Prefer observation from ciclo execution with estado Fallido, fallback to any nota, then tc.descripcion
                     let obs = tc.descripcion || form.observacion || "";
                     const ciclos = Array.isArray(proj?.ciclos)?proj.ciclos:[];
@@ -2373,7 +2408,7 @@ function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDel
           <textarea style={{...IS,minHeight:90,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.observacion} onChange={e=>set("observacion",e.target.value)} placeholder="Describe el comportamiento encontrado..."/>
         </Field>
         <Field label="EVIDENCIA (IMAGEN)">
-          <AttachmentZone attachments={form.attachments||[]} onChange={v=>set("attachments",v)} imagesOnly/>
+          <AttachmentZone attachments={form.attachments||[]} onChange={setAttachments} imagesOnly/>
         </Field>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <Field label="STATUS">
@@ -3491,7 +3526,7 @@ export default function App() {
         };
       }
       const newId=(p.issues.length?Math.max(...p.issues.map(i=>i.id)):0)+1;
-      const createdIssue = { id:newId, ...cleanedForm, fechaCreacion: cleanedForm.fechaCreacion || today() };
+      const createdIssue = { id:newId, ...cleanedForm, fechaCreacion: cleanedForm.fechaCreacion || today(), attachments: cleanedForm.attachments||[] };
       const initialBitacora = normalizeIssueBitacora(cleanedForm.bitacora, createdIssue);
       if (manualLog) {
         const noteEntry = buildIssueLogEntry(manualLog, createdIssue.estado || "Open", today(), "nota");
@@ -5056,6 +5091,7 @@ export default function App() {
                                             <div style={{borderRadius:12,padding:"12px 14px",background:darkMode?"#171e2a":"#ffffff",border:`1px solid ${DM.cardBorder}`}}>
                                               <div style={{fontSize:9.5,color:DM.sub,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Adjuntar documento o imagen</div>
                                               <AttachmentZone attachments={tc.attachments||[]} onChange={next=>updateTcAttachments(tc.id,next)} />
+                                              <button onClick={()=>{setEditIssue({...EMPTY_ISSUE,testId:tc.id,escenario:tc.escenario,modulo:tc.area||tc.proceso,attachments:tc.attachments||[]});setShowIssueForm(true);}} style={{marginTop:12,background:"#F5B041",color:"#1E1E1E",border:"none",borderRadius:7,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",width:"100%"}}>📋 Reportar Issue desde este TC</button>
                                             </div>
                                           </div>
                                         ) : null}
