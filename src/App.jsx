@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useRef, useEffect } from "react";
+﻿import { useState, useMemo, useRef, useEffect, Fragment } from "react";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const BRAND = "#C0392B";
@@ -4878,8 +4878,8 @@ export default function App() {
                               const isDetailOpen = expandedCycleTcDetails[detailKey] ?? false;
                               const notaTexto = (ejec.nota || "").trim() || "Sin novedad";
                               return (
-                                <>
-                                  <div key={ejec.tcId} style={{display:"grid",gridTemplateColumns:"90px minmax(0,1.7fr) minmax(110px,0.9fr) minmax(120px,1.2fr) 80px",gap:12,alignItems:"center",padding:"12px 14px",borderRadius:12,border:`1px solid ${DM.cardBorder}`,background:darkMode?"#171e2a":"#ffffff",boxShadow:darkMode?"0 3px 10px rgba(0,0,0,0.18)":"0 3px 10px rgba(15,23,42,0.04)",borderLeft:`4px solid ${generalSc.color}`}}>
+                                <Fragment key={ejec.tcId}>
+                                  <div style={{display:"grid",gridTemplateColumns:"90px minmax(0,1.7fr) minmax(110px,0.9fr) minmax(120px,1.2fr) 80px",gap:12,alignItems:"center",padding:"12px 14px",borderRadius:12,border:`1px solid ${DM.cardBorder}`,background:darkMode?"#171e2a":"#ffffff",boxShadow:darkMode?"0 3px 10px rgba(0,0,0,0.18)":"0 3px 10px rgba(15,23,42,0.04)",borderLeft:`4px solid ${generalSc.color}`}}>
                                     <div style={{fontWeight:900,color:proj.color,fontFamily:"monospace",fontSize:12}}>{tc.id}</div>
                                     <div style={{minWidth:0}}>
                                       <div style={{fontWeight:800,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",lineHeight:1.4,wordBreak:"break-word"}}>{tc.escenario}</div>
@@ -4987,7 +4987,7 @@ export default function App() {
                                       </div>
                                     </div>
                                   )}
-                                </>
+                                </Fragment>
                               );
                             })}
                           </div>
@@ -5012,8 +5012,8 @@ export default function App() {
                                 const detailKey = `${ciclo.id}:${tc.id}`;
                                 const isDetailOpen = expandedCycleTcDetails[detailKey] ?? false;
                                 return(
-                                  <>
-                                    <tr key={ejec.tcId} style={{borderTop:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
+                                  <Fragment key={ejec.tcId}>
+                                    <tr style={{borderTop:`1px solid ${DM.cardBorder}`,transition:"background 0.12s"}}
                                       onMouseEnter={e=>e.currentTarget.style.background=DM.tableHover}
                                       onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                                       <td style={{padding:"8px 10px",fontWeight:700,color:proj.color,fontFamily:"monospace",whiteSpace:"nowrap",verticalAlign:"top",width:120}}>
@@ -5136,7 +5136,7 @@ export default function App() {
                                         </div>
                                       </td>
                                     </tr>
-                                  </>
+                                  </Fragment>
                                 );
                               })}
                             </tbody>
