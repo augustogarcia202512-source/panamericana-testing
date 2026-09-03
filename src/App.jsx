@@ -38,8 +38,29 @@ const severityConfig = { "Critical": "#C0392B", "High": "#E74C3C", "Medium": "#F
 const COLORS = ["#C0392B", "#2980B9", "#16A085", "#8E44AD", "#D35400", "#2C3E50", "#27AE60", "#F39C12"];
 const EMPTY_TC = { area: "", precondiciones: "", proceso: "", escenario: "", descripcion: "", pasos: "", resultado: "", fechaAprobacion: "", fechaEjecucion: "", estado: "Borrador", asignadoRol: "QA / Pruebas", asignadoA: "", tipoPrueba: "", nivelPrueba: "", attachments: [], historial: [], comentarios: [] };
 const EMPTY_ISSUE = { testId: "", escenario: "", formulario: "", observacion: "", modulo: "", estado: "Open", severidad: "Medium", prioridad: "Medium", fechaCreacion: "", fechaSolucion: "", asignadoA: "", attachments: [], bitacora: [] };
-const EMPTY_CICLO = { nombre: "", modulo: "", fechaInicio: "", fechaFin: "", descripcion: "", ejecuciones: [] };
-const EMPTY_PROJECT = { name: "", description: "", color: COLORS[0], modules: [], scrumTeam: { productOwner: "", scrumMaster: "", developers: [], qa: [] }, scrumTestTypes: ["Funcionales", "Regresión", "Integración", "Aceptación"], scrumLevels: ["Unitarias", "Integración", "Sistema", "Aceptación", "Regresión"] };
+const EMPTY_CICLO = { nombre: "", modulo: "", fechaInicio: "", fechaFin: "", descripcion: "", asignadoA: "", ejecuciones: [] };
+const EMPTY_PROJECT = { name: "", description: "", color: COLORS[0], modules: [], risks: [], scrumTeam: { productOwner: "", scrumMaster: "", developers: [], qa: [] }, scrumTestTypes: ["Funcionales", "Regresión", "Integración", "Aceptación"], scrumLevels: ["Unitarias", "Integración", "Sistema", "Aceptación", "Regresión"] };
+const DEFAULT_ESTIMATIONS = [
+  { id: "estimate-1", fase: "Planeación", horasEstimadas: "", fechaInicio: "", fechaFinal: "", observaciones: "" },
+  { id: "estimate-2", fase: "Diseño", horasEstimadas: "", fechaInicio: "", fechaFinal: "", observaciones: "" },
+  { id: "estimate-3", fase: "Ejecución", horasEstimadas: "", fechaInicio: "", fechaFinal: "", observaciones: "" },
+  { id: "estimate-4", fase: "Documentación y cierre", horasEstimadas: "", fechaInicio: "", fechaFinal: "", observaciones: "" },
+];
+const DEFAULT_ENVIRONMENTS = [
+  { id: "environment-1", nombre: "QA", tipo: "Pruebas", url: "", version: "", baseDatos: "", integraciones: "", responsable: "", observaciones: "" },
+];
+const PROJECT_RISK_CATALOG = [
+  { nombre: "Datos de prueba incompletos", descripcion: "No existen órdenes, facturas o proveedores con la información necesaria.", mitigacion: "Preparar y validar los datos antes de iniciar el ciclo." },
+  { nombre: "Integraciones no disponibles", descripcion: "La conexión con inventario, contabilidad, bancos u otros sistemas no funciona.", mitigacion: "Validar interfaces y coordinar su disponibilidad con los equipos responsables." },
+  { nombre: "Permisos insuficientes", descripcion: "El usuario de pruebas no puede ejecutar todas las acciones del escenario.", mitigacion: "Revisar roles y permisos antes de comenzar las pruebas." },
+  { nombre: "Cambios en ambientes", descripcion: "Se realizan despliegues o configuraciones durante la ejecución.", mitigacion: "Establecer una ventana de congelamiento y comunicar los cambios." },
+  { nombre: "Reglas de negocio incorrectas", descripcion: "El sistema calcula valores, impuestos, descuentos o aprobaciones de forma incorrecta.", mitigacion: "Revisar las reglas con el área funcional y crear casos específicos." },
+  { nombre: "Flujo de aprobación bloqueado", descripcion: "La orden o factura no avanza al siguiente nivel de aprobación.", mitigacion: "Validar responsables, límites y rutas de aprobación." },
+  { nombre: "Información inconsistente", descripcion: "Los datos mostrados entre módulos no coinciden.", mitigacion: "Ejecutar pruebas de conciliación entre sistemas y documentos." },
+  { nombre: "Bajo rendimiento", descripcion: "El sistema responde lentamente con una alta cantidad de datos.", mitigacion: "Realizar pruebas de volumen y medir tiempos de respuesta." },
+  { nombre: "Errores de parametrización", descripcion: "El ambiente no tiene configurados correctamente módulos, monedas o sociedades.", mitigacion: "Comparar la configuración con el ambiente esperado antes de probar." },
+  { nombre: "Corrección incompleta de defects", descripcion: "Un issue cerrado vuelve a fallar durante el re-test.", mitigacion: "Ejecutar pruebas de regresión relacionadas antes de cerrar el issue." },
+];
 // ejecucion: { tcId, estado, fechaEjecucion, nota }
 
 function normalizeMemberList(list) {
@@ -58,6 +79,43 @@ function normalizeScrumTeam(team) {
 
 function normalizeProjectList(value) {
   return normalizeMemberList(value);
+}
+
+function normalizeProjectRisks(risks) {
+  return (Array.isArray(risks) ? risks : []).map((risk, index) => {
+    if (typeof risk === "string") return { id: `risk-${index}`, nombre: risk, descripcion: "", mitigacion: "" };
+    return {
+      id: risk?.id || `risk-${index}`,
+      nombre: String(risk?.nombre || risk?.name || "").trim(),
+      descripcion: String(risk?.descripcion || risk?.description || "").trim(),
+      mitigacion: String(risk?.mitigacion || risk?.mitigation || "").trim(),
+    };
+  }).filter(risk => risk.nombre);
+}
+
+function normalizeProjectEstimations(estimations) {
+  return (Array.isArray(estimations) ? estimations : []).map((estimate, index) => ({
+    id: estimate?.id || `estimate-${index}-${Date.now()}`,
+    fase: String(estimate?.fase || estimate?.phase || "").trim(),
+    horasEstimadas: String(estimate?.horasEstimadas || estimate?.hours || "").trim(),
+    fechaInicio: String(estimate?.fechaInicio || estimate?.startDate || "").trim(),
+    fechaFinal: String(estimate?.fechaFinal || estimate?.endDate || "").trim(),
+    observaciones: String(estimate?.observaciones || estimate?.observations || "").trim(),
+  }));
+}
+
+function normalizeProjectEnvironments(environments) {
+  return (Array.isArray(environments) ? environments : []).map((environment, index) => ({
+    id: environment?.id || `environment-${index}-${Date.now()}`,
+    nombre: String(environment?.nombre || environment?.name || "").trim(),
+    tipo: String(environment?.tipo || environment?.type || "").trim(),
+    url: String(environment?.url || "").trim(),
+    version: String(environment?.version || "").trim(),
+    baseDatos: String(environment?.baseDatos || environment?.database || "").trim(),
+    integraciones: String(environment?.integraciones || environment?.integrations || "").trim(),
+    responsable: String(environment?.responsable || environment?.owner || "").trim(),
+    observaciones: String(environment?.observaciones || environment?.observations || "").trim(),
+  }));
 }
 
 function getScrumTeamMembers(project) {
@@ -1977,7 +2035,7 @@ function parseCSVImport(text, existingTests) {
 }
 
 // ─── CICLO FORM MODAL ────────────────────────────────────────────────────────
-function CicloFormModal({initial,cicloId,modulosList,onSave,onClose,darkMode}) {
+function CicloFormModal({initial,cicloId,modulosList,teamMembers,onSave,onClose,darkMode}) {
   const [form,setForm]=useState(initial||{...EMPTY_CICLO});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const IS=darkMode?inputStyleDark:inputStyle;
@@ -1988,6 +2046,9 @@ function CicloFormModal({initial,cicloId,modulosList,onSave,onClose,darkMode}) {
         <Field label="Nombre del Ciclo"><input style={IS} value={form.nombre} onChange={e=>set("nombre",e.target.value)} placeholder="Ej: Ciclo 1, Ciclo 2 Re-prueba..."/></Field>
         <Field label="Módulo">
           <SuggestionInput value={form.modulo} onChange={v=>set("modulo",v)} options={modulosList} placeholder="Selecciona o escribe un módulo" darkMode={darkMode}/>
+        </Field>
+        <Field label="Persona asignada a las pruebas">
+          <SuggestionInput value={form.asignadoA||""} onChange={v=>set("asignadoA",v)} options={teamMembers||[]} placeholder="Selecciona o escribe un integrante" darkMode={darkMode}/>
         </Field>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Field label="Fecha Inicio"><input style={IS} type="date" value={form.fechaInicio} onChange={e=>set("fechaInicio",e.target.value)}/></Field>
@@ -3074,6 +3135,9 @@ export default function App() {
         ),
         scrumTestTypes: normalizeProjectList(p.scrumTestTypes || EMPTY_PROJECT.scrumTestTypes),
         scrumLevels: normalizeProjectList(p.scrumLevels || EMPTY_PROJECT.scrumLevels),
+        risks: normalizeProjectRisks(p.risks),
+        estimaciones: normalizeProjectEstimations(p.estimaciones),
+        ambientes: normalizeProjectEnvironments(p.ambientes),
         testers: Array.isArray(p.testers) ? p.testers : getScrumTeamMembers(p),
         issues: (p.issues || []).map(issue => ({
           ...EMPTY_ISSUE,
@@ -3143,7 +3207,16 @@ export default function App() {
   const [expandedAvailableTc,setExpandedAvailableTc]=useState(null);
   const [expandedCycleTcDetails,setExpandedCycleTcDetails]=useState({});
   const [scrumTestTypeInput,setScrumTestTypeInput]=useState("");
+  const [scrumTestTypeDescription,setScrumTestTypeDescription]=useState("");
   const [scrumLevelInput,setScrumLevelInput]=useState("");
+  const [scrumLevelDescription,setScrumLevelDescription]=useState("");
+  const [scrumModuleInput,setScrumModuleInput]=useState("");
+  const [scrumMemberInput,setScrumMemberInput]=useState("");
+  const [scrumMemberRole,setScrumMemberRole]=useState("qa");
+  const [scrumRiskName,setScrumRiskName]=useState("");
+  const [scrumRiskDescription,setScrumRiskDescription]=useState("");
+  const [scrumRiskMitigation,setScrumRiskMitigation]=useState("");
+  const [scrumRiskTemplate,setScrumRiskTemplate]=useState("");
   const dragIndex=useRef(null);
   const dragOverIndex=useRef(null);
   const dragIssueIndex=useRef(null);
@@ -3216,7 +3289,7 @@ export default function App() {
   function saveProject(form){
     const scrumTeam = normalizeScrumTeam(form.scrumTeam);
     const testers = getScrumTeamMembers({ scrumTeam });
-    const payload = { ...form, modules: normalizeProjectList(form.modules), scrumTeam, scrumTestTypes: normalizeProjectList(form.scrumTestTypes), scrumLevels: normalizeProjectList(form.scrumLevels), testers, members: form.members || [] };
+    const payload = { ...form, modules: normalizeProjectList(form.modules), risks: normalizeProjectRisks(form.risks), estimaciones: normalizeProjectEstimations(form.estimaciones), ambientes: normalizeProjectEnvironments(form.ambientes), scrumTeam, scrumTestTypes: normalizeProjectList(form.scrumTestTypes), scrumLevels: normalizeProjectList(form.scrumLevels), testers, members: form.members || [] };
     if(editProj){setProjects(ps=>ps.map(p=>p.id===editProj.id?{...p,...payload}:p));setEditProj(null);}
     else{const np={id:`proj-${Date.now()}`,createdAt:today(),tests:[],issues:[],...payload};setProjects(ps=>[...ps,np]);setActiveProjectId(np.id);}
     setShowProjForm(false);
@@ -3243,6 +3316,133 @@ export default function App() {
   function removeProjectListItem(field, item) {
     const currentItems = normalizeProjectList(proj?.[field]);
     updateProjectListField(field, currentItems.filter(entry => entry !== item));
+  }
+
+  function addScrumModule() {
+    const value = String(scrumModuleInput || "").trim();
+    if (!value) return;
+    const currentModules = normalizeProjectList(proj?.modules);
+    const nextModules = [...currentModules, ...value.split(",").map(item => item.trim()).filter(Boolean)];
+    updateProjectListField("modules", nextModules.filter((item, index) => nextModules.indexOf(item) === index));
+    setScrumModuleInput("");
+  }
+
+  function updateProjectDescription(field, item, description) {
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{
+      ...p,
+      [field]:{...(p[field] || {}),[item]:String(description || "").trim()},
+    }));
+  }
+
+  function addScrumListItem(field, value, description, clearValue, clearDescription) {
+    const item = String(value || "").trim();
+    if (!item) return;
+    const currentItems = normalizeProjectList(proj?.[field]);
+    const nextItems = [...currentItems, ...item.split(",").map(entry=>entry.trim()).filter(Boolean)];
+    const uniqueItems = nextItems.filter((entry,index)=>nextItems.indexOf(entry)===index);
+    updateProjectListField(field, uniqueItems);
+    const descriptionMap = field === "scrumTestTypes" ? "scrumTestTypeDescriptions" : "scrumLevelDescriptions";
+    const descriptions = item.split(",").map(entry=>entry.trim()).filter(Boolean).reduce((result, entry)=>({
+      ...result,
+      [entry]:String(description || "").trim(),
+    }),{});
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,[descriptionMap]:{...(p[descriptionMap] || {}),...descriptions}}));
+    clearValue("");
+    clearDescription("");
+  }
+
+  function updateScrumTeamField(field, value) {
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{
+      ...p,
+      scrumTeam:{...normalizeScrumTeam(p.scrumTeam),[field]:value},
+      testers:getScrumTeamMembers({scrumTeam:{...normalizeScrumTeam(p.scrumTeam),[field]:value}}),
+    }));
+  }
+
+  function addScrumMember() {
+    const value = String(scrumMemberInput || "").trim();
+    if (!value) return;
+    const team = normalizeScrumTeam(proj?.scrumTeam);
+    const members = scrumMemberRole === "productOwner" || scrumMemberRole === "scrumMaster"
+      ? value
+      : normalizeMemberList([...team[scrumMemberRole], ...value.split(",")]);
+    updateScrumTeamField(scrumMemberRole, members);
+    setScrumMemberInput("");
+  }
+
+  function removeScrumMember(role, member) {
+    const team = normalizeScrumTeam(proj?.scrumTeam);
+    const nextValue = role === "productOwner" || role === "scrumMaster"
+      ? ""
+      : team[role].filter(item => item !== member);
+    updateScrumTeamField(role, nextValue);
+  }
+
+  function updateEstimation(estimateId, field, value) {
+    const current = normalizeProjectEstimations(proj?.estimaciones);
+    const estimations = current.length ? current : DEFAULT_ESTIMATIONS;
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{
+      ...p,
+      estimaciones:estimations.map(estimate=>estimate.id===estimateId?{...estimate,[field]:value}:estimate),
+    }));
+  }
+
+  function addEstimation() {
+    const current = normalizeProjectEstimations(proj?.estimaciones);
+    const estimations = current.length ? current : DEFAULT_ESTIMATIONS;
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{
+      ...p,
+      estimaciones:[...estimations,{id:`estimate-${Date.now()}`,fase:"",horasEstimadas:"",fechaInicio:"",fechaFinal:"",observaciones:""}],
+    }));
+  }
+
+  function removeEstimation(estimateId) {
+    const current = normalizeProjectEstimations(proj?.estimaciones);
+    const estimations = current.length ? current : DEFAULT_ESTIMATIONS;
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,estimaciones:estimations.filter(estimate=>estimate.id!==estimateId)}));
+  }
+
+  function updateEnvironment(environmentId, field, value) {
+    const current = normalizeProjectEnvironments(proj?.ambientes);
+    const environments = current.length ? current : DEFAULT_ENVIRONMENTS;
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{
+      ...p,
+      ambientes:environments.map(environment=>environment.id===environmentId?{...environment,[field]:value}:environment),
+    }));
+  }
+
+  function addEnvironment() {
+    const current = normalizeProjectEnvironments(proj?.ambientes);
+    const environments = current.length ? current : DEFAULT_ENVIRONMENTS;
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{
+      ...p,
+      ambientes:[...environments,{id:`environment-${Date.now()}`,nombre:"",tipo:"",url:"",version:"",baseDatos:"",integraciones:"",responsable:"",observaciones:""}],
+    }));
+  }
+
+  function removeEnvironment(environmentId) {
+    const current = normalizeProjectEnvironments(proj?.ambientes);
+    const environments = current.length ? current : DEFAULT_ENVIRONMENTS;
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,ambientes:environments.filter(environment=>environment.id!==environmentId)}));
+  }
+
+  function addScrumRisk() {
+    const nombre = String(scrumRiskName || "").trim();
+    if (!nombre) return;
+    const risks = normalizeProjectRisks(proj?.risks);
+    if (risks.some(risk => risk.nombre.toLowerCase() === nombre.toLowerCase())) return;
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{
+      ...p,
+      risks:[...normalizeProjectRisks(p.risks),{id:`risk-${Date.now()}`,nombre,descripcion:String(scrumRiskDescription || "").trim(),mitigacion:String(scrumRiskMitigation || "").trim()}],
+    }));
+    setScrumRiskName("");
+    setScrumRiskDescription("");
+    setScrumRiskMitigation("");
+    setScrumRiskTemplate("");
+  }
+
+  function removeScrumRisk(riskId) {
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,risks:normalizeProjectRisks(p.risks).filter(risk=>risk.id!==riskId)}));
   }
 
   // TC CRUD
@@ -3851,7 +4051,26 @@ export default function App() {
     });
     return modules;
   },[filteredTests]);
-  const tabs=[{id:"dashboard",label:"📊 Dashboard"},{id:"scrum",label:"👥 Scrum"},{id:"tests",label:"🧪 Casos de Prueba"},{id:"ciclos",label:"🔄 Ciclos"},{id:"issues",label:"🐛 Issues"},{id:"documentador",label:"🗂️ Documentador"}];
+  const qualityMetrics=useMemo(()=>{
+    const visibleIds=new Set(filteredTests.map(test=>String(test.id)));
+    const executions=(proj.ciclos||[]).flatMap(ciclo=>(ciclo.ejecuciones||[]).filter(execution=>visibleIds.has(String(execution.tcId))));
+    const executedIds=new Set(executions.filter(execution=>normalizeCycleExecutionStatus(execution.estado)!=="No ejecutado").map(execution=>String(execution.tcId)));
+    filteredTests.forEach(test=>{if(test.fechaEjecucion) executedIds.add(String(test.id));});
+    const failedIds=new Set(executions.filter(execution=>normalizeCycleExecutionStatus(execution.estado)==="Fallido").map(execution=>String(execution.tcId)));
+    const openIssues=filteredIssues.filter(issue=>issue.estado!=="Closed").length;
+    const modulesWithTests=new Set(filteredTests.map(test=>test.proceso).filter(Boolean));
+    const totalModules=(proj.modules||[]).length;
+    return {
+      executionRate:filteredTests.length?Math.round((executedIds.size/filteredTests.length)*100):0,
+      approvalRate:pct(filteredTestStats["Aprobado"]),
+      failed:failedIds.size,
+      openIssues,
+      criticalIssues:filteredIssues.filter(issue=>issue.severidad==="Critical").length,
+      retestRate:filteredIssues.length?Math.round((filteredIssues.filter(issue=>issue.estado==="Closed").length/filteredIssues.length)*100):0,
+      moduleCoverage:totalModules?Math.round((modulesWithTests.size/totalModules)*100):0,
+    };
+  },[proj.ciclos,proj.modules,filteredTests,filteredIssues,filteredTestStats]);
+  const tabs=[{id:"dashboard",label:"📊 Dashboard"},{id:"scrum",label:"⚙️ Configuración del proyecto"},{id:"tests",label:"🧪 Casos de Prueba"},{id:"ciclos",label:"🔄 Ciclos"},{id:"issues",label:"🐛 Issues"},{id:"documentador",label:"🗂️ Documentador"}];
 
   return (
     <div style={{fontFamily:"'Poppins', 'Segoe UI', Arial, sans-serif",background:DM.bg,minHeight:"100vh",color:DM.text,letterSpacing:"0.2px"}}>
@@ -4048,13 +4267,15 @@ export default function App() {
               <div style={{display:"flex",flexDirection:"column",gap:18}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                   <div>
-                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Scrum & Testing Blueprint</h2>
-                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>Equipo Scrum, módulos y estrategia de pruebas del proyecto · {proj.name}</p>
+                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Configuración del proyecto</h2>
+                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>Equipo, módulos y estrategia de pruebas del proyecto · {proj.name}</p>
                   </div>
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    <Btn small variant="ghost" onClick={()=>{setEditProj(proj);setShowProjForm(true);}}>Editar equipo y módulos</Btn>
-                    <Btn small variant="ghost" onClick={()=>setTab("dashboard")}>Volver al dashboard</Btn>
-                  </div>
+                  <Btn small variant="ghost" onClick={()=>setTab("dashboard")}>Volver al dashboard</Btn>
+                </div>
+
+                <div style={{marginBottom:-6}}>
+                  <div style={{fontSize:13,fontWeight:800,color:DM.text}}>Equipo Scrum</div>
+                  <div style={{fontSize:11,color:DM.sub,marginTop:3}}>Miembros y responsabilidades asociadas al proyecto.</div>
                 </div>
 
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))",gap:12}}>
@@ -4073,7 +4294,10 @@ export default function App() {
                           <div style={{fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em",color:section.color,marginBottom:8}}>{section.title}</div>
                           <div style={{fontSize:12,color:DM.sub,marginBottom:10}}>{section.hint}</div>
                           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                            {members.length > 0 ? members.map(member => <span key={member} style={{fontSize:11,padding:"5px 9px",borderRadius:999,background:`${section.color}15`,color:section.color,fontWeight:700}}>{member}</span>) : <span style={{fontSize:11,color:DM.sub}}>Sin definir</span>}
+                            {members.length > 0 ? members.map(member => <span key={member} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:11,padding:"5px 9px",borderRadius:999,background:`${section.color}15`,color:section.color,fontWeight:700}}>
+                              {member}
+                              <button type="button" onClick={()=>removeScrumMember(section.title === "Product Owner" ? "productOwner" : section.title === "Scrum Master" ? "scrumMaster" : section.title === "Developers" ? "developers" : "qa", member)} title={`Quitar integrante ${member}`} style={{border:"none",background:"transparent",cursor:"pointer",color:section.color,fontSize:11,fontWeight:800,padding:0}}>✕</button>
+                            </span>) : <span style={{fontSize:11,color:DM.sub}}>Sin definir</span>}
                           </div>
                         </div>
                       );
@@ -4081,12 +4305,145 @@ export default function App() {
                   })()}
                 </div>
 
+                <div style={{background:DM.card,borderRadius:16,padding:18,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                  <div style={{fontSize:13,fontWeight:800,color:DM.text,marginBottom:4}}>Agregar integrante al equipo Scrum</div>
+                  <div style={{fontSize:11,color:DM.sub,marginBottom:12}}>Selecciona un rol, escribe el nombre y agrégalo al equipo del proyecto.</div>
+                  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                    <select value={scrumMemberRole} onChange={e=>setScrumMemberRole(e.target.value)} style={{...inputStyle,...(darkMode?inputStyleDark:{}),width:170}}>
+                      <option value="productOwner">Product Owner</option>
+                      <option value="scrumMaster">Scrum Master</option>
+                      <option value="developers">Developers</option>
+                      <option value="qa">QA / Pruebas</option>
+                    </select>
+                    <input
+                      id="scrum-team-input"
+                      style={{...inputStyle,...(darkMode?inputStyleDark:{}),flex:1,minWidth:180}}
+                      value={scrumMemberInput}
+                      onChange={e=>setScrumMemberInput(e.target.value)}
+                      onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addScrumMember();}}}
+                      placeholder="Nombre del integrante"
+                    />
+                    <Btn small variant="ghost" onClick={addScrumMember}>Agregar</Btn>
+                  </div>
+                </div>
+
+                <div style={{background:DM.card,borderRadius:16,padding:18,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:800,color:DM.text}}>Ambientes y dependencias</div>
+                      <div style={{fontSize:11,color:DM.sub,marginTop:3}}>Registra los accesos, versiones e integraciones necesarias para ejecutar las pruebas.</div>
+                    </div>
+                    <Btn small variant="ghost" onClick={addEnvironment}>Agregar ambiente</Btn>
+                  </div>
+                  <div style={{overflowX:"auto",marginTop:12}}>
+                    <table style={{width:"100%",minWidth:1100,borderCollapse:"collapse",fontSize:12}}>
+                      <thead><tr style={{borderBottom:`1px solid ${DM.cardBorder}`}}>
+                        {["Ambiente","Tipo","URL / acceso","Versión","Base de datos","Integraciones","Responsable","Observaciones",""] .map(label=><th key={label} style={{padding:"8px 6px",textAlign:"left",fontSize:10,color:DM.sub,textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</th>)}
+                      </tr></thead>
+                      <tbody>
+                        {(normalizeProjectEnvironments(proj.ambientes).length ? normalizeProjectEnvironments(proj.ambientes) : DEFAULT_ENVIRONMENTS).map(environment=>(
+                          <tr key={environment.id} style={{borderBottom:`1px solid ${DM.cardBorder}`}}>
+                            {["nombre","tipo","url","version","baseDatos","integraciones","responsable","observaciones"].map(field=><td key={field} style={{padding:"7px 6px",minWidth:field==="observaciones"?170:field==="url"?150:110}}><input value={environment[field]} onChange={e=>updateEnvironment(environment.id,field,e.target.value)} placeholder={field==="nombre"?"Ej: QA":field==="tipo"?"Pruebas":""} style={{...inputStyle,...(darkMode?inputStyleDark:{}),width:"100%"}} /></td>)}
+                            <td style={{padding:"7px 6px",textAlign:"center"}}><button type="button" onClick={()=>removeEnvironment(environment.id)} title="Quitar ambiente" style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#888",fontSize:13,fontWeight:700}}>✕</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div style={{background:DM.card,borderRadius:16,padding:18,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                  <div style={{fontSize:13,fontWeight:800,color:DM.text,marginBottom:4}}>Riesgos del proyecto</div>
+                  <div style={{fontSize:11,color:DM.sub,marginBottom:12}}>Registra los riesgos que pueden afectar las pruebas y cómo mitigarlos.</div>
+                  <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                    <select value={scrumRiskTemplate} onChange={e=>{
+                      const selected=PROJECT_RISK_CATALOG.find(risk=>risk.nombre===e.target.value);
+                      setScrumRiskTemplate(e.target.value);
+                      if(selected){setScrumRiskName(selected.nombre);setScrumRiskDescription(selected.descripcion);setScrumRiskMitigation(selected.mitigacion);}
+                    }} style={{...inputStyle,...(darkMode?inputStyleDark:{}),flex:1,minWidth:260}}>
+                      <option value="">Seleccionar riesgo sugerido</option>
+                      {PROJECT_RISK_CATALOG.map(risk=><option key={risk.nombre} value={risk.nombre}>{risk.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1.4fr 1.4fr auto",gap:8,alignItems:"center",marginBottom:12}}>
+                    <input style={{...inputStyle,...(darkMode?inputStyleDark:{})}} value={scrumRiskName} onChange={e=>setScrumRiskName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addScrumRisk();}}} placeholder="Riesgo" />
+                    <input style={{...inputStyle,...(darkMode?inputStyleDark:{})}} value={scrumRiskDescription} onChange={e=>setScrumRiskDescription(e.target.value)} placeholder="Descripción del riesgo" />
+                    <input style={{...inputStyle,...(darkMode?inputStyleDark:{})}} value={scrumRiskMitigation} onChange={e=>setScrumRiskMitigation(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addScrumRisk();}}} placeholder="Mitigación" />
+                    <Btn small variant="ghost" onClick={addScrumRisk}>Agregar</Btn>
+                  </div>
+                  {(proj.risks||[]).length>0 ? (
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:10}}>
+                      {normalizeProjectRisks(proj.risks).map(risk=>(
+                        <div key={risk.id} style={{padding:12,borderRadius:12,background:darkMode?"#1f1f22":"#fafafa",border:`1px solid ${DM.cardBorder}`,borderLeft:"3px solid #E67E22"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"start",marginBottom:6}}>
+                            <div style={{fontSize:12,fontWeight:800,color:"#E67E22"}}>{risk.nombre}</div>
+                            <button type="button" onClick={()=>removeScrumRisk(risk.id)} title={`Quitar riesgo ${risk.nombre}`} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#888",fontSize:12,fontWeight:700,padding:0}}>✕</button>
+                          </div>
+                          <div style={{fontSize:11,color:DM.sub,lineHeight:1.45}}>{risk.descripcion||"Sin descripción"}</div>
+                          <div style={{fontSize:11,color:DM.text,lineHeight:1.45,marginTop:7}}><strong>Mitigación:</strong> {risk.mitigacion||"Sin definir"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <span style={{fontSize:12,color:DM.sub}}>Sin riesgos definidos</span>}
+                </div>
+
+                <div style={{background:DM.card,borderRadius:16,padding:18,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:800,color:DM.text}}>Estimación</div>
+                      <div style={{fontSize:11,color:DM.sub,marginTop:3}}>Planifica las horas y fechas de cada fase del proyecto.</div>
+                    </div>
+                    <Btn small variant="ghost" onClick={addEstimation}>Agregar fase</Btn>
+                  </div>
+                  <div style={{overflowX:"auto"}}>
+                    <table style={{width:"100%",minWidth:760,borderCollapse:"collapse",fontSize:12}}>
+                      <thead>
+                        <tr style={{borderBottom:`1px solid ${DM.cardBorder}`}}>
+                          {["Fase","Horas estimadas","Fecha de inicio","Fecha final","Observaciones",""] .map(label=><th key={label} style={{padding:"8px 7px",textAlign:"left",fontSize:10,color:DM.sub,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{label}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(normalizeProjectEstimations(proj.estimaciones).length ? normalizeProjectEstimations(proj.estimaciones) : DEFAULT_ESTIMATIONS).map(estimate=>(
+                          <tr key={estimate.id} style={{borderBottom:`1px solid ${DM.cardBorder}`}}>
+                            <td style={{padding:"8px 7px",minWidth:150}}><input value={estimate.fase} onChange={e=>updateEstimation(estimate.id,"fase",e.target.value)} placeholder="Ej: Planeación" style={{...inputStyle,...(darkMode?inputStyleDark:{}),width:"100%"}} /></td>
+                            <td style={{padding:"8px 7px",minWidth:125}}><input type="number" min="0" step="0.5" value={estimate.horasEstimadas} onChange={e=>updateEstimation(estimate.id,"horasEstimadas",e.target.value)} placeholder="00:00" style={{...inputStyle,...(darkMode?inputStyleDark:{}),width:"100%"}} /></td>
+                            <td style={{padding:"8px 7px",minWidth:145}}><input type="date" value={estimate.fechaInicio} onChange={e=>updateEstimation(estimate.id,"fechaInicio",e.target.value)} style={{...inputStyle,...(darkMode?inputStyleDark:{}),width:"100%"}} /></td>
+                            <td style={{padding:"8px 7px",minWidth:145}}><input type="date" value={estimate.fechaFinal} onChange={e=>updateEstimation(estimate.id,"fechaFinal",e.target.value)} style={{...inputStyle,...(darkMode?inputStyleDark:{}),width:"100%"}} /></td>
+                            <td style={{padding:"8px 7px",minWidth:190}}><input value={estimate.observaciones} onChange={e=>updateEstimation(estimate.id,"observaciones",e.target.value)} placeholder="Observaciones" style={{...inputStyle,...(darkMode?inputStyleDark:{}),width:"100%"}} /></td>
+                            <td style={{padding:"8px 7px",textAlign:"center"}}><button type="button" onClick={()=>removeEstimation(estimate.id)} title="Quitar fase" style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#888",fontSize:13,fontWeight:700}}>✕</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
                   <div style={{background:DM.card,borderRadius:16,padding:18,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
-                    <div style={{fontSize:13,fontWeight:800,color:DM.text,marginBottom:14}}>Módulos del proyecto</div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:800,color:DM.text}}>Módulos del proyecto</div>
+                        <div style={{fontSize:11,color:DM.sub,marginTop:3}}>Asocia módulos aquí y estarán disponibles al crear casos.</div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                      <input
+                        style={{...inputStyle,...(darkMode?inputStyleDark:{}),flex:1,minWidth:180}}
+                        value={scrumModuleInput}
+                        onChange={e=>setScrumModuleInput(e.target.value)}
+                        onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addScrumModule();}}}
+                        placeholder="Ej: Inventarios, Facturación"
+                      />
+                      <Btn small variant="ghost" onClick={addScrumModule}>Agregar</Btn>
+                    </div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                       {(proj.modules||[]).length>0
-                        ? proj.modules.map(mod => <span key={mod} style={{fontSize:12,padding:"7px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#eef2ff",color:darkMode?"#eee":"#4c51bf",fontWeight:700}}>{mod}</span>)
+                        ? proj.modules.map(mod => (
+                            <span key={mod} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 10px",borderRadius:999,background:darkMode?"#2C2C2E":"#eef2ff",color:darkMode?"#eee":"#4c51bf",fontWeight:700}}>
+                              {mod}
+                              <button type="button" onClick={()=>removeProjectListItem("modules",mod)} title={`Quitar módulo ${mod}`} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#6875c5",fontSize:12,fontWeight:700,padding:0}}>✕</button>
+                            </span>
+                          ))
                         : <span style={{fontSize:12,color:DM.sub}}>Sin módulos definidos</span>}
                     </div>
                   </div>
@@ -4129,10 +4486,16 @@ export default function App() {
                         style={{...inputStyle,...(darkMode?inputStyleDark:{}) , flex:1, minWidth: 180}}
                         value={scrumTestTypeInput}
                         onChange={e=>setScrumTestTypeInput(e.target.value)}
-                        placeholder="Ej: Exploratorias, Seguridad"
-                        onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addProjectListItem("scrumTestTypes",scrumTestTypeInput,setScrumTestTypeInput);}}}
+                        placeholder="Tipo: Exploratorias, Seguridad"
                       />
-                      <Btn small variant="ghost" onClick={()=>addProjectListItem("scrumTestTypes",scrumTestTypeInput,setScrumTestTypeInput)}>Agregar</Btn>
+                      <input
+                        style={{...inputStyle,...(darkMode?inputStyleDark:{}),flex:2,minWidth:220}}
+                        value={scrumTestTypeDescription}
+                        onChange={e=>setScrumTestTypeDescription(e.target.value)}
+                        onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addScrumListItem("scrumTestTypes",scrumTestTypeInput,scrumTestTypeDescription,setScrumTestTypeInput,setScrumTestTypeDescription);}}}
+                        placeholder="Descripción del tipo"
+                      />
+                      <Btn small variant="ghost" onClick={()=>addScrumListItem("scrumTestTypes",scrumTestTypeInput,scrumTestTypeDescription,setScrumTestTypeInput,setScrumTestTypeDescription)}>Agregar</Btn>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(170px, 1fr))",gap:10}}>
                       {(proj.scrumTestTypes?.length ? proj.scrumTestTypes : EMPTY_PROJECT.scrumTestTypes).map((item,index) => (
@@ -4141,13 +4504,13 @@ export default function App() {
                             <div style={{fontSize:11,fontWeight:800,textTransform:"uppercase",color:["#2980B9","#8E44AD","#16A085","#27AE60"][index % 4]}}>{item}</div>
                             <button type="button" onClick={()=>removeProjectListItem("scrumTestTypes",item)} style={{border:"none",background:"transparent",cursor:"pointer",color:darkMode?"#aaa":"#666",fontSize:12,fontWeight:700}}>✕</button>
                           </div>
-                          <div style={{fontSize:12,color:DM.sub,lineHeight:1.45}}>{
+                          <div style={{fontSize:12,color:DM.sub,lineHeight:1.45}}>{proj.scrumTestTypeDescriptions?.[item] || (
                             item === "Funcionales" ? "Validan el flujo de negocio y reglas principales." :
                             item === "Regresión" ? "Confirman que los cambios no rompen escenarios previos." :
                             item === "Integración" ? "Verifican interacción entre módulos y componentes." :
                             item === "Aceptación" ? "Validan si el negocio aprueba el escenario." :
                             "Describe una categoría concreta de pruebas que aplica al proyecto."
-                          }</div>
+                          )}</div>
                         </div>
                       ))}
                     </div>
@@ -4165,10 +4528,16 @@ export default function App() {
                         style={{...inputStyle,...(darkMode?inputStyleDark:{}), flex:1, minWidth: 180}}
                         value={scrumLevelInput}
                         onChange={e=>setScrumLevelInput(e.target.value)}
-                        placeholder="Ej: E2E, UAT"
-                        onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addProjectListItem("scrumLevels",scrumLevelInput,setScrumLevelInput);}}}
+                        placeholder="Nivel: E2E, UAT"
                       />
-                      <Btn small variant="ghost" onClick={()=>addProjectListItem("scrumLevels",scrumLevelInput,setScrumLevelInput)}>Agregar</Btn>
+                      <input
+                        style={{...inputStyle,...(darkMode?inputStyleDark:{}),flex:2,minWidth:220}}
+                        value={scrumLevelDescription}
+                        onChange={e=>setScrumLevelDescription(e.target.value)}
+                        onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addScrumListItem("scrumLevels",scrumLevelInput,scrumLevelDescription,setScrumLevelInput,setScrumLevelDescription);}}}
+                        placeholder="Descripción del nivel"
+                      />
+                      <Btn small variant="ghost" onClick={()=>addScrumListItem("scrumLevels",scrumLevelInput,scrumLevelDescription,setScrumLevelInput,setScrumLevelDescription)}>Agregar</Btn>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:10}}>
                       {(proj.scrumLevels?.length ? proj.scrumLevels : EMPTY_PROJECT.scrumLevels).map((item,index) => (
@@ -4188,14 +4557,14 @@ export default function App() {
                             }</div>
                           </div>
                           <div style={{fontSize:11,color:DM.sub,fontWeight:700}}>Nivel</div>
-                          <div style={{fontSize:12,color:DM.text,lineHeight:1.45}}>{
+                            <div style={{fontSize:12,color:DM.text,lineHeight:1.45}}>{proj.scrumLevelDescriptions?.[item] || (
                             item === "Unitarias" ? "Validación de lógica puntual y componentes aislados." :
                             item === "Integración" ? "Interacción entre módulos, APIs y datos." :
                             item === "Sistema" ? "Flujo end-to-end sobre el sistema completo." :
                             item === "Aceptación" ? "Validación de negocio contra criterios de aceptación." :
                             item === "Regresión" ? "Re-ejecución de escenarios críticos luego de cambios." :
                             "Define un nivel de prueba aplicable al flujo del proyecto."
-                          }</div>
+                          )}</div>
                         </div>
                       ))}
                     </div>
@@ -4231,6 +4600,28 @@ export default function App() {
                     <div style={{fontSize:12,color:darkMode?"#aaa":"#6b7280",marginTop:2}}>Captura pasos, adjunta evidencia y compártela desde un solo lugar.</div>
                   </div>
                   <button onClick={()=>setTab("documentador")} style={{background:"linear-gradient(135deg, #C0392B 0%, #E74C3C 100%)",color:"#fff",border:"none",borderRadius:999,padding:"9px 14px",cursor:"pointer",fontSize:12,fontWeight:800,boxShadow:"0 8px 20px rgba(192,57,43,0.18)"}}>Abrir documentador</button>
+                </div>
+                <div style={{marginTop:14,padding:18,borderRadius:16,background:DM.card,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
+                  <div style={{marginBottom:14}}>
+                    <div style={{fontSize:13,fontWeight:800,color:DM.text}}>Métricas de calidad</div>
+                    <div style={{fontSize:11,color:DM.sub,marginTop:3}}>Indicadores calculados automáticamente con los casos, ciclos, issues y módulos del proyecto.</div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10}}>
+                    {[
+                      {label:"Ejecución",value:`${qualityMetrics.executionRate}%`,color:"#2980B9"},
+                      {label:"Aprobación",value:`${qualityMetrics.approvalRate}%`,color:"#27AE60"},
+                      {label:"Casos fallidos",value:qualityMetrics.failed,color:"#E74C3C"},
+                      {label:"Issues abiertos",value:qualityMetrics.openIssues,color:"#E67E22"},
+                      {label:"Issues críticos",value:qualityMetrics.criticalIssues,color:"#C0392B"},
+                      {label:"Re-test cerrado",value:`${qualityMetrics.retestRate}%`,color:"#16A085"},
+                      {label:"Cobertura módulos",value:`${qualityMetrics.moduleCoverage}%`,color:"#8E44AD"},
+                    ].map(metric=>(
+                      <div key={metric.label} style={{padding:"12px 10px",borderRadius:10,background:darkMode?"#1f1f22":"#fafafa",border:`1px solid ${DM.cardBorder}`}}>
+                        <div style={{fontSize:10,color:DM.sub,fontWeight:700,textTransform:"uppercase",lineHeight:1.3}}>{metric.label}</div>
+                        <div style={{fontSize:24,fontWeight:900,color:metric.color,marginTop:7}}>{metric.value}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div style={{marginTop:14,padding:18,borderRadius:16,background:DM.card,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                   {(() => {
@@ -4269,8 +4660,8 @@ export default function App() {
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginTop:18}}>
                   <div>
-                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Control del Día</h2>
-                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>Resumen general · {proj.name}</p>
+                    <h2 style={{margin:0,fontSize:20,fontWeight:800,color:DM.text}}>Seguimiento operativo</h2>
+                    <p style={{margin:"3px 0 0",color:DM.sub,fontSize:12}}>Filtros, acciones rápidas y exportaciones · {proj.name}</p>
                   </div>
               
                     {/* Dashboard filters (quick) */}
@@ -4327,9 +4718,9 @@ export default function App() {
                   </div>
                   <div style={{background:DM.card,borderRadius:10,padding:"12px 16px",boxShadow:"0 1px 8px #0000000a",border:`1px solid ${DM.cardBorder}`,minWidth:160}}>
                     <div style={{fontSize:11,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>Issues abiertas</div>
-                    <div style={{fontSize:22,fontWeight:800,color:'#8E44AD',lineHeight:1.1}}>{filteredIssueStats.total}</div>
+                    <div style={{fontSize:22,fontWeight:800,color:'#8E44AD',lineHeight:1.1}}>{qualityMetrics.openIssues}</div>
                     <div style={{marginTop:8}}><Sparkline data={sparkIssues} color="#8E44AD" width={140} height={36}/></div>
-                    <div style={{fontSize:11,color:DM.sub,marginTop:6}}>Issues filtradas</div>
+                    <div style={{fontSize:11,color:DM.sub,marginTop:6}}>Issues sin cerrar</div>
                   </div>
                 </div>
 
@@ -4480,6 +4871,48 @@ export default function App() {
                 {(proj.ciclos||[]).length>0&&(
                   <div style={{background:DM.card,borderRadius:12,padding:20,border:`1px solid ${DM.cardBorder}`,boxShadow:"0 1px 8px #0000000a"}}>
                     <div style={{fontSize:13,fontWeight:700,color:DM.text,marginBottom:16}}>🔄 Estadísticas por Ciclo</div>
+                    {(() => {
+                      const cycleExecutions=(proj.ciclos||[]).flatMap(ciclo=>(ciclo.ejecuciones||[]).filter(e=>filteredTests.some(t=>t.id===e.tcId)));
+                      const cycleStates=[
+                        {label:"Aprobado",value:cycleExecutions.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Aprobado").length,color:"#27AE60"},
+                        {label:"En Progreso",value:cycleExecutions.filter(e=>normalizeCycleExecutionStatus(e.estado)==="En Progreso").length,color:"#F39C12"},
+                        {label:"Fallido",value:cycleExecutions.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Fallido").length,color:"#E74C3C"},
+                        {label:"No ejecutado",value:cycleExecutions.filter(e=>normalizeCycleExecutionStatus(e.estado)==="No ejecutado").length,color:"#95A5A6"},
+                        {label:"No aplica",value:cycleExecutions.filter(e=>normalizeCycleExecutionStatus(e.estado)==="No aplica").length,color:"#BDC3C7"},
+                        {label:"Bloqueante",value:cycleExecutions.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Bloqueante").length,color:"#8E44AD"},
+                      ];
+                      const totalCycleStates=cycleStates.reduce((sum,state)=>sum+state.value,0);
+                      const cycleModules=Array.from(new Set((proj.ciclos||[]).map(ciclo=>ciclo.modulo).filter(Boolean)));
+                      return (
+                        <div style={{display:"grid",gridTemplateColumns:"minmax(260px,0.9fr) minmax(320px,1.1fr)",gap:18,marginBottom:18}}>
+                          <div style={{padding:14,borderRadius:10,background:darkMode?"#171e2a":"#fafafa",border:`1px solid ${DM.cardBorder}`}}>
+                            <div style={{fontSize:12,fontWeight:800,color:DM.text,marginBottom:12}}>Distribución global de estados</div>
+                            <Donut data={cycleStates}/>
+                            <div style={{fontSize:10,color:DM.sub,marginTop:10}}>Módulos asociados</div>
+                            <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
+                              {cycleModules.length ? cycleModules.map(module=><span key={module} style={{fontSize:10,padding:"3px 7px",borderRadius:999,background:`${proj.color}15`,color:proj.color,fontWeight:700}}>{module}</span>) : <span style={{fontSize:10,color:DM.sub}}>Sin módulo</span>}
+                            </div>
+                          </div>
+                          <div style={{padding:14,borderRadius:10,background:darkMode?"#171e2a":"#fafafa",border:`1px solid ${DM.cardBorder}`}}>
+                            <div style={{fontSize:12,fontWeight:800,color:DM.text,marginBottom:12}}>Distribución por estado y módulo</div>
+                            <div style={{display:"flex",flexDirection:"column",gap:9}}>
+                              {cycleStates.map(state=>{
+                                const percentage=totalCycleStates?Math.round((state.value/totalCycleStates)*100):0;
+                                return <div key={state.label}>
+                                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:4}}>
+                                    <span style={{fontSize:11,color:DM.sub}}>{state.label}</span>
+                                    <span style={{fontSize:11,fontWeight:800,color:state.color}}>{percentage}%</span>
+                                  </div>
+                                  <div style={{height:7,background:darkMode?"#273244":"#e5e7eb",borderRadius:4,overflow:"hidden"}} title={`${state.value} caso(s)`}>
+                                    <div style={{height:"100%",width:`${percentage}%`,background:state.color,borderRadius:4,transition:"width 0.5s"}} />
+                                  </div>
+                                </div>;
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div style={{display:"flex",flexDirection:"column",gap:12}}>
                       {(proj.ciclos||[]).map(ciclo=>{
                         const ejecs=(ciclo.ejecuciones||[]).filter(e=>filteredTests.some(t=>t.id===e.tcId));
@@ -4490,6 +4923,7 @@ export default function App() {
                         const na=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="No aplica").length;
                         const bl=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Bloqueante").length;
                         const cp=ejecs.length?Math.round((ap/ejecs.length)*100):0;
+                        const cycleStatPct=value=>ejecs.length?Math.round((value/ejecs.length)*100):0;
                         const cc=cp>=70?"#27AE60":cp>=40?"#F39C12":"#E74C3C";
                         return(
                           <div key={ciclo.id} style={{border:`1px solid ${DM.cardBorder}`,borderRadius:10,overflow:"hidden"}}>
@@ -4498,6 +4932,7 @@ export default function App() {
                               <div style={{display:"flex",alignItems:"center",gap:10}}>
                                 <span style={{fontSize:13,fontWeight:800,color:"#fff"}}>{ciclo.nombre}</span>
                                 <span style={{fontSize:11,color:"rgba(255,255,255,0.75)"}}>📦 {ciclo.modulo}</span>
+                                {ciclo.asignadoA&&<span style={{fontSize:11,color:"rgba(255,255,255,0.75)"}}>👤 {ciclo.asignadoA}</span>}
                                 {ciclo.fechaInicio&&<span style={{fontSize:10,color:"rgba(255,255,255,0.6)"}}>📅 {ciclo.fechaInicio}{ciclo.fechaFin?` → ${ciclo.fechaFin}`:""}</span>}
                                 <span style={{fontSize:10,background:"rgba(255,255,255,0.2)",color:"#fff",padding:"2px 7px",borderRadius:8,fontWeight:700}}>{ejecs.length} TCs</span>
                               </div>
@@ -4515,12 +4950,15 @@ export default function App() {
                                   {[
                                     {label:"Aprobado",value:ap,color:"#27AE60"},
                                     {label:"En Progreso",value:ep,color:"#F39C12"},
+                                    {label:"Fallido",value:fa,color:"#E74C3C"},
                                     {label:"No ejecutado",value:ne,color:"#95A5A6"},
-                                  ].filter(s=>s.value>0).map(s=>(
+                                    {label:"No aplica",value:na,color:"#BDC3C7"},
+                                    {label:"Bloqueante",value:bl,color:"#8E44AD"},
+                                  ].map(s=>(
                                     <div key={s.label} style={{display:"flex",alignItems:"center",gap:5,background:s.color+"15",border:`1px solid ${s.color}30`,borderRadius:8,padding:"5px 10px"}}>
                                       <div style={{width:7,height:7,borderRadius:"50%",background:s.color}}/>
                                       <span style={{fontSize:11,color:DM.sub}}>{s.label}</span>
-                                      <span style={{fontSize:14,fontWeight:800,color:s.color}}>{s.value}</span>
+                                      <span style={{fontSize:14,fontWeight:800,color:s.color}}>{s.value} ({cycleStatPct(s.value)}%)</span>
                                     </div>
                                   ))}
                                 </div>
@@ -4596,14 +5034,8 @@ export default function App() {
                     {nivelesPruebaList.map(n=><option key={n} value={n}>{n==="Todos"?"Todos los niveles":n}</option>)}
                   </select>
                   {filterProceso!=="Todos"&&<button onClick={()=>setFilterProceso("Todos")} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#aaa"}}>✕ Módulo</button>}
-                  <div style={{display:"flex",alignItems:"center",gap:5}}>
-                    <span style={{fontSize:11,color:DM.sub}}>Ejec. desde</span>
-                    <input type="date" value={filterFechaDesde} onChange={e=>setFilterFechaDesde(e.target.value)} style={{...inputStyle,width:130,padding:"7px 10px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}/>
-                    <span style={{fontSize:11,color:DM.sub}}>hasta</span>
-                    <input type="date" value={filterFechaHasta} onChange={e=>setFilterFechaHasta(e.target.value)} style={{...inputStyle,width:130,padding:"7px 10px",background:darkMode?"#2C2C2E":"#fff",color:DM.text,border:darkMode?"1px solid #444":"1px solid #e0e0e0"}}/>
                     {(filterFechaDesde||filterFechaHasta)&&<button onClick={()=>{setFilterFechaDesde("");setFilterFechaHasta("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#aaa"}}>✕</button>}
                   </div>
-                </div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",padding:"10px 12px",borderRadius:10,background:darkMode?"#1a1f28":"#f7faff",border:`1px solid ${darkMode?"#2d3b4f":"#e3eeff"}`}}>
                   <span style={{fontSize:11,color:DM.sub,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>Selección masiva</span>
                   <span style={{fontSize:12,color:DM.text,fontWeight:700}}>{selectedVisibleCount}/{visibleTestIds.length} visibles</span>
@@ -4730,7 +5162,7 @@ export default function App() {
                   const fa=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Fallido").length;
                   const na=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="No aplica").length;
                   const bl=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)==="Bloqueante").length;
-                  const execPctC=ejecs.length?Math.round((aprobados/ejecs.length)*100):0;
+                  const cyclePct=value=>ejecs.length?Math.round((value/ejecs.length)*100):0;
                   // TCs disponibles para agregar (que no estén ya en este ciclo, filtrados por módulo del ciclo)
                   const tcsDisponibles=tests.filter(t=>!ejecs.find(e=>e.tcId===t.id)&&(!ciclo.modulo||t.proceso===ciclo.modulo));
                   const selectedForCycle=bulkTcSelection[ciclo.id]||[];
@@ -4746,10 +5178,9 @@ export default function App() {
                           {ciclo.descripcion&&<span style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontStyle:"italic"}}>"{ciclo.descripcion}"</span>}
                         </div>
                         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                          <div style={{width:80,height:5,background:"rgba(255,255,255,0.2)",borderRadius:3}}>
-                            <div style={{width:`${execPctC}%`,height:"100%",background:"#fff",borderRadius:3}}/>
-                          </div>
-                          <span style={{fontSize:13,fontWeight:800,color:"#fff"}}>{execPctC}%</span>
+                          <span style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.9)",background:"rgba(255,255,255,0.14)",padding:"5px 10px",borderRadius:7}}>
+                            👤 {ciclo.asignadoA||"Sin asignar"}
+                          </span>
                           {enProgreso>0&&(
                             <button onClick={()=>promoverFallidos(ciclo.id)}
                               style={{background:"#F39C12",border:"none",borderRadius:7,color:"#fff",padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>
@@ -4774,12 +5205,12 @@ export default function App() {
                       <div style={{padding:"12px 20px 10px",display:"flex",gap:8,flexWrap:"wrap",borderBottom:`1px solid ${DM.cardBorder}`,alignItems:"center"}}>
                         <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:999,background:darkMode?"#1f2937":"#eef2ff",border:`1px solid ${DM.cardBorder}`}}>
                           <span style={{fontSize:11,color:DM.sub,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.05em"}}>Total</span>
-                          <strong style={{color:DM.text,fontSize:13}}>{ejecs.length}</strong>
+                          <strong style={{color:DM.text,fontSize:13}}>{ejecs.length} ({ejecs.length ? 100 : 0}%)</strong>
                         </div>
-                        {[{l:"Aprobado",v:aprobados,c:"#27AE60"},{l:"En Progreso",v:enProgreso,c:"#F39C12"},{l:"Fallido",v:fa,c:"#E74C3C"},{l:"No ejecutado",v:noEjec,c:"#95A5A6"},{l:"Bloqueante",v:bl,c:"#8E44AD"}].filter(s=>s.v>0).map(s=>(
+                        {[{l:"Aprobado",v:aprobados,c:"#27AE60"},{l:"En Progreso",v:enProgreso,c:"#F39C12"},{l:"Fallido",v:fa,c:"#E74C3C"},{l:"No ejecutado",v:noEjec,c:"#95A5A6"},{l:"Bloqueante",v:bl,c:"#8E44AD"}].map(s=>(
                           <div key={s.l} style={{display:"flex",alignItems:"center",gap:6,background:s.c+"15",border:`1px solid ${s.c}30`,borderRadius:999,padding:"6px 10px"}}>
                             <div style={{width:7,height:7,borderRadius:"50%",background:s.c,boxShadow:`0 0 0 2px ${s.c}22`}}/>
-                            <span style={{fontSize:11,color:s.c,fontWeight:800}}>{s.v}</span>
+                            <span style={{fontSize:11,color:s.c,fontWeight:800}}>{s.v} ({cyclePct(s.v)}%)</span>
                             <span style={{fontSize:10,color:DM.sub,fontWeight:700}}>{s.l}</span>
                           </div>
                         ))}
@@ -4874,6 +5305,7 @@ export default function App() {
                       {ejecs.length>0?(
                         compactCycle ? (
                           <div style={{display:"flex",flexDirection:"column",gap:10,padding:"12px 12px 14px"}}>
+                            <div style={{fontSize:10,fontWeight:900,color:DM.sub,textTransform:"uppercase",letterSpacing:"0.08em",padding:"0 4px"}}>Casos de prueba asociados a este ciclo</div>
                             {ejecs.map((ejec)=>{
                               const tc=tests.find(t=>t.id===ejec.tcId);
                               if(!tc)return null;
@@ -4888,20 +5320,22 @@ export default function App() {
                                 <Fragment key={ejec.tcId}>
                                   <div style={{display:"grid",gridTemplateColumns:"90px minmax(0,1.7fr) minmax(110px,0.9fr) minmax(120px,1.2fr) 80px",gap:12,alignItems:"center",padding:"12px 14px",borderRadius:12,border:`1px solid ${DM.cardBorder}`,background:darkMode?"#171e2a":"#ffffff",boxShadow:darkMode?"0 3px 10px rgba(0,0,0,0.18)":"0 3px 10px rgba(15,23,42,0.04)",borderLeft:`4px solid ${generalSc.color}`}}>
                                     <div style={{fontWeight:900,color:proj.color,fontFamily:"monospace",fontSize:12}}>{tc.id}</div>
-                                    <div style={{minWidth:0}}>
+                                      <div style={{minWidth:0}}>
+                                      <div style={{fontSize:9,color:proj.color,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:3}}>Caso de prueba</div>
                                       <div style={{fontWeight:800,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",lineHeight:1.4,wordBreak:"break-word"}}>{tc.escenario}</div>
                                       <div style={{fontSize:10,color:DM.sub,marginTop:4}}>{tc.proceso || "Sin módulo"} · {tc.tipoPrueba || "Sin tipo"}</div>
                                     </div>
-                                    <div style={{display:"flex",justifyContent:"flex-start"}}><Badge label={generalState} color={generalSc.color} bg={generalSc.bg} /></div>
-                                    <div style={{fontSize:11,color:DM.sub,whiteSpace:"normal",lineHeight:1.45,wordBreak:"break-word"}}>{notaTexto.length>90 ? `${notaTexto.slice(0,90)}…` : notaTexto}</div>
+                                    <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-start"}}><span style={{fontSize:9,color:DM.sub,fontWeight:800,textTransform:"uppercase"}}>Ejecución en ciclo</span><Badge label={generalState} color={generalSc.color} bg={generalSc.bg} /></div>
+                                    <div style={{fontSize:11,color:DM.sub,whiteSpace:"normal",lineHeight:1.45,wordBreak:"break-word"}}><div style={{fontSize:9,color:DM.sub,fontWeight:800,textTransform:"uppercase",marginBottom:3}}>Novedad del ciclo</div>{notaTexto.length>90 ? `${notaTexto.slice(0,90)}…` : notaTexto}</div>
                                     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
-                                      <button onClick={()=>setExpandedCycleTcDetails(prev=>({...prev,[detailKey]:!isDetailOpen}))} style={{background:"transparent",border:"1px solid #4a5568",borderRadius:6,color:darkMode?"#dfe7f3":"#4b5563",padding:"3px 8px",cursor:"pointer",fontSize:10,fontWeight:800,minWidth:60}}>{isDetailOpen?"Ocultar":"Ver"}</button>
+                                      <button onClick={()=>setExpandedCycleTcDetails(prev=>({...prev,[detailKey]:!isDetailOpen}))} style={{background:"transparent",border:"1px solid #4a5568",borderRadius:6,color:darkMode?"#dfe7f3":"#4b5563",padding:"3px 8px",cursor:"pointer",fontSize:10,fontWeight:800,minWidth:60}}>{isDetailOpen?"Ocultar detalle":"Ver caso de prueba"}</button>
                                       <button onClick={()=>setObservationTarget({type:"cycle", cicloId:ciclo.id, tcId:tc.id, tc, initialText: ejec.nota || ""})} title="Agregar novedad u observación" style={{background:"transparent",border:"1px solid #d9e2ef",borderRadius:6,color:BRAND,padding:"3px 6px",cursor:"pointer",fontSize:10,fontWeight:800,minWidth:34}}>📝</button>
                                     </div>
                                   </div>
 
                                   {isDetailOpen && (
                                     <div style={{marginTop:8,padding:"0 4px 4px",display:"flex",flexDirection:"column",gap:10}}>
+                                      <div style={{fontSize:11,fontWeight:900,color:proj.color,textTransform:"uppercase",letterSpacing:"0.07em",padding:"8px 10px",borderRadius:8,background:darkMode?"#172536":"#eef5ff",border:`1px solid ${darkMode?"#29415b":"#dbeaff"}`}}>Detalle del caso de prueba asociado</div>
                                       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8,padding:"12px 14px",borderRadius:10,border:`1px solid ${DM.cardBorder}`,background:darkMode?"#121b27":"#f9fbff"}}>
                                         {[
                                           ["Módulo", tc.proceso || "—"],
@@ -4927,6 +5361,7 @@ export default function App() {
                                         <div style={{fontSize:12,color:darkMode?"#dfe7f3":"#374151",whiteSpace:"pre-wrap",lineHeight:1.5}}>{tc.resultado || "—"}</div>
                                       </div>
 
+                                      <div style={{fontSize:11,fontWeight:900,color:"#F39C12",textTransform:"uppercase",letterSpacing:"0.07em",padding:"8px 10px",borderRadius:8,background:darkMode?"#2a2418":"#fff8e8",border:"1px solid #F39C1240"}}>Ejecución de este caso dentro del ciclo</div>
                                       <div style={{padding:"12px 14px",borderRadius:10,border:`1px solid ${DM.cardBorder}`,background:darkMode?"#121b27":"#f9fbff"}}>
                                         <div style={{fontSize:9.5,color:DM.sub,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Estado de Ejecución</div>
                                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
@@ -5032,7 +5467,7 @@ export default function App() {
                                           <Badge label={generalState} color={generalSc.color} bg={generalSc.bg} />
                                         </div>
                                         <div style={{marginTop:8}}>
-                                          <button onClick={()=>setExpandedCycleTcDetails(prev=>({...prev,[detailKey]:!isDetailOpen}))} style={{background:"transparent",border:"1px solid #4a5568",borderRadius:6,color:darkMode?"#dfe7f3":"#4b5563",padding:"3px 8px",cursor:"pointer",fontSize:10,fontWeight:800}}>{isDetailOpen?"Ocultar detalle":"Ver detalle"}</button>
+                                          <button onClick={()=>setExpandedCycleTcDetails(prev=>({...prev,[detailKey]:!isDetailOpen}))} style={{background:"transparent",border:"1px solid #4a5568",borderRadius:6,color:darkMode?"#dfe7f3":"#4b5563",padding:"3px 8px",cursor:"pointer",fontSize:10,fontWeight:800}}>{isDetailOpen?"Ocultar detalle":"Ver detalle del caso"}</button>
                                         </div>
                                       </td>
                                       <td style={{padding:"8px 10px",fontWeight:700,color:darkMode?"#f4f7fb":DM.text,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.5,minWidth:520,letterSpacing:"0.02px",background:darkMode?"#202b3b":"#f7faff",borderRadius:6,border:darkMode?"1px solid #32445a":"1px solid #e8f0ff",verticalAlign:"top"}}>
@@ -5043,6 +5478,7 @@ export default function App() {
                                         </div>
                                         {isDetailOpen ? (
                                           <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>
+                                            <div style={{fontSize:11,fontWeight:900,color:proj.color,textTransform:"uppercase",letterSpacing:"0.07em",padding:"8px 10px",borderRadius:8,background:darkMode?"#172536":"#eef5ff",border:`1px solid ${darkMode?"#29415b":"#dbeaff"}`}}>Información del caso de prueba</div>
                                             <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:8}}>
                                               {[
                                                 ["Módulo", tc.proceso || "—"],
@@ -5066,7 +5502,7 @@ export default function App() {
 
                                             <div style={{borderRadius:12,padding:"12px 14px",background:darkMode?"#171e2a":"#ffffff",border:`1px solid ${DM.cardBorder}`}}>
                                               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:8}}>
-                                                <div style={{fontSize:9.5,color:DM.sub,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em"}}>Pasos</div>
+                                                <div style={{fontSize:9.5,color:DM.sub,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em"}}>Pasos definidos en el caso</div>
                                                 <span style={{fontSize:10,color:DM.sub,fontWeight:700}}>{parsedSteps.length} paso(s)</span>
                                               </div>
                                               <div style={{display:"flex",flexDirection:"column",gap:7}}>
@@ -5092,6 +5528,7 @@ export default function App() {
                                               <div style={{fontSize:12,color:darkMode?"#dfe7f3":"#374151",whiteSpace:"pre-wrap",lineHeight:1.65}}>{tc.resultado || "—"}</div>
                                             </div>
 
+                                            <div style={{fontSize:11,fontWeight:900,color:"#F39C12",textTransform:"uppercase",letterSpacing:"0.07em",padding:"8px 10px",borderRadius:8,background:darkMode?"#2a2418":"#fff8e8",border:"1px solid #F39C1240"}}>Ejecución de este caso en el ciclo</div>
                                             <div style={{borderRadius:12,padding:"12px 14px",background:darkMode?"#171e2a":"#ffffff",border:`1px solid ${DM.cardBorder}`}}>
                                               <div style={{fontSize:9.5,color:DM.sub,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Estado de Ejecución</div>
                                               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
@@ -5372,7 +5809,7 @@ export default function App() {
 
       {/* ── MODALS ── */}
       {showJira&&<JiraModal onImport={handleJiraImport} onClose={()=>setShowJira(false)} existingTests={tests} darkMode={darkMode}/>}
-      {showCicloForm&&<CicloFormModal initial={editCiclo} cicloId={editCiclo?.nombre} modulosList={[...new Set([...(proj?.modules||[]),...tests.map(t=>t.proceso).filter(Boolean)])]} onSave={saveCiclo} onClose={()=>{setShowCicloForm(false);setEditCiclo(null);}} darkMode={darkMode}/>}
+      {showCicloForm&&<CicloFormModal initial={editCiclo} cicloId={editCiclo?.nombre} modulosList={[...new Set([...(proj?.modules||[]),...tests.map(t=>t.proceso).filter(Boolean)])]} teamMembers={getScrumTeamMembers(proj)} onSave={saveCiclo} onClose={()=>{setShowCicloForm(false);setEditCiclo(null);}} darkMode={darkMode}/>} 
       {showProjForm&&<ProjectFormModal initial={editProj} onSave={saveProject} onClose={()=>{setShowProjForm(false);setEditProj(null);}} darkMode={darkMode}/>}
       {showTcForm&&<TcFormModal initial={editTc} tcId={editTc?.id} onSave={saveTC} onClose={()=>{setShowTcForm(false);setEditTc(null);}} darkMode={darkMode} project={proj}/>}
       {observationTarget&&<ObservationModal tc={observationTarget.tc} initialText={observationTarget.initialText || ""} darkMode={darkMode}
