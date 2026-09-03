@@ -2365,7 +2365,7 @@ function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDel
   // always dark inside this modal
   const IS={...inputStyleDark,background:"#1a2535",border:"1px solid #2a3a4a",color:"#e2e8f0",borderRadius:8};
   const SEL={...IS,appearance:"auto"};
-  const isEdit=!!initial;
+  const isEdit=!!issueId;
   return (
     <Modal onClose={onClose} wide preventOutsideClose dark>
       <ModalHeader title={isEdit?"Editar issue":"Registrar issue"} sub="Registra la novedad encontrada" onClose={onClose} dark/>
@@ -3513,6 +3513,13 @@ export default function App() {
     }));
   }
 
+  function moveIssueToStatus(issueId, estado){
+    setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{
+      ...p,
+      issues:(p.issues||[]).map(issue=>issue.id===issueId?{...issue,estado}:issue),
+    }));
+  }
+
   // Issue CRUD
   function saveIssue(form){
     const manualLog = String(form?.bitacoraNota || "").trim();
@@ -3537,7 +3544,7 @@ export default function App() {
       
       setProjects(ps=>ps.map(p=>{
         if(p.id!==activeProjectId)return p;
-        if(editIssue){
+        if(editIssue?.id){
           return{
             ...p,
             issues:p.issues.map(i=>{
@@ -5124,7 +5131,7 @@ export default function App() {
                                             <div style={{borderRadius:12,padding:"12px 14px",background:darkMode?"#171e2a":"#ffffff",border:`1px solid ${DM.cardBorder}`}}>
                                               <div style={{fontSize:9.5,color:DM.sub,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Adjuntar documento o imagen</div>
                                               <AttachmentZone attachments={tc.attachments||[]} onChange={next=>updateTcAttachments(tc.id,next)} />
-                                              <button onClick={()=>{setEditIssue({...EMPTY_ISSUE,testId:tc.id,escenario:tc.escenario,modulo:tc.area||tc.proceso,attachments:tc.attachments||[]});setShowIssueForm(true);}} style={{marginTop:12,background:"#F5B041",color:"#1E1E1E",border:"none",borderRadius:7,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",width:"100%"}}>📋 Reportar Issue desde este TC</button>
+                                              <button onClick={()=>{setEditIssue({...EMPTY_ISSUE,testId:tc.id,escenario:tc.escenario,modulo:tc.area||tc.proceso,attachments:tc.attachments||[]});setShowIssueForm(true);}} style={{marginTop:12,background:"#F5B041",color:"#1E1E1E",border:"none",borderRadius:7,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",width:"100%"}}>📋 Agregar issue a este TC</button>
                                             </div>
                                           </div>
                                         ) : null}
@@ -5288,7 +5295,10 @@ export default function App() {
                                 </td>
                                 <td style={{padding:"10px 13px",color:proj.color,whiteSpace:"nowrap",fontWeight:600,fontSize:12}}>{issue.fechaCreacion||"—"}</td>
                                 <td style={{padding:"10px 13px",whiteSpace:"nowrap"}}>
-                                  <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setEditIssue(issue);setShowIssueForm(true);}}>Editar</Btn>
+                                  <div style={{display:"flex",gap:6}}>
+                                    <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setEditIssue(issue);setShowIssueForm(true);}}>Editar</Btn>
+                                    <Btn small onClick={e=>{e.stopPropagation();setEditIssue({...EMPTY_ISSUE,testId:issue.testId,escenario:issue.escenario,modulo:issue.modulo,attachments:issue.attachments||[]});setShowIssueForm(true);}}>Otro issue</Btn>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -5306,7 +5316,14 @@ export default function App() {
                         const cards = filteredIssues.filter(issue=>issue.estado===status);
                         const sc = issueStatusConfig[status] || { color: DM.sub, bg: DM.card };
                         return (
-                          <div key={status} style={{background:darkMode?"#141b26":"#f0f2f5",border:`1px solid ${DM.cardBorder}`,borderRadius:10,padding:"10px 8px",minHeight:240}}>
+                          <div key={status}
+                            onDragOver={e=>e.preventDefault()}
+                            onDrop={e=>{
+                              e.preventDefault();
+                              const issueId=Number(e.dataTransfer.getData("text/plain"));
+                              if(Number.isFinite(issueId)) moveIssueToStatus(issueId,status);
+                            }}
+                            style={{background:darkMode?"#141b26":"#f0f2f5",border:`1px solid ${DM.cardBorder}`,borderRadius:10,padding:"10px 8px",minHeight:240}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:8,borderBottom:`1px solid ${DM.cardBorder}`}}>
                               <div style={{fontSize:11,fontWeight:800,color:darkMode?"#8a9bb0":"#555",textTransform:"uppercase",letterSpacing:"0.08em"}}>{status}</div>
                               <span style={{fontSize:11,fontWeight:800,color:sc.color,background:darkMode?"#1e2a3a":"#e8edf4",borderRadius:999,padding:"1px 8px",minWidth:20,textAlign:"center"}}>{cards.length}</span>
@@ -5316,12 +5333,18 @@ export default function App() {
                               {cards.map(issue=>{
                                 const firstImg=(issue.attachments||[]).find(a=>a.type&&a.type.startsWith("image/"));
                                 return (
-                                  <div key={issue.id} onClick={()=>{setEditIssue(issue);setShowIssueForm(true);}} style={{border:`1px solid ${DM.cardBorder}`,borderLeft:`4px solid ${sc.color}`,borderRadius:8,overflow:"hidden",background:darkMode?"#1a2535":"#fff",cursor:"pointer",transition:"box-shadow 0.15s"}}
+                                  <div key={issue.id} draggable
+                                    onDragStart={e=>{
+                                      e.stopPropagation();
+                                      e.dataTransfer.setData("text/plain",String(issue.id));
+                                      e.dataTransfer.effectAllowed="move";
+                                    }}
+                                    onClick={()=>{setEditIssue(issue);setShowIssueForm(true);}} style={{border:`1px solid ${DM.cardBorder}`,borderLeft:`4px solid ${sc.color}`,borderRadius:8,overflow:"hidden",background:darkMode?"#1a2535":"#fff",cursor:"grab",transition:"box-shadow 0.15s"}}
                                     onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 18px #0003"}
                                     onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
                                     {firstImg && (
                                       <img src={firstImg.data} alt="evidencia" onClick={e=>{e.stopPropagation();setPreviewImg(firstImg.data);}}
-                                        style={{width:"100%",height:110,objectFit:"cover",display:"block",cursor:"zoom-in"}}/>
+                                        style={{width:"100%",height:64,objectFit:"cover",display:"block",cursor:"zoom-in"}}/>
                                     )}
                                     <div style={{padding:"8px 10px"}}>
                                       <div style={{fontSize:11,fontWeight:800,color:proj.color,marginBottom:4,letterSpacing:"0.03em"}}>{issue.testId||"—"}</div>
