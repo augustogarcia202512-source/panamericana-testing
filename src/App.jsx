@@ -37,7 +37,7 @@ const issueStatusLabel = {
 const severityConfig = { "Critical": "#C0392B", "High": "#E74C3C", "Medium": "#F39C12", "Low": "#27AE60" };
 const COLORS = ["#C0392B", "#2980B9", "#16A085", "#8E44AD", "#D35400", "#2C3E50", "#27AE60", "#F39C12"];
 const EMPTY_TC = { area: "", precondiciones: "", proceso: "", escenario: "", descripcion: "", pasos: "", resultado: "", fechaAprobacion: "", fechaEjecucion: "", estado: "Borrador", asignadoRol: "QA / Pruebas", asignadoA: "", tipoPrueba: "", nivelPrueba: "", attachments: [], historial: [], comentarios: [] };
-const EMPTY_ISSUE = { testId: "", escenario: "", formulario: "", observacion: "", modulo: "", estado: "Open", severidad: "Medium", prioridad: "Medium", fechaCreacion: "", fechaSolucion: "", asignadoA: "", attachments: [], bitacora: [] };
+const EMPTY_ISSUE = { testId: "", escenario: "", formulario: "", observacion: "", modulo: "", estado: "Open", severidad: "Medium", prioridad: "Medium", fechaCreacion: "", fechaSolucion: "", asignadoA: "", ultimaNotaValidacion: "", attachments: [], bitacora: [] };
 const EMPTY_CICLO = { nombre: "", modulo: "", fechaInicio: "", fechaFin: "", descripcion: "", asignadoA: "", ejecuciones: [] };
 const EMPTY_PROJECT = { name: "", description: "", color: COLORS[0], modules: [], risks: [], scrumTeam: { productOwner: "", scrumMaster: "", developers: [], qa: [] }, scrumTestTypes: ["Funcionales", "Regresión", "Integración", "Aceptación"], scrumLevels: ["Unitarias", "Integración", "Sistema", "Aceptación", "Regresión"] };
 const DEFAULT_ESTIMATIONS = [
@@ -258,6 +258,30 @@ function issueBitacoraSummary(issue) {
   const latest = bitacora[bitacora.length - 1];
   if (!latest) return "";
   return `${latest.fecha || today()} - ${latest.detalle}`;
+}
+
+function issueLatestNote(issue) {
+  const bitacora = normalizeIssueBitacora(issue?.bitacora, issue);
+  const latestNote = [...bitacora].reverse().find(entry => entry.tipo === "nota");
+  return latestNote?.detalle || issue?.ultimaNotaValidacion || issue?.bitacoraNota || "";
+}
+
+function issueValidationNotes(issue) {
+  const notes = normalizeIssueBitacora(issue?.bitacora, issue).filter(entry => entry.tipo === "nota");
+  if (!notes.length && (issue?.ultimaNotaValidacion || issue?.bitacoraNota)) {
+    return [{ fecha: issue.fechaSolucion || issue.fechaCreacion || today(), estado: issue.estado || "Open", tipo: "nota", detalle: issue.ultimaNotaValidacion || issue.bitacoraNota }];
+  }
+  return notes;
+}
+
+function issueValidationNotesWithIndex(issue) {
+  return normalizeIssueBitacora(issue?.bitacora, issue)
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => entry.tipo === "nota");
+}
+
+function issueValidationNotesSummary(issue) {
+  return issueValidationNotes(issue).map(entry => `${entry.fecha || today()} - ${entry.detalle}`).join(" | ");
 }
 
 function SuggestionInput({ value, onChange, options = [], placeholder, darkMode }) {
@@ -1510,15 +1534,15 @@ function Semaforo({pct}) {
 
 // ─── EXPORT XLSX ──────────────────────────────────────────────────────────────
 function exportToCSV(proj, tests = proj.tests) {
-  const headers = ["ID","Área","Proceso","Escenario","Descripción","Pasos","Resultado Esperado","Asignado A","Fecha Aprobación","Fecha Ejecución","Estado"];
+  const headers = ["ID del caso de prueba","Área","Módulo o proceso","Escenario","Descripción","Pasos","Resultado esperado","Persona asignada","Fecha de aprobación","Fecha de ejecución","Estado"];
   const rows = tests.map(t=>[t.id,t.area,t.proceso,t.escenario,t.descripcion,t.pasos?.replace(/\n/g," | "),t.resultado,t.asignadoA||"",t.fechaAprobacion,t.fechaEjecucion,t.estado]);
   const csv = [headers,...rows].map(r=>r.map(c=>`"${(c||"").toString().replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${proj.name}_TCs.csv`;a.click();
 }
 function exportIssuesToCSV(proj, issuesList = proj.issues) {
-  const headers = ["ID","TC","Escenario","Descripción de la novedad","Módulo","Observación","Estado","Severidad","Prioridad","Fecha Creación","Última actualización bitácora"];
-  const rows = issuesList.map(i=>[i.id,i.testId,i.escenario,i.formulario,i.modulo,i.observacion,i.estado,i.severidad,i.prioridad,i.fechaCreacion,issueBitacoraSummary(i)]);
+  const headers = ["ID del issue","ID del caso de prueba","Escenario o formulario","Descripción de la novedad","Módulo","Observación","Estado","Severidad","Prioridad","Fecha de registro","Fecha de cierre","Seguimiento de validaciones","Última actualización de bitácora"];
+  const rows = issuesList.map(i=>[i.id,i.testId,i.escenario,i.formulario,i.modulo,i.observacion,i.estado,i.severidad,i.prioridad,i.fechaCreacion,i.fechaSolucion,issueValidationNotesSummary(i),issueBitacoraSummary(i)]);
   const csv = [headers,...rows].map(r=>r.map(c=>`"${(c||"").toString().replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${proj.name}_Issues.csv`;a.click();
@@ -2422,6 +2446,9 @@ function TcFormModal({initial,tcId,onSave,onClose,darkMode,project}) {
 
 function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDelete,darkMode}) {
   const [form,setForm]=useState({ ...EMPTY_ISSUE, ...(initial||{}), fechaCreacion: initial?.fechaCreacion || today(), fechaSolucion: initial?.fechaSolucion || "", bitacoraNota: "", asignadoA: initial?.asignadoA || "" });
+  const validationHistory = issueValidationNotesWithIndex(initial);
+  const [editingValidationIndex,setEditingValidationIndex]=useState(null);
+  const [validationDraft,setValidationDraft]=useState("");
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   // always dark inside this modal
   const IS={...inputStyleDark,background:"#1a2535",border:"1px solid #2a3a4a",color:"#e2e8f0",borderRadius:8};
@@ -2509,9 +2536,50 @@ function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDel
             <input style={{...IS,minHeight:44}} value={form.asignadoA||""} onChange={e=>set("asignadoA",e.target.value)} placeholder="Nombre"/>
           </Field>
         </div>
-        <Field label="SOLUCIÓN / NOTAS">
-          <textarea style={{...IS,minHeight:90,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.bitacoraNota||""} onChange={e=>set("bitacoraNota",e.target.value)} placeholder="Opcional"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <Field label="FECHA DE REGISTRO">
+            <input type="date" style={{...IS,minHeight:44}} value={toInputDate(form.fechaCreacion)} onChange={e=>set("fechaCreacion",toDisplayDate(e.target.value))}/>
+          </Field>
+          <Field label="FECHA DE CIERRE">
+            <input type="date" style={{...IS,minHeight:44}} value={toInputDate(form.fechaSolucion)} onChange={e=>set("fechaSolucion",toDisplayDate(e.target.value))}/>
+          </Field>
+        </div>
+        <Field label="NUEVA NOTA DE VALIDACIÓN">
+          <div style={{fontSize:11,color:"#8a9bb0",marginBottom:6}}>Cada vez que guardes una nota se agregará al seguimiento con la fecha de hoy.</div>
+          <textarea style={{...IS,minHeight:90,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} value={form.bitacoraNota||""} onChange={e=>set("bitacoraNota",e.target.value)} placeholder="Describe lo encontrado durante esta validación..."/>
         </Field>
+        {(isEdit || form.bitacoraNota.trim()) && (
+          <div style={{background:"#121b27",border:"1px solid #2a3a4a",borderRadius:8,padding:"12px 14px"}}>
+            <div style={{fontSize:10,color:"#8a9bb0",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:800,marginBottom:8}}>Historial de validaciones</div>
+            <div style={{display:"flex",flexDirection:"column",gap:7,maxHeight:180,overflowY:"auto"}}>
+              {validationHistory.map(({entry,index})=>(
+                <div key={`${entry.fecha}-${index}`} style={{borderLeft:"3px solid #F5B041",padding:"7px 10px",background:"#1a2535",borderRadius:6}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                    <div style={{fontSize:10,color:"#F5B041",fontWeight:800,marginBottom:2}}>Validación · {entry.fecha||"Sin fecha"}</div>
+                    <div style={{display:"flex",gap:5}}>
+                      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>{setValidationDraft(entry.detalle);setEditingValidationIndex(index);}} title="Editar nota de validación" aria-label="Editar nota de validación" style={{border:"none",background:"transparent",color:"#7ab3e0",cursor:"pointer",fontSize:13,lineHeight:1,padding:2}}>✏️</button>
+                      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>{if(window.confirm("¿Eliminar esta nota de validación?")){onSave({...form,bitacoraDeleteIndex:index});}}} title="Eliminar nota de validación" aria-label="Eliminar nota de validación" style={{border:"none",background:"transparent",color:"#E74C3C",cursor:"pointer",fontSize:13,lineHeight:1,padding:2}}>🗑️</button>
+                    </div>
+                  </div>
+                  {editingValidationIndex===index ? (
+                    <div>
+                      <textarea autoFocus value={validationDraft} onChange={e=>setValidationDraft(e.target.value)} style={{...IS,minHeight:70,resize:"vertical",whiteSpace:"pre-wrap",overflowWrap:"anywhere",fontSize:12}} />
+                      <div style={{display:"flex",justifyContent:"flex-end",gap:6,marginTop:6}}>
+                        <button type="button" onClick={()=>{setEditingValidationIndex(null);setValidationDraft("");}} style={{border:"1px solid #4a5568",background:"transparent",color:"#8a9bb0",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:10,fontWeight:700}}>Cancelar</button>
+                        <button type="button" onClick={()=>{if(!validationDraft.trim())return;onSave({...form,bitacoraNota:validationDraft.trim(),bitacoraEditIndex:index});}} style={{border:"none",background:"#F5B041",color:"#1a1a1a",borderRadius:6,padding:"4px 9px",cursor:"pointer",fontSize:10,fontWeight:800}}>Guardar nota</button>
+                      </div>
+                    </div>
+                  ) : <div style={{fontSize:12,color:"#c8d8e8",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{entry.detalle}</div>}
+                </div>
+              ))}
+              {form.bitacoraNota.trim() && <div style={{borderLeft:"3px solid #3498DB",padding:"7px 10px",background:"#1a2535",borderRadius:6}}>
+                <div style={{fontSize:10,color:"#3498DB",fontWeight:800,marginBottom:2}}>Nueva validación · pendiente de guardar</div>
+                <div style={{fontSize:12,color:"#c8d8e8",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{form.bitacoraNota}</div>
+              </div>}
+              {!validationHistory.length && !form.bitacoraNota.trim() && <div style={{fontSize:12,color:"#8a9bb0"}}>Sin validaciones registradas todavía.</div>}
+            </div>
+          </div>
+        )}
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:18}}>
         <div>
@@ -2521,7 +2589,7 @@ function IssueFormModal({initial,issueId,tests,proj,testIds,onSave,onClose,onDel
         </div>
         <div style={{display:"flex",gap:10}}>
           <button onClick={onClose} style={{background:"transparent",border:"1.5px solid #4a5568",color:"#8a9bb0",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Cancelar</button>
-          <button onClick={()=>{if(!form.observacion.trim())return alert("La observaci\u00f3n es requerida");onSave(form);}} style={{background:"#F5B041",border:"none",color:"#1a1a1a",borderRadius:8,padding:"9px 20px",fontSize:13,fontWeight:800,cursor:"pointer"}}>{isEdit?"Guardar cambios":"Guardar issue"}</button>
+          <button onClick={()=>{if(!form.observacion.trim())return alert("La observaci\u00f3n es requerida");onSave({...form,bitacoraEditIndex:editingValidationIndex});}} style={{background:"#F5B041",border:"none",color:"#1a1a1a",borderRadius:8,padding:"9px 20px",fontSize:13,fontWeight:800,cursor:"pointer"}}>{editingValidationIndex!==null?"Guardar nota editada":isEdit?"Guardar cambios":"Guardar issue"}</button>
         </div>
       </div>
     </Modal>
@@ -2657,7 +2725,8 @@ function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
         {[["STATUS",<span style={{fontSize:12,fontWeight:800,color:sc.color,border:`1.5px solid ${sc.color}`,borderRadius:5,padding:"2px 9px",letterSpacing:"0.07em",textTransform:"uppercase"}}>{issue.estado}</span>],
           ["SEVERITY",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.severidad||"—"}</span>],
           ["PRIORITY",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.prioridad||"—"}</span>],
-          ["FECHA",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.fechaCreacion||"—"}</span>],
+          ["FECHA REGISTRO",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.fechaCreacion||"—"}</span>],
+          ["FECHA CIERRE",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.fechaSolucion||"—"}</span>],
           ["ASIGNADO A",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.asignadoA||"—"}</span>],
           ["MÓDULO",<span style={{color:"#e2e8f0",fontWeight:600}}>{issue.modulo||"—"}</span>],
         ].map(([l,v])=>(
@@ -2671,10 +2740,17 @@ function IssueDetailModal({issue,onClose,onEdit,onDelete}) {
         <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>OBSERVACIÓN</div>
         <div style={{background:"#1a2535",borderRadius:8,padding:14,fontSize:13,color:"#c8d8e8",lineHeight:1.8,border:"1px solid #2a3a4a",borderLeft:"3px solid #F5B041"}}>{issue.observacion||"—"}</div>
       </div>
-      {issue.bitacoraNota&&(
+      {issueValidationNotes(issue).length>0&&(
         <div style={{marginBottom:14}}>
-          <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>SOLUCIÓN / NOTAS</div>
-          <div style={{background:"#1a2535",borderRadius:8,padding:14,fontSize:13,color:"#c8d8e8",lineHeight:1.7,border:"1px solid #2a3a4a"}}>{issue.bitacoraNota}</div>
+          <div style={{fontSize:10,color:"#5a7a9a",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>SEGUIMIENTO DE VALIDACIONES</div>
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            {issueValidationNotes(issue).map((entry,index)=>(
+              <div key={`${entry.fecha}-${index}`} style={{background:"#1a2535",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#c8d8e8",lineHeight:1.7,border:"1px solid #2a3a4a",borderLeft:"3px solid #F5B041"}}>
+                <div style={{fontSize:10,color:"#F5B041",fontWeight:800,marginBottom:3}}>Validación · {entry.fecha||"Sin fecha"}</div>
+                <div>{entry.detalle}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
       {(issue.attachments||[]).length>1&&(
@@ -3723,8 +3799,12 @@ export default function App() {
   // Issue CRUD
   function saveIssue(form){
     const manualLog = String(form?.bitacoraNota || "").trim();
+    const bitacoraEditIndex = Number.isInteger(form?.bitacoraEditIndex) ? form.bitacoraEditIndex : null;
+    const bitacoraDeleteIndex = Number.isInteger(form?.bitacoraDeleteIndex) ? form.bitacoraDeleteIndex : null;
     const cleanedForm = { ...form };
     delete cleanedForm.bitacoraNota;
+    delete cleanedForm.bitacoraEditIndex;
+    delete cleanedForm.bitacoraDeleteIndex;
     
     // Compress images only if localStorage is getting too large
     Promise.all(
@@ -3749,23 +3829,32 @@ export default function App() {
             ...p,
             issues:p.issues.map(i=>{
               if(i.id!==editIssue.id) return i;
-              const nextIssue = { ...i, ...cleanedForm };
+              const nextIssue = { ...i, ...cleanedForm, ultimaNotaValidacion: manualLog || i.ultimaNotaValidacion || "", bitacoraNota: manualLog || i.bitacoraNota || "" };
               const nextBitacora = [...normalizeIssueBitacora(i.bitacora, i)];
+              if (bitacoraDeleteIndex !== null && nextBitacora[bitacoraDeleteIndex]?.tipo === "nota") {
+                nextBitacora.splice(bitacoraDeleteIndex, 1);
+                const remainingNote = [...nextBitacora].reverse().find(entry => entry.tipo === "nota")?.detalle || "";
+                return { ...nextIssue, ultimaNotaValidacion: remainingNote, bitacoraNota: remainingNote, bitacora: nextBitacora };
+              }
               const changes = summarizeIssueChanges(i, nextIssue);
               if (changes) {
                 const autoEntry = buildIssueLogEntry(changes, nextIssue.estado || "Open");
                 if (autoEntry) nextBitacora.push(autoEntry);
               }
               if (manualLog) {
-                const noteEntry = buildIssueLogEntry(manualLog, nextIssue.estado || "Open", today(), "nota");
-                if (noteEntry) nextBitacora.push(noteEntry);
+                if (bitacoraEditIndex !== null && nextBitacora[bitacoraEditIndex]?.tipo === "nota") {
+                  nextBitacora[bitacoraEditIndex] = { ...nextBitacora[bitacoraEditIndex], detalle: manualLog };
+                } else {
+                  const noteEntry = buildIssueLogEntry(manualLog, nextIssue.estado || "Open", today(), "nota");
+                  if (noteEntry) nextBitacora.push(noteEntry);
+                }
               }
               return { ...nextIssue, bitacora: nextBitacora };
             })
           };
         }
         const newId=(p.issues.length?Math.max(...p.issues.map(i=>i.id)):0)+1;
-        const createdIssue = { id:newId, ...cleanedForm, fechaCreacion: cleanedForm.fechaCreacion || today(), attachments: cleanedForm.attachments||[] };
+        const createdIssue = { id:newId, ...cleanedForm, ultimaNotaValidacion: manualLog, bitacoraNota: manualLog, fechaCreacion: cleanedForm.fechaCreacion || today(), attachments: cleanedForm.attachments||[] };
         const initialBitacora = normalizeIssueBitacora(cleanedForm.bitacora, createdIssue);
         if (manualLog) {
           const noteEntry = buildIssueLogEntry(manualLog, createdIssue.estado || "Open", today(), "nota");
@@ -3774,6 +3863,8 @@ export default function App() {
         return{...p,issues:[...p.issues,{...createdIssue,bitacora:initialBitacora}]};
       }));
       setShowIssueForm(false);setEditIssue(null);setViewIssue(null);
+    }).catch(() => {
+      alert("No fue posible guardar el issue. Intenta nuevamente.");
     });
   }
   function deleteIssue(id){setProjects(ps=>ps.map(p=>p.id!==activeProjectId?p:{...p,issues:p.issues.filter(i=>i.id!==id)}));setViewIssue(null);setConfirmDelete(null);}
@@ -5699,7 +5790,7 @@ export default function App() {
                       <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                         <thead>
                           <tr style={{background:darkMode?"#1a2535":"#1e2a3a",color:"#8a9bb0"}}>
-                            {['TEST ID','FORMULARIO','OBSERVACIÓN','EVIDENCIA','SEVERITY','PRIORITY','STATUS','FECHA',''].map(h=>(
+                            {['TEST ID','FORMULARIO','OBSERVACIÓN','EVIDENCIA','SEVERITY','PRIORITY','STATUS','FECHA REGISTRO','FECHA CIERRE','ÚLTIMA VALIDACIÓN',''].map(h=>(
                               <th key={h} style={{padding:"11px 13px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.07em",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:`1px solid ${DM.cardBorder}`}}>{h}</th>
                             ))}
                           </tr>
@@ -5711,6 +5802,7 @@ export default function App() {
                             const firstImg=(issue.attachments||[]).find(a=>a.type&&a.type.startsWith("image/"));
                             return (
                               <tr key={issue.id} draggable
+                                onClick={()=>setViewIssue(issue)}
                                 onDragStart={()=>{dragIssueIndex.current=realIndex;}}
                                 onDragOver={e=>{e.preventDefault();dragOverIssueIndex.current=realIndex;}}
                                 onDrop={()=>{if(dragIssueIndex.current!==null&&dragOverIssueIndex.current!==dragIssueIndex.current)reorderIssues(dragIssueIndex.current,dragOverIssueIndex.current);dragIssueIndex.current=null;dragOverIssueIndex.current=null;}}
@@ -5731,6 +5823,10 @@ export default function App() {
                                   <span style={{fontSize:11,fontWeight:800,color:sc.color,border:`1.5px solid ${sc.color}`,borderRadius:5,padding:"2px 9px",letterSpacing:"0.07em",textTransform:"uppercase",background:"transparent"}}>{issue.estado}</span>
                                 </td>
                                 <td style={{padding:"10px 13px",color:proj.color,whiteSpace:"nowrap",fontWeight:600,fontSize:12}}>{issue.fechaCreacion||"—"}</td>
+                                <td style={{padding:"10px 13px",color:proj.color,whiteSpace:"nowrap",fontWeight:600,fontSize:12}}>{issue.fechaSolucion||"—"}</td>
+                                <td style={{padding:"10px 13px",color:DM.sub,maxWidth:220,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.35,fontSize:11}}>
+                                  {issueLatestNote(issue) ? <><strong style={{color:DM.text}}>{issueValidationNotes(issue).slice(-1)[0]?.fecha||""}</strong> · {issueLatestNote(issue)}</> : "—"}
+                                </td>
                                 <td style={{padding:"10px 13px",whiteSpace:"nowrap"}}>
                                   <div style={{display:"flex",gap:6}}>
                                     <Btn small variant="ghost" onClick={e=>{e.stopPropagation();setEditIssue(issue);setShowIssueForm(true);}}>Editar</Btn>
