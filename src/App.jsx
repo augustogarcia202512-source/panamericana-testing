@@ -3297,6 +3297,7 @@ export default function App() {
   const dragOverIndex=useRef(null);
   const dragIssueIndex=useRef(null);
   const dragOverIssueIndex=useRef(null);
+  const draggedCycleTc=useRef(null);
   const importRef=useRef();
 
   useEffect(()=>{try{localStorage.setItem("pana_projects",JSON.stringify(projects));const mb=parseFloat(storageUsedMB());setStorageWarn(mb>3.5);}catch{};},[projects]);
@@ -3911,9 +3912,14 @@ export default function App() {
   function updateEjecucionEstado(cicloId, tcId, estado, nota=""){
     setProjects(ps=>ps.map(p=>{
       if(p.id!==activeProjectId)return p;
-      return{...p,ciclos:(p.ciclos||[]).map(c=>{
+      const nextTests=(p.tests||[]).map(tc=>{
+        if(String(tc.id)!==String(tcId))return tc;
+        const steps=parseSteps(tc.pasos||"");
+        return {...tc,pasos:serializeSteps(steps.map(step=>({...step,status}))) };
+      });
+      return{...p,tests:nextTests,ciclos:(p.ciclos||[]).map(c=>{
         if(c.id!==cicloId)return c;
-        return{...c,ejecuciones:(c.ejecuciones||[]).map(e=>e.tcId===tcId?{...e,estado,fechaEjecucion:estado!=="No ejecutado"?today():e.fechaEjecucion,nota}:e)};
+        return{...c,ejecuciones:(c.ejecuciones||[]).map(e=>String(e.tcId)===String(tcId)?{...e,estado,fechaEjecucion:estado!=="No ejecutado"?today():e.fechaEjecucion,nota}:e)};
       })};
     }));
   }
@@ -5229,6 +5235,7 @@ export default function App() {
                   <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                     <Btn small variant={cycleViewMode==="compacta"?"primary":"ghost"} onClick={()=>{setCycleViewMode("compacta");setExpandedCiclos(ciclos.reduce((a,c)=>({...a,[c.id]:true}),{}));}}>Vista compacta global</Btn>
                     <Btn small variant={cycleViewMode==="expandida"?"primary":"ghost"} onClick={()=>{setCycleViewMode("expandida");setExpandedCiclos(ciclos.reduce((a,c)=>({...a,[c.id]:true}),{}));}}>Vista expandida global</Btn>
+                    <Btn small variant={cycleViewMode==="kanban"?"primary":"ghost"} onClick={()=>setCycleViewMode("kanban")}>Vista Kanban</Btn>
                     <Btn small variant="ghost" onClick={()=>setExpandedCiclos(ciclos.reduce((a,c)=>({...a,[c.id]:true}),{}))}>↕ Expandir todos</Btn>
                     <Btn small variant="ghost" onClick={()=>setExpandedCiclos(ciclos.reduce((a,c)=>({...a,[c.id]:false}),{}))}>↕ Colapsar todos</Btn>
                     <Btn onClick={()=>{setEditCiclo(null);setShowCicloForm(true);}}>+ Nuevo Ciclo</Btn>
@@ -5394,7 +5401,54 @@ export default function App() {
 
                       {/* TCs table */}
                       {ejecs.length>0?(
-                        compactCycle ? (
+                        cycleViewMode === "kanban" ? (
+                          <div style={{overflowX:"auto",padding:"12px 12px 14px"}}>
+                            <div style={{display:"grid",gridTemplateColumns:"repeat(6,minmax(190px,1fr))",gap:10,minWidth:1160}}>
+                              {["No ejecutado","En Progreso","Fallido","Bloqueante","Aprobado","No aplica"].map(status=>{
+                                const statusCards=ejecs.filter(e=>normalizeCycleExecutionStatus(e.estado)===status);
+                                const statusConfig=cycleStatusConfig[status]||cycleStatusConfig["No ejecutado"];
+                                return <div key={status}
+                                  onDragOver={e=>e.preventDefault()}
+                                  onDrop={e=>{
+                                    e.preventDefault();
+                                    const tcId=e.dataTransfer.getData("text/plain") || draggedCycleTc.current;
+                                    if(tcId) updateEjecucionEstado(ciclo.id,tcId,status);
+                                    draggedCycleTc.current=null;
+                                  }}
+                                  style={{minHeight:230,padding:8,borderRadius:10,background:darkMode?"#141b26":"#f5f7fa",border:`1px solid ${DM.cardBorder}`}}>
+                                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6,padding:"5px 4px 9px",borderBottom:`2px solid ${statusConfig.color}55`,marginBottom:8}}>
+                                    <span style={{fontSize:10,fontWeight:800,color:statusConfig.color,textTransform:"uppercase",letterSpacing:"0.04em"}}>{status}</span>
+                                    <span style={{fontSize:11,fontWeight:800,color:statusConfig.color,background:statusConfig.bg,borderRadius:999,padding:"2px 7px"}}>{statusCards.length}</span>
+                                  </div>
+                                  <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                                    {statusCards.length===0&&<div style={{fontSize:11,color:DM.sub,padding:"12px 4px",textAlign:"center"}}>Suelta aquí</div>}
+                                    {statusCards.map(execution=>{
+                                      const tc=tests.find(test=>String(test.id)===String(execution.tcId));
+                                      if(!tc)return null;
+                                      const detailKey=`${ciclo.id}:${tc.id}`;
+                                      const isDetailOpen=expandedCycleTcDetails[detailKey]??false;
+                                      return <div key={execution.tcId} draggable
+                                        onDragStart={e=>{e.stopPropagation();draggedCycleTc.current=String(execution.tcId);e.dataTransfer.setData("text/plain",String(execution.tcId));e.dataTransfer.effectAllowed="move";}}
+                                        onDragEnd={()=>{draggedCycleTc.current=null;}}
+                                        style={{padding:9,borderRadius:8,background:darkMode?"#1a2535":"#fff",border:`1px solid ${DM.cardBorder}`,borderLeft:`3px solid ${statusConfig.color}`,cursor:"grab",boxShadow:"0 2px 6px #0000000a"}}>
+                                        <div style={{fontSize:10,fontWeight:900,color:proj.color,fontFamily:"monospace",marginBottom:4}}>{tc.id}</div>
+                                        <div style={{fontSize:12,fontWeight:800,color:DM.text,lineHeight:1.35}}>{tc.escenario||"Sin escenario"}</div>
+                                        <div style={{fontSize:10,color:DM.sub,marginTop:5}}>{tc.proceso||"Sin módulo"} · {tc.asignadoA||"Sin responsable"}</div>
+                                        {execution.nota&&<div style={{fontSize:10,color:DM.sub,marginTop:6,lineHeight:1.35}}>{execution.nota}</div>}
+                                        <button type="button" onClick={()=>setExpandedCycleTcDetails(prev=>({...prev,[detailKey]:!isDetailOpen}))} style={{marginTop:8,width:"100%",background:"transparent",border:`1px solid ${DM.cardBorder}`,borderRadius:6,color:DM.sub,padding:"4px 6px",cursor:"pointer",fontSize:10,fontWeight:800}}>{isDetailOpen?"Ocultar detalle":"Ver caso"}</button>
+                                        {isDetailOpen&&<div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${DM.cardBorder}`,fontSize:10,color:DM.sub,lineHeight:1.4}}>
+                                          <div><strong>Precondiciones:</strong> {tc.precondiciones||tc.area||"—"}</div>
+                                          <div style={{marginTop:5}}><strong>Pasos:</strong> {parseSteps(tc.pasos||"").map((step,index)=>`${index+1}. ${step.text||"Sin detalle"}`).join(" | ")||"—"}</div>
+                                          <div style={{marginTop:5}}><strong>Resultado:</strong> {tc.resultado||"—"}</div>
+                                        </div>}
+                                      </div>;
+                                    })}
+                                  </div>
+                                </div>;
+                              })}
+                            </div>
+                          </div>
+                        ) : compactCycle ? (
                           <div style={{display:"flex",flexDirection:"column",gap:10,padding:"12px 12px 14px"}}>
                             <div style={{fontSize:10,fontWeight:900,color:DM.sub,textTransform:"uppercase",letterSpacing:"0.08em",padding:"0 4px"}}>Casos de prueba asociados a este ciclo</div>
                             {ejecs.map((ejec)=>{
@@ -5460,16 +5514,7 @@ export default function App() {
                                             <div style={{fontSize:9,color:DM.sub,fontWeight:700,marginBottom:4}}>Estado</div>
                                             <select value={normalizeCycleExecutionStatus(ejec.estado || generalState)} onChange={e=>{
                                               const nextState = normalizeCycleExecutionStatus(e.target.value);
-                                              const newProjects = JSON.parse(JSON.stringify(projects));
-                                              const p = newProjects.find(pp=>pp.id===activeProject);
-                                              const c = p?.ciclos?.find(cc=>cc.id===ciclo.id);
-                                              const ex = c?.ejecuciones?.find(ee=>ee.tcId===tc.id);
-                                              if(ex) {
-                                                ex.estado = nextState;
-                                                ex.fechaEjecucion = nextState === "No ejecutado" ? ex.fechaEjecucion : (ex.fechaEjecucion || today());
-                                              }
-                                              setProjects(newProjects);
-                                              localStorage.setItem("projects",JSON.stringify(newProjects));
+                                              updateEjecucionEstado(ciclo.id,tc.id,nextState,ejec.nota||"");
                                             }} style={{width:"100%",padding:"6px 8px",borderRadius:6,border:`1px solid ${DM.cardBorder}`,background:darkMode?"#141b24":"#fff",color:darkMode?"#eaf3ff":"#374151",fontSize:12,fontWeight:700,cursor:"pointer"}}>
                                               {Object.keys(cycleStatusConfig).map(k => <option key={k} value={k}>{k}</option>)}
                                             </select>
@@ -5627,16 +5672,7 @@ export default function App() {
                                                   <div style={{fontSize:9,color:DM.sub,fontWeight:700,marginBottom:4}}>Estado</div>
                                                   <select value={normalizeCycleExecutionStatus(ejec.estado || generalState)} onChange={e=>{
                                                     const nextState = normalizeCycleExecutionStatus(e.target.value);
-                                                    const newProjects = JSON.parse(JSON.stringify(projects));
-                                                    const p = newProjects.find(pp=>pp.id===activeProject);
-                                                    const c = p?.ciclos?.find(cc=>cc.id===ciclo.id);
-                                                    const ex = c?.ejecuciones?.find(ee=>ee.tcId===tc.id);
-                                                    if(ex) {
-                                                      ex.estado = nextState;
-                                                      ex.fechaEjecucion = nextState === "No ejecutado" ? ex.fechaEjecucion : (ex.fechaEjecucion || today());
-                                                    }
-                                                    setProjects(newProjects);
-                                                    localStorage.setItem("projects",JSON.stringify(newProjects));
+                                                    updateEjecucionEstado(ciclo.id,tc.id,nextState,ejec.nota||"");
                                                   }} style={{width:"100%",padding:"6px 8px",borderRadius:6,border:`1px solid ${DM.cardBorder}`,background:darkMode?"#141b24":"#fff",color:darkMode?"#eaf3ff":"#374151",fontSize:12,fontWeight:700,cursor:"pointer"}}>
                                                     {Object.keys(cycleStatusConfig).map(k => <option key={k} value={k}>{k}</option>)}
                                                   </select>
